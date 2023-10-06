@@ -1,0 +1,16 @@
+##### Without version #####
+qiskit
+quimb
+cotengra
+sparse
+mqt.ddsim
+optuna
+kahypar
+networkx
+matplotlib
+numpy
+
+
+##### With version    #####
+
+
