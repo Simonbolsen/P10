@@ -10,7 +10,6 @@ networkx
 matplotlib
 numpy
 
-tdd
 numpy
 pandas
 future

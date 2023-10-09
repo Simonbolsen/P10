@@ -2,7 +2,11 @@ from mqt.ddsim.pathqasmsimulator import create_tensor_network
 from qiskit import QuantumCircuit
 from quimb.tensor import Circuit
 import cotengra as ctg
- 
+import numpy as np
+from tddpure.TDD.TDD import Ini_TDD, TDD
+from tddpure.TDD.TN import Index,Tensor,TensorNetwork
+from tddpure.TDD.TDD_Q import cir_2_tn,get_real_qubit_num,add_trace_line,add_inputs,add_outputs
+
 def makeCircuit():
     circ = QuantumCircuit(3)
     circ.h(0)
@@ -31,6 +35,15 @@ def getContractionPlan():
     network.draw()
     
 
-print("Starting...")
-getContractionPlan()
-print("Done")
+U = np.array([[1,1],[1,-1]])
+var = [Index('x0'),Index('y0')]
+ts1 = Tensor(U,var)
+
+Ini_TDD(['x0','y0','x1','y1'])
+
+tdd1 = ts1.tdd()
+tdd1.show()
+
+# print("Starting...")
+# getContractionPlan()
+# print("Done")
