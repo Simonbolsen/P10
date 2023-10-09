@@ -10,6 +10,10 @@ networkx
 matplotlib
 numpy
 
+tdd
+numpy
+pandas
+future
 
 ##### With version    #####
 
