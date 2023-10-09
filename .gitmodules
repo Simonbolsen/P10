@@ -1,0 +1,3 @@
+[submodule "tdd"]
+	path = tdd
+	url = https://github.com/Veriqc/TDD.git
