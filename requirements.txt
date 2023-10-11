@@ -4,6 +4,7 @@ quimb
 cotengra
 sparse
 mqt.ddsim
+mqt.bench
 optuna
 kahypar
 networkx
