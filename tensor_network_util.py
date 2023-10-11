@@ -36,11 +36,10 @@ def get_reasonable_path(path):
     return reasonable_path
 
 def get_usable_path(path):
-    num_of_tensors = len(path) + 1
     reasonable_path = get_reasonable_path(path)
     usable_path = []
     index_map = {}
-    next_index = num_of_tensors
+    next_index = len(path) + 1
 
     def get_index(index):
         return index if index < num_of_tensors else index_map[index]
@@ -64,13 +63,42 @@ def contract(tensor_network, path, draw_frequency = -1):
     
     return tensor_network.tensor_map[usable_path[-1][1]]
 
-def get_tensor_network(circuit):
-    return circuit.psi
+def get_tensor_network(circuit, include_state = True, split_cnot = True):
+    
+    if include_state:
+        tensor_network = circuit.psi
+    else:
+        tensor_network = circuit.uni
+        
 
-tensor_network = get_tensor_network(get_circuit(10))
+    if not split_cnot:
+        cnot_tag = "CX"
+        pairs = []
+        for i, tensor_1 in tensor_network.tensor_map.items():
+            if cnot_tag in tensor_1.tags:
+                done = False
+                for ii, tensor_2 in tensor_network.tensor_map.items():
+                    if cnot_tag in tensor_2.tags:
+                        for tag in tensor_1.tags:
+                            if "GATE" in tag and tag in tensor_2.tags:
+                                pairs.append((i, ii))
+                                done = True
+                                break
+                    if done:
+                        break
+        for pair in pairs:
+            tensor_network._contract_between_tids(pair[0], pair[1])
+                
+
+    return tensor_network
+
+tensor_network = get_tensor_network(get_circuit(10), include_state = False, split_cnot=False)
+
+#cnot_tensor_ids = tensor_network._get_tids_from_tags(["CX"], which='all')
 
 path = tensor_network.contraction_path(ctg.HyperOptimizer(minimize="flops", max_repeats=128, max_time=60, progbar=True, parallel=False))
 
-s = contract(tensor_network.copy(deep = True), path)
+#s = contract(tensor_network.copy(deep = True), path)
 
 t = tensor_network.contract(optimize = path)
+
