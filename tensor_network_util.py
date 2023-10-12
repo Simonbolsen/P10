@@ -38,20 +38,15 @@ def get_reasonable_path(path):
 def get_usable_path(path, tensor_network):
     reasonable_path = get_reasonable_path(path)
     usable_path = []
-    index_map = {}
-    num_of_tensors = len(path) + 1
-    next_index = num_of_tensors
-
-    def get_index(index):
-        return index if index < num_of_tensors else index_map[index]
-
+    index_map = {i: t for i, t in enumerate(tensor_network.tensor_map.keys())}
+    next_index = len(path) + 1
     min_id = min(tensor_network.tensor_map.keys())
 
     for step in reasonable_path:
-        i0 = get_index(step[0])
-        i1 = get_index(step[1])
+        i0 = index_map[step[0]]
+        i1 = index_map[step[1]]
 
-        usable_path.append((i0 + min_id, i1 + min_id))
+        usable_path.append((i0, i1))
         index_map[next_index] = i1
         next_index += 1
     
@@ -104,8 +99,9 @@ def test(tensor_network, path):
     flat_t = t.transpose(*s.inds, inplace = True).data.flatten()
 
     assert (flat_s == flat_t).all(), f"{flat_s}\n{flat_t}"
+    print("Test Succesful!")
 
-tensor_network = get_tensor_network(get_circuit(10), include_state = True, split_cnot=True)
+tensor_network = get_tensor_network(get_circuit(10), include_state = False, split_cnot=False)
 
 tree = tensor_network.contraction_tree(ctg.HyperOptimizer(minimize="flops", max_repeats=128, max_time=60, progbar=True, parallel=False))
 
