@@ -20,4 +20,13 @@ def circ_to_tdd(circuit: QuantumCircuit):
 def tdd_contract(tdd1: TDD, tdd2: TDD):
     return cont(tdd1, tdd2)
 
+def get_tdds_from_quimb_tensor_network(tensor_network):
+    Ini_TDD(list(tensor_network.all_inds()))
+    
+    tdds = {}
 
+    for i, tensor in tensor_network.tensor_map.items():
+        t = Tensor(tensor.data, [Index(s) for s in tensor.inds])
+        tdds[i] = t.tdd()
+
+    return tdds

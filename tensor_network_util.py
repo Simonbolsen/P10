@@ -35,27 +35,30 @@ def get_reasonable_path(path):
     
     return reasonable_path
 
-def get_usable_path(path):
+def get_usable_path(path, tensor_network):
     reasonable_path = get_reasonable_path(path)
     usable_path = []
     index_map = {}
-    next_index = len(path) + 1
+    num_of_tensors = len(path) + 1
+    next_index = num_of_tensors
 
     def get_index(index):
         return index if index < num_of_tensors else index_map[index]
+
+    min_id = min(tensor_network.tensor_map.keys())
 
     for step in reasonable_path:
         i0 = get_index(step[0])
         i1 = get_index(step[1])
 
-        usable_path.append((i0, i1))
+        usable_path.append((i0 + min_id, i1 + min_id))
         index_map[next_index] = i1
         next_index += 1
     
     return usable_path
 
 def contract(tensor_network, path, draw_frequency = -1):
-    usable_path = get_usable_path(path)
+    usable_path = get_usable_path(path, tensor_network)
     for i, step in enumerate(usable_path):
         if draw_frequency > 0 and i % draw_frequency == 0: 
             tensor_network.draw()
@@ -68,7 +71,7 @@ def get_tensor_network(circuit, include_state = True, split_cnot = True):
     if include_state:
         tensor_network = circuit.psi
     else:
-        tensor_network = circuit.uni
+        tensor_network = circuit.get_uni(transposed = True)
         
 
     if not split_cnot:
@@ -88,17 +91,31 @@ def get_tensor_network(circuit, include_state = True, split_cnot = True):
                         break
         for pair in pairs:
             tensor_network._contract_between_tids(pair[0], pair[1])
-                
+
+    #tensor_network.tensor_map = {i: t for i, t in enumerate(tensor_network.tensor_map.values())}
 
     return tensor_network
 
-tensor_network = get_tensor_network(get_circuit(10), include_state = False, split_cnot=False)
+def test(tensor_network, path):
+    s = contract(tensor_network.copy(deep = True), path)
+    flat_s = s.data.flatten()
 
-#cnot_tensor_ids = tensor_network._get_tids_from_tags(["CX"], which='all')
+    t = tensor_network.contract(optimize = path)
+    flat_t = t.transpose(*s.inds, inplace = True).data.flatten()
 
-path = tensor_network.contraction_path(ctg.HyperOptimizer(minimize="flops", max_repeats=128, max_time=60, progbar=True, parallel=False))
+    assert (flat_s == flat_t).all(), f"{flat_s}\n{flat_t}"
 
-#s = contract(tensor_network.copy(deep = True), path)
+tensor_network = get_tensor_network(get_circuit(10), include_state = True, split_cnot=True)
 
-t = tensor_network.contract(optimize = path)
+tree = tensor_network.contraction_tree(ctg.HyperOptimizer(minimize="flops", max_repeats=128, max_time=60, progbar=True, parallel=False))
+
+path = tree.get_path()
+reasonable_path = get_reasonable_path(path)
+usable_path = get_usable_path(path, tensor_network)
+
+test(tensor_network, path)
+
+#path = tensor_network.contraction_path(ctg.HyperOptimizer(minimize="flops", max_repeats=128, max_time=60, progbar=True, parallel=False))
+
+
 
