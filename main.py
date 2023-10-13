@@ -11,13 +11,15 @@ import circuit_util as cu
 import tdd_util as tddu
 import tensor_network_util as tnu
 
-circ = cu.get_qiskit_example_circuit()
-quimb_circ = cu.qiskit_to_quimb_circuit(circ)
+if __name__ == "__main__":
+    circ = cu.get_qiskit_example_circuit()
+    quimb_circ = cu.qiskit_to_quimb_circuit(circ)
 
-tn = quimb_circ.psi
-tdd = tddu.circ_to_tdd(circ)
-tdd.show()
+    tn = quimb_circ.psi
+    tdd = tddu.circ_to_tdd(circ)
+    tdd.show()
 
-# print("Starting...")
-# getContractionPlan()
-# print("Done")
+    # print("Starting...")
+    # getContractionPlan()
+    # print("Done")
+

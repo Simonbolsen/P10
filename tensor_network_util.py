@@ -101,17 +101,18 @@ def test(tensor_network, path):
     assert (flat_s == flat_t).all(), f"{flat_s}\n{flat_t}"
     print("Test Succesful!")
 
-tensor_network = get_tensor_network(get_circuit(10), include_state = False, split_cnot=False)
+if __name__ == "__main__":
+    tensor_network = get_tensor_network(get_circuit(10), include_state = False, split_cnot=False)
 
-tree = tensor_network.contraction_tree(ctg.HyperOptimizer(minimize="flops", max_repeats=128, max_time=60, progbar=True, parallel=False))
+    tree = tensor_network.contraction_tree(ctg.HyperOptimizer(minimize="flops", max_repeats=128, max_time=60, progbar=True, parallel=False))
 
-path = tree.get_path()
-reasonable_path = get_reasonable_path(path)
-usable_path = get_usable_path(path, tensor_network)
+    path = tree.get_path()
+    reasonable_path = get_reasonable_path(path)
+    usable_path = get_usable_path(path, tensor_network)
 
-test(tensor_network, path)
+    test(tensor_network, path)
 
-#path = tensor_network.contraction_path(ctg.HyperOptimizer(minimize="flops", max_repeats=128, max_time=60, progbar=True, parallel=False))
+    #path = tensor_network.contraction_path(ctg.HyperOptimizer(minimize="flops", max_repeats=128, max_time=60, progbar=True, parallel=False))
 
 
 
