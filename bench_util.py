@@ -1,5 +1,6 @@
 from mqt.bench import CompilerSettings, QiskitSettings, TKETSettings
 from mqt.bench import get_benchmark
+from mqt.bench.utils import get_supported_benchmarks
 from quimb.tensor import Circuit
 import tdd_util as tddu
 import circuit_util as cu
@@ -35,14 +36,40 @@ def get_unroll_manager() -> PassManager:
     return PassManager(custom_gate_pass_)
 
 
-if __name__ == "__main__":
-    circuit = get_benchmark('dj', 0, 3)
-    bench_circ = prepare_circuit(circuit)
-    bench_equiv_circ = get_combined_inverse_circuit(bench_circ)
-    print(bench_equiv_circ.qasm())
+def generate_testing_set() -> list[Circuit]:
+    pass
 
-    # bench_quimb = cu.qiskit_to_quimb_circuit(bench_circ)
-    # bench_tn = tnu.get_tensor_network(bench_quimb)
-    # bench_gate_decomp = tddu.get_tdds_from_quimb_tensor_network(bench_tn)
+def vary_base_algorithm_set(num_of_qubits: int, abstraction_level: int, algorithms: [str] = None) -> list[Circuit]:
+    if algorithms is None:
+        algorithms = get_supported_benchmarks()
+
+    circuits = [get_benchmark(alg, abstraction_level, num_of_qubits) for alg in algorithms]
+
+    prepared_circuits = [get_circuit_setup_quimb(circuit) for circuit in circuits]
+    return prepared_circuits
+
+def vary_abstraction_level_set(num_of_qubits: int, base_algorithm: str) -> list[Circuit]:
+    circuits = [get_benchmark(base_algorithm, level, num_of_qubits) for level in range(3)]
+
+    prepared_circuits = [get_circuit_setup_quimb(circuit) for circuit in circuits]
+    return prepared_circuits
+
+def vary_number_of_qubits_set(base_algorithm: str, abstraction_level: int, qubit_interval: (int, int) = (1, 10)) -> list[Circuit]:
+    qubit_range = range(qubit_interval[0], qubit_interval[1])
+    circuits = [get_benchmark(base_algorithm, abstraction_level, num_of_qubits) for num_of_qubits in qubit_range]
+
+    prepared_circuits = [get_circuit_setup_quimb(circuit) for circuit in circuits]
+    return prepared_circuits
+
+
+
+if __name__ == "__main__":
+    circuit = get_benchmark('dj', "alg", 3)
+    bench_circ = get_circuit_setup_quimb(circuit)
+
+    bench_tn = tnu.get_tensor_network(bench_circ, include_state=False, split_cnot=False)
+    bench_gate_decomp = tddu.get_tdds_from_quimb_tensor_network(bench_tn)
+
+    tddu.draw_all_tdds(bench_gate_decomp)
 
     print(2)
