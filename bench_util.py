@@ -27,7 +27,10 @@ def get_combined_inverse_circuit(circuit: QuantumCircuit) -> QuantumCircuit:
     return circuit.compose(inv_circuit)
 
 def get_unroll_manager() -> PassManager:
-    all_quimb_gates = ['h', 'x', 'y', 'z', 's', 'cx', 'cnot', 'cy', 'cz', 'rz', 'sdg']
+    all_quimb_gates = ['h', 'x', 'y', 'z', 's', 't', 'cx', 'cnot', 'cy', 'cz', 'rz', 'rx', 'ry' 'sdg', 'tdg', 
+                       'x_1_2', 'y_1_2', 'z_1_2', 'w_1_2', 'hz_1_2', 'iswap', 'swap', 'iden', 'u3', 'u2', 'u1',
+                       'cu3', 'cu2', 'cu1', 'fsim', 'fsimg', 'givens', 'rxx', 'ryy', 'rzz', 'crx', 'cry', 'crz',
+                       'su4', 'ccx', 'ccnot', 'toffoli', 'ccy', 'ccz', 'cswap', 'fredkin']
     custom_gate_pass_ = Unroller(all_quimb_gates)
     return PassManager(custom_gate_pass_)
 
