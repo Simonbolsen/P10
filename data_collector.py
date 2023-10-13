@@ -7,7 +7,8 @@ From circuits:
  - Number of gates
  - Number of qubits
  - Dimensionality of gates (or ordering of gates by dimensionality)
- - 
+ - Number of unique gates used
+ - Number of custom gates initially
 
 From tensor networks:
  - Number pf edges between tensors (shared indices)
