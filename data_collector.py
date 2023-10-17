@@ -18,6 +18,7 @@ From tensor networks:
 From TDDs:
 
 From contraction plan:
+- The plan
 
 From each performed contraction:
 
