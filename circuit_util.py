@@ -9,6 +9,29 @@ import random
 from tddfork.TDD.TDD import Ini_TDD, TDD
 from tddfork.TDD.TN import Index,Tensor,TensorNetwork
 from tddfork.TDD.TDD_Q import cir_2_tn,get_real_qubit_num,add_trace_line,add_inputs,add_outputs
+from qiskit.converters import circuit_to_dag
+from qiskit.transpiler import TransformationPass
+
+class UToU3Translator(TransformationPass):
+
+    def run(self, dag):
+        for node in dag.op_nodes():
+            if node.op.name in ["U", "u"]:
+                p1 = node.op.params[0]
+                p2 = node.op.params[1]
+                p3 = node.op.params[2]
+
+                replacement = QuantumCircuit(1)
+                replacement.u3(p1,p2,p3)
+
+                dag.substitute_node_with_dag(node, circuit_to_dag(replacement))
+
+        return dag
+    
+    def _should_decompose(self, node):
+        if node.name in ["U", "u"]:
+            return True
+        return False
 
 def get_simple_circuit():
     circ = QuantumCircuit(3)
@@ -44,13 +67,14 @@ def get_qiskit_example_circuit() -> QuantumCircuit:
     return circ
 
 def quimb_to_qiskit_circuit(quimb_circuit: Circuit):
+    raise NotImplementedError("This is not supported by quimb")
     circ_qasm = quimb_circuit
     return QuantumCircuit.from_qasm_str(circ_qasm)
 
 def qiskit_to_quimb_circuit(qiskit_circuit: QuantumCircuit):
     circ_qasm = qiskit_circuit.qasm()
-    return Circuit.from_openqasm2_str(circ_qasm)
-
+    circ_qasm_no_u = circ_qasm.replace("\nu(", "\nu3(")
+    return Circuit.from_openqasm2_str(circ_qasm_no_u)
 
 def _quimb_to_qasm(circuit: Circuit):
     temp = Template("")

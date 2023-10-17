@@ -8,7 +8,14 @@ import tensor_network_util as tnu
 from qiskit import QuantumCircuit
 from qiskit.compiler import transpile
 from qiskit.transpiler import PassManager, passes
-from qiskit.transpiler.passes import Unroller, UnrollCustomDefinitions
+from qiskit.transpiler.passes import Unroller, UnrollCustomDefinitions, Decompose
+
+selected_algorithms = [
+    "dj",           # smaller
+    "graphstate",   # useful
+    "qaoa",         # complex
+    "vqe",          # useful
+]
 
 
 def get_circuit_setup(circuit: QuantumCircuit) -> QuantumCircuit:
@@ -31,13 +38,26 @@ def get_unroll_manager() -> PassManager:
     all_quimb_gates = ['h', 'x', 'y', 'z', 's', 't', 'cx', 'cnot', 'cy', 'cz', 'rz', 'rx', 'ry' 'sdg', 'tdg', 
                        'x_1_2', 'y_1_2', 'z_1_2', 'w_1_2', 'hz_1_2', 'iswap', 'swap', 'iden', 'u3', 'u2', 'u1',
                        'cu3', 'cu2', 'cu1', 'fsim', 'fsimg', 'givens', 'rxx', 'ryy', 'rzz', 'crx', 'cry', 'crz',
-                       'su4', 'ccx', 'ccnot', 'toffoli', 'ccy', 'ccz', 'cswap', 'fredkin']
+                       'su4', 'ccx', 'ccnot', 'toffoli', 'ccy', 'ccz', 'cswap', 'fredkin', 'u']
     custom_gate_pass_ = Unroller(all_quimb_gates)
-    return PassManager(custom_gate_pass_)
+    qft_remover = Decompose(gates_to_decompose="QFT")
+    qftdg_remover = Decompose(gates_to_decompose="QFT_dg")
+    phase_remover = Decompose(gates_to_decompose="P")
+
+    return PassManager([qft_remover, qftdg_remover, phase_remover, custom_gate_pass_])
 
 
-def generate_testing_set() -> list[Circuit]:
-    pass
+def generate_testing_set(algorithms: [str], levels: [int], qubits: [int]) -> list[QuantumCircuit]:
+    circuits = []
+    for algorithm in algorithms:
+        for level in levels:
+            for qubit in qubits:
+                circuits.append(get_benchmark(algorithm, level, qubit))
+
+    return circuits
+
+def circuits_to_quimb_circuits(circuits: [QuantumCircuit]) -> [Circuit]:
+    return [get_circuit_setup_quimb(circuit) for circuit in circuits]
 
 def vary_base_algorithm_set(num_of_qubits: int, abstraction_level: int, algorithms: [str] = None) -> list[Circuit]:
     if algorithms is None:
