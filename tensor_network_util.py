@@ -91,13 +91,15 @@ def get_tensor_network(circuit, include_state = True, split_cnot = True):
 
     return tensor_network
 
-def get_contraction_path(tn, method: str):
-    if method == "cotengra":
-        tree = tn.contraction_tree(ctg.HyperOptimizer(minimize="flops", max_repeats=128, max_time=60, progbar=True, parallel=False))
+def get_contraction_path(tensor_network, settings):
+    if settings["method"] == "cotengra":
+        tree = tensor_network.contraction_tree(
+            ctg.HyperOptimizer(minimize=settings["minimize"], max_repeats=settings["max_repeats"], max_time=settings["max_time"], progbar=True, parallel=False)
+            )
         path = tree.get_path()
-        return get_usable_path(path, tensor_network)
+        return get_usable_path(tensor_network, path)
     
-    raise NotImplementedError(f"Method {method} is not supported")
+    raise NotImplementedError(f"Method {settings['method']} is not supported")
 
 
 def test(tensor_network, path):

@@ -18,14 +18,21 @@ selected_algorithms = [
 ]
 
 
-def get_circuit_setup(circuit: QuantumCircuit) -> QuantumCircuit:
+def get_circuit_setup(circuit: QuantumCircuit, draw: bool = False) -> QuantumCircuit:
     bench_circ = prepare_circuit(circuit)
+    if draw:
+        print(bench_circ)
     bench_equiv_circ = get_combined_inverse_circuit(bench_circ)
+    if draw:
+        print(bench_equiv_circ)
     pm = get_unroll_manager()
-    return pm.run(bench_equiv_circ)
+    unrolled_circ = pm.run(bench_equiv_circ)
+    if draw: 
+        print(unrolled_circ)
+    return unrolled_circ
 
-def get_circuit_setup_quimb(circuit: QuantumCircuit) -> Circuit:
-    return cu.qiskit_to_quimb_circuit(get_circuit_setup(circuit))
+def get_circuit_setup_quimb(circuit: QuantumCircuit, draw: bool = False) -> Circuit:
+    return cu.qiskit_to_quimb_circuit(get_circuit_setup(circuit, draw))
 
 def prepare_circuit(circuit: QuantumCircuit) -> QuantumCircuit:
     return circuit.remove_final_measurements(inplace=False)
@@ -58,6 +65,9 @@ def generate_testing_set(algorithms: [str], levels: [int], qubits: [int]) -> lis
 
 def quimb_setup_circuit_transform(circuits: [QuantumCircuit]) -> [Circuit]:
     return [get_circuit_setup_quimb(circuit) for circuit in circuits]
+
+def get_benchmark_circuit(config):
+    return get_benchmark(config["algorithm"], config["level"], config["qubits"])
 
 def vary_base_algorithm_set(num_of_qubits: int, abstraction_level: int, algorithms: [str] = None) -> list[Circuit]:
     if algorithms is None:
