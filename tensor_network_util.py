@@ -35,7 +35,7 @@ def get_reasonable_path(path):
     
     return reasonable_path
 
-def get_usable_path(path, tensor_network):
+def get_usable_path(tensor_network, path):
     reasonable_path = get_reasonable_path(path)
     usable_path = []
     index_map = {i: t for i, t in enumerate(tensor_network.tensor_map.keys())}
@@ -101,16 +101,29 @@ def test(tensor_network, path):
     assert (flat_s == flat_t).all(), f"{flat_s}\n{flat_t}"
     print("Test Succesful!")
 
+def verify_path(usable_path):
+    usable_path = usable_path.copy()
+    usable_path.reverse()
+    indeces = [usable_path[0][1]]
+    
+    for step in usable_path:
+        if step[1] not in indeces:
+            return False, f"Index {step[1]} is not included in the final tensor"
+        if step[0] in indeces:
+            return False, f"Index {step[0]} is contracted more than once"
+        indeces.append(step[0])
+
+    return True, ""
+
+
 if __name__ == "__main__":
     tensor_network = get_tensor_network(get_circuit(10), include_state = False, split_cnot=False)
 
-    tree = tensor_network.contraction_tree(ctg.HyperOptimizer(minimize="flops", max_repeats=128, max_time=60, progbar=True, parallel=False))
+    usable_path = get_usable_path(tensor_network, tensor_network.contraction_path(ctg.HyperOptimizer(minimize="flops", max_repeats=128, max_time=60, progbar=True, parallel=False)))
 
-    path = tree.get_path()
-    reasonable_path = get_reasonable_path(path)
-    usable_path = get_usable_path(path, tensor_network)
-
-    test(tensor_network, path)
+    verified, message = verify_path(usable_path)
+    if not verified:
+        print("Path Warning: " + message)
 
     #path = tensor_network.contraction_path(ctg.HyperOptimizer(minimize="flops", max_repeats=128, max_time=60, progbar=True, parallel=False))
 
