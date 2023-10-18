@@ -24,8 +24,8 @@ def reverse_lexicographic_key(s):
         return s[::-1]
 
 def get_tdds_from_quimb_tensor_network(tensor_network):
-    sorted_strings = sorted(list(tensor_network.all_inds()), key=reverse_lexicographic_key)
-    Ini_TDD(sorted_strings,max_rank=1000)
+    variable_order = sorted(list(tensor_network.all_inds()), key=reverse_lexicographic_key)
+    Ini_TDD(variable_order)
     
     tdds = {}
 
