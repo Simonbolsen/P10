@@ -20,8 +20,12 @@ def circ_to_tdd(circuit: QuantumCircuit):
 def tdd_contract(tdd1: TDD, tdd2: TDD):
     return cont(tdd1, tdd2)
 
+def reverse_lexicographic_key(s):
+        return s[::-1]
+
 def get_tdds_from_quimb_tensor_network(tensor_network):
-    Ini_TDD(list(tensor_network.all_inds()))
+    sorted_strings = sorted(list(tensor_network.all_inds()), key=reverse_lexicographic_key)
+    Ini_TDD(sorted_strings)
     
     tdds = {}
 

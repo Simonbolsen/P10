@@ -23,7 +23,6 @@ def contract_tdds(tdds, data):
 
 if __name__ == "__main__":
      
-
     circ = cu.get_qiskit_example_circuit()
     quimb_circ = cu.qiskit_to_quimb_circuit(circ)
 
