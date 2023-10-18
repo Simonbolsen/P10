@@ -91,15 +91,29 @@ def get_tensor_network(circuit, include_state = True, split_cnot = True):
 
     return tensor_network
 
-def get_contraction_path(tensor_network, settings):
+def get_contraction_path(tensor_network, data):
+    path = None
+    settings = data["path_settings"]
     if settings["method"] == "cotengra":
         tree = tensor_network.contraction_tree(
-            ctg.HyperOptimizer(minimize=settings["minimize"], max_repeats=settings["max_repeats"], max_time=settings["max_time"], progbar=True, parallel=False)
+            ctg.HyperOptimizer(methods=settings["opt_method"], minimize=settings["minimize"], max_repeats=settings["max_repeats"], 
+                               max_time=settings["max_time"], progbar=True, parallel=False)
             )
-        path = tree.get_path()
-        return get_usable_path(tensor_network, path)
+        path = tree.get_path() 
+        data["path_data"]["flops"] = tree._flops
+        data["path_data"]["size"] = tree._sizes._max_element
     
-    raise NotImplementedError(f"Method {settings['method']} is not supported")
+    if path is None:
+        raise NotImplementedError(f"Method {settings['method']} is not supported")
+
+    usable_path = get_usable_path(tensor_network, path)
+    data["path"] = usable_path
+
+    (verified, msg) = verify_path(usable_path)
+    if not verified:
+        raise AssertionError(f"Not valid path: {msg}")
+
+    return usable_path
 
 
 def test(tensor_network, path):

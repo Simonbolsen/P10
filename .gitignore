@@ -4,6 +4,7 @@ tddfork/*
 output
 *.tensor
 tdds_images
+experiments
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

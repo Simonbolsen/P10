@@ -31,8 +31,28 @@ def get_circuit_setup(circuit: QuantumCircuit, draw: bool = False) -> QuantumCir
         print(unrolled_circ)
     return unrolled_circ
 
+def get_dual_circuit_setup(c1: QuantumCircuit, c2: QuantumCircuit, draw: bool = False) -> QuantumCircuit:
+    bench_circ1 = prepare_circuit(c1)
+    bench_circ2 = prepare_circuit(c2)
+    if draw:
+        print(bench_circ1)
+        print(bench_circ2)
+    comb_circuit = bench_circ1.compose(bench_circ2.inverse())
+    print(f"Number of (qiskit) gates: {sum(comb_circuit.count_ops().values())}")
+    if draw:
+        print(comb_circuit)
+    pm = get_unroll_manager()
+    unrolled_circ = pm.run(comb_circuit)
+    if draw: 
+        print(unrolled_circ)
+    return unrolled_circ
+
 def get_circuit_setup_quimb(circuit: QuantumCircuit, draw: bool = False) -> Circuit:
     return cu.qiskit_to_quimb_circuit(get_circuit_setup(circuit, draw))
+
+def get_dual_circuit_setup_quimb(c1: QuantumCircuit, c2: QuantumCircuit, draw: bool = False) -> Circuit:
+    qiskit_circuit = get_dual_circuit_setup(c1, c2, draw)
+    return cu.qiskit_to_quimb_circuit(qiskit_circuit)
 
 def prepare_circuit(circuit: QuantumCircuit) -> QuantumCircuit:
     return circuit.remove_final_measurements(inplace=False)

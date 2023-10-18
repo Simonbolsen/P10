@@ -11,7 +11,9 @@ import tensor_network_util as tnu
 import bench_util as bu
 import os
 from datetime import datetime
+import time
 import json
+from tqdm import tqdm
 
 import matplotlib as mpl
 mpl.use("TkAgg")
@@ -34,7 +36,7 @@ def contract_tdds(tdds, data):
     usable_path = data["path"]
     sizes = {i: [0, tdd.node_number()] for i, tdd in tdds.items()}
 
-    for left_index, right_index in usable_path:
+    for left_index, right_index in tqdm(usable_path):
         tdds[right_index] = tddu.cont(tdds[left_index], tdds[right_index])
         sizes[right_index].append(tdds[right_index].node_number())
 
@@ -53,7 +55,7 @@ def get_all_configs(settings):
 
     return all_configs
 
-debug=True
+debug=False
 def first_experiment():
     # Prepare save folder and file paths
     folder_path = os.path.join("experiments", f"first_experiment_{datetime.today().strftime('%Y-%m-%d')}")
@@ -69,7 +71,7 @@ def first_experiment():
     settings = {
         "algorithms": ["dj"],
         "levels": [0],
-        "qubits": [4]
+        "qubits": list(set([int(2**(x/4)) for x in range(4, 30)]))
     }
 
     # Prepare benchmark circuits:
@@ -82,32 +84,46 @@ def first_experiment():
             "circuit_settings": circ_conf,
             "path_settings": {
                 "method": "cotengra",
+                "opt_method": "greedy",
                 "minimize": "flops",
-                "max_repeats": 128,
-                "max_time": 60
-            }
+                "max_repeats": 80,
+                "max_time": 10
+            },
+            "path_data": {}
         }
 
         # Prepare circuit
-        circuit = bu.get_circuit_setup_quimb(bu.get_benchmark_circuit(circ_conf), draw=True)
+        print("Preparing circuits...")
+        #circuit = bu.get_circuit_setup_quimb(bu.get_benchmark_circuit(circ_conf), draw=False)
+        circuit = bu.get_dual_circuit_setup_quimb(bu.get_benchmark("dj", 0, circ_conf["qubits"]), bu.get_benchmark("dj", 2, circ_conf["qubits"]), draw=False)
+
 
         # Transform to tensor networks (without initial states and cnot decomp)
+        print("Constructing tensor network...")
         tensor_network = tnu.get_tensor_network(circuit, include_state = False, split_cnot=False)
-        tensor_network.draw(color=['PSI0', 'H', 'CX', 'RZ', 'RX', 'CZ'])
+        #tensor_network.draw(color=['PSI0', 'H', 'CX', 'RZ', 'RX', 'CZ'])
+        print(f"Number of tensors: {len(tensor_network.tensor_map)}")
 
         # Construct the plan from CoTenGra
-        path = tnu.get_contraction_path(tensor_network, data["path_settings"])
-        data["path"] = path
+        print("Find contraction path...")
+        path = tnu.get_contraction_path(tensor_network, data)
 
         # Prepare gate TDDs
+        print("Preparing gate TDDs...")
         gate_tdds = tddu.get_tdds_from_quimb_tensor_network(tensor_network)
 
         # Contract TDDs + equivalence checking
+        print(f"Contracting {len(path)} times...")
+        starting_time = time.time_ns()
         result_tdd = contract_tdds(gate_tdds, data)
-        result_tdd.show(name="tester")
+        data["contraction_time"] = int((time.time_ns() - starting_time) / 1000000)
+
+        #print("Saving resulting TDD image...")
+        #result_tdd.show(name="tester")
 
         # Save data for circuit
         if not debug:
+            print("Saving data...")
             file_path = os.path.join(folder_path, f"circuit_{circ_conf['algorithm']}_{circ_conf['level']}_{circ_conf['qubits']}.json")
             with open(file_path, "w") as file:
                 json.dump(data, file, indent=4)
