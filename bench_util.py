@@ -56,7 +56,7 @@ def generate_testing_set(algorithms: [str], levels: [int], qubits: [int]) -> lis
 
     return circuits
 
-def circuits_to_quimb_circuits(circuits: [QuantumCircuit]) -> [Circuit]:
+def quimb_setup_circuit_transform(circuits: [QuantumCircuit]) -> [Circuit]:
     return [get_circuit_setup_quimb(circuit) for circuit in circuits]
 
 def vary_base_algorithm_set(num_of_qubits: int, abstraction_level: int, algorithms: [str] = None) -> list[Circuit]:
