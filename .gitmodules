@@ -1,0 +1,3 @@
+[submodule "src/tddpure"]
+	path = src/tddpure
+	url = https://github.com/ChBLA/TDDPure.git
