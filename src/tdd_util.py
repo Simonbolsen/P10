@@ -1,13 +1,13 @@
 from mqt.ddsim.pathqasmsimulator import create_tensor_network
 from qiskit import QuantumCircuit
-from tddfork.TDD.TDD import Ini_TDD, cont
-from tddfork.TDD.TN import Index,Tensor,TensorNetwork
-from tddfork.TDD.TDD_Q import cir_2_tn,get_real_qubit_num,add_trace_line,add_inputs,add_outputs
+from tddpure.TDD.TDD import Ini_TDD, cont
+from tddpure.TDD.TN import Index,Tensor,TensorNetwork
+from tddpure.TDD.TDD_Q import cir_2_tn,get_real_qubit_num,add_trace_line,add_inputs,add_outputs
 import circuit_util as cu
 import os
 import numpy as np
-import tddfork.TDD.ComplexTable as ct
-import tddfork.TDD.TDD as TDD
+import tddpure.TDD.ComplexTable as ct
+import tddpure.TDD.TDD as TDD
 
 def tn_to_tdd(tn: TensorNetwork):
     return tn.cont()

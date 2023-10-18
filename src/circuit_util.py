@@ -6,9 +6,9 @@ from string import Template
 import cotengra as ctg
 import numpy as np
 import random
-from tddfork.TDD.TDD import Ini_TDD, TDD
-from tddfork.TDD.TN import Index,Tensor,TensorNetwork
-from tddfork.TDD.TDD_Q import cir_2_tn,get_real_qubit_num,add_trace_line,add_inputs,add_outputs
+from tddpure.TDD.TDD import Ini_TDD, TDD
+from tddpure.TDD.TN import Index,Tensor,TensorNetwork
+from tddpure.TDD.TDD_Q import cir_2_tn,get_real_qubit_num,add_trace_line,add_inputs,add_outputs
 from qiskit.converters import circuit_to_dag
 from qiskit.transpiler import TransformationPass
 
