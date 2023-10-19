@@ -9,27 +9,16 @@ import math
 import os
 from pathlib import Path
 
-def inv(x):
-    return math.sqrt(1 - (1 - x)**2)
-
-def round_scale(x):
-    return 1 - math.sqrt(1 - x**2)
-
-def plot_simple_line_2d(ys, function = inv):
+def plot_simple_line_2d(ys):
     axe = plt.axes()
     axe.plot(range(len(ys)), ys)
-    axe.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, pos: f"{function(x):.3f}"))
     plt.show()
 
-def plot_line_2d(xs, y_series, labels, function = inv, x_label = "", y_label = "", save_path = "", y_scale:Optional[mpl_scale.ScaleBase]=None):
+def plot_line_2d(xs, y_series, labels, x_label = "", y_label = "", save_path = ""):
     axe = plt.axes()
     for index, ys in enumerate(y_series):
         axe.plot(xs, ys, label = labels[index])
 
-    if y_scale:
-        axe.set_yscale(y_scale)
-    else:
-        axe.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, pos: f"{function(x):.3f}"))
     plt.legend()
 
     axe.set_xlabel(x_label)
@@ -41,12 +30,21 @@ def plot_line_2d(xs, y_series, labels, function = inv, x_label = "", y_label = "
         plt.savefig(os.path.dirname(__file__) + "/../../embeddingData/" + save_path)
         plt.close()
 
-def plot_line_series_2d(xs, ys, labels, x_label = "", y_label = "", save_path = "", legend = False, y_scale:Optional[mpl_scale.ScaleBase]=None, function = None):
+def plot_line_series_2d(xs, ys, labels, x_label = "", y_label = "", title = "", save_path = "", legend = False, y_scale:Optional[mpl_scale.ScaleBase]=None, function = None):
     axe = plt.axes()
     for i in range(len(ys)):
         axe.plot(xs[i], ys[i], label = labels[i])
     if legend:
-        plt.legend()
+        legend = axe.legend()
+
+        # Get the handles and labels from the legend
+        handles, labels = axe.get_legend_handles_labels()
+
+        # Sort the handles and labels lexicographically
+        sorted_handles, sorted_labels = zip(*sorted(zip(handles, labels), key=lambda x: x[1]))
+
+        # Create a new legend with the sorted handles and labels
+        axe.legend(sorted_handles, sorted_labels)
 
     
     if y_scale:
@@ -55,11 +53,12 @@ def plot_line_series_2d(xs, ys, labels, x_label = "", y_label = "", save_path = 
         axe.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, pos: function(x)))
     axe.set_xlabel(x_label)
     axe.set_ylabel(y_label)
+    axe.set_title(title)
 
     if save_path == "":
         plt.show()
     else:
-        plt.savefig(os.path.dirname(__file__) + "/../../" + save_path)
+        plt.savefig(os.path.join(os.path.realpath(__file__), '..',  "..", save_path))
         plt.close()
 
 def plot_points_2d(xs, ys):
@@ -183,7 +182,7 @@ def get_min_max(xs):
             x_min = min(x_min, min(x))
     return x_min, x_max
 
-def plotPoints(xs, ys, zs, axis_names = ["", "", ""], legend = True, num_of_series = 1, series_labels=[], function = inv, marker = "o"):
+def plotPoints(xs, ys, zs, axis_names = ["", "", ""], legend = True, num_of_series = 1, series_labels=[], marker = "o"):
     mpl.rcParams['legend.fontsize'] = 10
 
     if series_labels == []: 
@@ -220,47 +219,49 @@ def plotPoints(xs, ys, zs, axis_names = ["", "", ""], legend = True, num_of_seri
 
     plt.show()
 
-class axis():
-    label:str
-    data:list[list]
-    scale:mpl_scale.ScaleBase = mpl_scale.LinearScale(None)
-
-    def __init__(self, label:str, data:list[list] = []) -> None:
-        self.label = label
-        self.data = data
-
-def plotPoints2d(xs:axis, ys:axis, legend = True, num_of_series = 1, series_labels=[], function = inv, marker = "o"):
-    mpl.rcParams['legend.fontsize'] = 10
-
+def plotPoints2d(xs, ys, x_label, y_label, legend = True, series_labels=[], marker = "o", title = "", save_path = ""):
     if series_labels == []: 
-        series_labels = [ys.label[2] for _ in range(num_of_series)]
+        series_labels = [y_label for _ in range(len(ys))]
 
-    x_min, x_max = get_min_max(xs.data)
-    y_min, y_max = get_min_max(ys.data)
+    #x_min, x_max = get_min_max(xs)
+    #y_min, y_max = get_min_max(ys)
 
-    COLOR = get_colors(num_of_series)
+    COLOR = get_colors(len(ys))
     fig = plt.figure()
     axe = plt.axes()
 
-    for series in range(num_of_series):
+    for i, y in enumerate(ys):
         # axe.plot(xs.data[series], ys.data[series], marker=marker, color=COLOR[series], label=series_labels[series])
-        axe.scatter(xs.data[series], ys.data[series], marker=marker, label=series_labels[series])
+        axe.scatter(xs[i], y, marker=marker, label=series_labels[i])
 
-    axe.set_xlabel(xs.label)
-    axe.set_ylabel(ys.label)
+    axe.set_xlabel(x_label)
+    axe.set_ylabel(y_label)
+    axe.set_title(title)
 
-    axe.set_xbound(x_min, x_max)
-    axe.set_ybound(y_min, y_max)
+    #axe.set_xbound(x_min, x_max)
+    #axe.set_ybound(y_min, y_max)
     # axe.w_zaxis.set_major_formatter(plt.FuncFormatter(lambda x, pos: f"{function(x):.3f}"))
 
-    axe.set_xscale(xs.scale)
-    axe.set_yscale(ys.scale)
+    #axe.set_xscale(xs.scale)
+    #axe.set_yscale(ys.scale)
 
     if legend:
-        axe.legend()
+        legend = axe.legend()
 
-    # plt.show()
-    return plt
+        # Get the handles and labels from the legend
+        handles, labels = axe.get_legend_handles_labels()
+
+        # Sort the handles and labels lexicographically
+        sorted_handles, sorted_labels = zip(*sorted(zip(handles, labels), key=lambda x: x[1]))
+
+        # Create a new legend with the sorted handles and labels
+        axe.legend(sorted_handles, sorted_labels)
+
+    if save_path == "":
+        plt.show()
+    else:
+        plt.savefig(os.path.join(os.path.realpath(__file__), '..', "..", save_path))
+        plt.close()
 
 def plot_nested_bars(values, groups, labels, x_label = "", y_label = "", save_path = ""):
     # Set up the figure and axes
