@@ -14,6 +14,7 @@ from datetime import datetime
 import time
 import json
 from tqdm import tqdm
+from itertools import combinations
 
 import matplotlib as mpl
 mpl.use("TkAgg")
@@ -58,21 +59,24 @@ def get_all_configs(settings):
 debug=False
 def first_experiment():
     # Prepare save folder and file paths
-    folder_path = os.path.join("experiments", f"first_experiment_{datetime.today().strftime('%Y-%m-%d')}")
+    experiment_name = f"first_experiment_{datetime.today().strftime('%Y-%m-%d_%H-%M')}"
+    folder_path = os.path.join("experiments", experiment_name)
     if not os.path.exists(folder_path):
         os.makedirs(folder_path, exist_ok=True)
     # Experiment settings
     settings = {
         "algorithms": selected_algorithms,
-        "levels": range(4),
+        "levels": [i for i in combinations(range(4), 2)],
         "qubits": range(2, 10)
     }
 
     settings = {
         "algorithms": ["dj"],
-        "levels": [0],
-        "qubits": list(set([int(2**(x/4)) for x in range(4, 30)]))
+        "levels": [(0, 2)],
+        "qubits": sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
     }
+
+    print(f"Performing experiment with {settings['algorithms']} for levels: {settings['levels']}\n\tqubits: {settings['qubits']}")
 
     # Prepare benchmark circuits:
     circuit_configs = get_all_configs(settings)
@@ -81,7 +85,10 @@ def first_experiment():
     for circ_conf in circuit_configs:
         # Prepare data container
         data = {
+            "experiment_name": experiment_name,
+            "file_name": f"circuit_{circ_conf['algorithm']}_{circ_conf['level'][0]}{circ_conf['level'][1]}_{circ_conf['qubits']}",
             "circuit_settings": circ_conf,
+            "circuit_data": {},
             "path_settings": {
                 "method": "cotengra",
                 "opt_method": "greedy",
@@ -95,22 +102,32 @@ def first_experiment():
         # Prepare circuit
         print("Preparing circuits...")
         #circuit = bu.get_circuit_setup_quimb(bu.get_benchmark_circuit(circ_conf), draw=False)
-        circuit = bu.get_dual_circuit_setup_quimb(bu.get_benchmark("dj", 0, circ_conf["qubits"]), bu.get_benchmark("dj", 2, circ_conf["qubits"]), draw=False)
-
+        starting_time = time.time_ns()
+        circuit = bu.get_dual_circuit_setup_quimb(data, draw=False)
+        data["circuit_setup_time"] = int((time.time_ns() - starting_time) / 1000000)
 
         # Transform to tensor networks (without initial states and cnot decomp)
         print("Constructing tensor network...")
+        starting_time = time.time_ns()
         tensor_network = tnu.get_tensor_network(circuit, include_state = False, split_cnot=False)
+        data["tn_construnction_time"] = int((time.time_ns() - starting_time) / 1000000)
+        
         #tensor_network.draw(color=['PSI0', 'H', 'CX', 'RZ', 'RX', 'CZ'])
         print(f"Number of tensors: {len(tensor_network.tensor_map)}")
 
         # Construct the plan from CoTenGra
         print("Find contraction path...")
+        starting_time = time.time_ns()
         path = tnu.get_contraction_path(tensor_network, data)
+        data["path_construction_time"] = int((time.time_ns() - starting_time) / 1000000)
+        
 
         # Prepare gate TDDs
         print("Preparing gate TDDs...")
+        starting_time = time.time_ns()
         gate_tdds = tddu.get_tdds_from_quimb_tensor_network(tensor_network)
+        data["gate_prep_time"] = int((time.time_ns() - starting_time) / 1000000)
+        
 
         # Contract TDDs + equivalence checking
         print(f"Contracting {len(path)} times...")
@@ -124,7 +141,7 @@ def first_experiment():
         # Save data for circuit
         if not debug:
             print("Saving data...")
-            file_path = os.path.join(folder_path, f"circuit_{circ_conf['algorithm']}_{circ_conf['level']}_{circ_conf['qubits']}.json")
+            file_path = os.path.join(folder_path, data["file_name"] + ".json")
             with open(file_path, "w") as file:
                 json.dump(data, file, indent=4)
 
