@@ -8,7 +8,7 @@ def load_json(file_path):
     return json.loads(data)
 
 def load_all_json(folder):
-    path = os.scandir(path=os.path.join(os.path.realpath(__file__), '..', '..', folder))
+    path = os.scandir(os.path.normpath(os.path.join(os.path.dirname(__file__), '..', folder)))
     files = []
 
     for file in path:

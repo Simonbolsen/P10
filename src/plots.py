@@ -1,5 +1,6 @@
 import file_util as fu
 import plotting_util as pu
+import os
 
 def get_compulsory_sizes(data):
     sizes = data["sizes"]
@@ -38,7 +39,7 @@ def get_nested(ls):
     return [[v] for v in ls]
 
 def plot(folder, save_path = ""):
-    files = fu.load_all_json("experiments/" + folder)
+    files = fu.load_all_json(os.path.join("experiments", folder))
     sizes = []
     steps = []
     names = []
@@ -55,9 +56,9 @@ def plot(folder, save_path = ""):
         max_sizes.append(max(s))
 
     pu.plot_line_series_2d(steps, sizes, names, "Steps s", "Nodes |N|", 
-                           title="Compulsory Sizes", save_path="experiments/" + save_path + "/Compulsory_Sizes", legend=False)
+                           title="Compulsory Sizes", save_path=os.path.join("experiments", save_path, "Compulsory_Sizes"), legend=False)
     pu.plotPoints2d(get_nested(qubits), get_nested(max_sizes), "Qubits n", "Max Nodes N_max", 
-                    legend= False, series_labels=names, title= "Maximum Nodes by Qubits", save_path="experiments/" + save_path + "/Maximum_Nodes_by_Qubits")
+                    legend= False, series_labels=names, title= "Maximum Nodes by Qubits", save_path=os.path.join("experiments", save_path, "Maximum_Nodes_by_Qubits"))
 
 
 
