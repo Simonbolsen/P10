@@ -58,7 +58,7 @@ def plot_line_series_2d(xs, ys, labels, x_label = "", y_label = "", title = "", 
     if save_path == "":
         plt.show()
     else:
-        plt.savefig(os.path.join(os.path.realpath(__file__), '..',  "..", save_path))
+        plt.savefig(save_path)
         plt.close()
 
 def plot_points_2d(xs, ys):
@@ -219,7 +219,7 @@ def plotPoints(xs, ys, zs, axis_names = ["", "", ""], legend = True, num_of_seri
 
     plt.show()
 
-def plotPoints2d(xs, ys, x_label, y_label, legend = True, series_labels=[], marker = "o", title = "", save_path = ""):
+def plotPoints2d(xs, ys, x_label, y_label, legend = True, series_labels=[], marker = "o", marker_size = 20, title = "", save_path = ""):
     if series_labels == []: 
         series_labels = [y_label for _ in range(len(ys))]
 
@@ -232,7 +232,7 @@ def plotPoints2d(xs, ys, x_label, y_label, legend = True, series_labels=[], mark
 
     for i, y in enumerate(ys):
         # axe.plot(xs.data[series], ys.data[series], marker=marker, color=COLOR[series], label=series_labels[series])
-        axe.scatter(xs[i], y, marker=marker, label=series_labels[i])
+        axe.scatter(xs[i], y, marker=marker, label=series_labels[i], sizes = [marker_size for _ in range(len(y))])
 
     axe.set_xlabel(x_label)
     axe.set_ylabel(y_label)
@@ -260,7 +260,7 @@ def plotPoints2d(xs, ys, x_label, y_label, legend = True, series_labels=[], mark
     if save_path == "":
         plt.show()
     else:
-        plt.savefig(os.path.join(os.path.realpath(__file__), '..', "..", save_path))
+        plt.savefig(save_path)
         plt.close()
 
 def plot_nested_bars(values, groups, labels, x_label = "", y_label = "", save_path = ""):
