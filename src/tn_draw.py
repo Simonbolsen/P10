@@ -44,7 +44,7 @@ def draw_tn(
     node_outline_size=None,
     node_outline_darkness=0.8,
     node_hatch="",
-    edge_color=None,
+    edge_colors=None,
     edge_scale=1.0,
     edge_alpha=1 / 2,
     multiedge_spread=0.1,
@@ -244,15 +244,15 @@ def draw_tn(
         default_draw_color = (0.45, 0.47, 0.50, 1.0)
         default_label_color = (0.25, 0.25, 0.25, 1.0)
 
-    if edge_color is None:
-        edge_color = mpl.colors.to_rgba(default_draw_color, edge_alpha)
+    if edge_colors is None:
+        edge_colors = mpl.colors.to_rgba(default_draw_color, edge_alpha)
     else:
-        edge_color = mpl.colors.to_rgba(edge_color, edge_alpha)
+        edge_colors = {i : mpl.colors.to_rgba(c, edge_alpha) for i, c in edge_colors.items()}
 
     if node_color is None:
         node_color = mpl.colors.to_rgba(default_draw_color, node_alpha)
     else:
-        node_color = mpl.colors.to_rgba(node_color, node_alpha)
+        node_color = {i : mpl.colors.to_rgba(c, node_alpha) for i, c in node_color.items()}
 
     if label_color is None:
         label_color = default_label_color
@@ -282,9 +282,7 @@ def draw_tn(
     for ix, tids in tn.ind_map.items():
         # general information for this index
         edge_attrs = {
-            "color": (
-                highlight_inds_color if ix in highlight_inds else edge_color
-            ),
+            "color": edge_colors[ix] if type(edge_colors) is dict else edge_colors,
             "ind": ix,
             "ind_size": str(tn.ind_size(ix)),
             "edge_size": edge_scale * math.log2(tn.ind_size(ix)),
@@ -328,10 +326,12 @@ def draw_tn(
                 color = colors[tag]
         if tid in highlight_tids:
             color = highlight_tids_color
-        G.nodes[tid]["color"] = color
+        
+        
+        G.nodes[tid]["color"] = color[tid] if type(color) is dict else color
         G.nodes[tid]["outline_color"] = tuple(
             (1.0 if i == 3 else node_outline_darkness) * c
-            for i, c in enumerate(color)
+            for i, c in enumerate(mpl.colors.to_rgba(default_draw_color, node_alpha))
         )
         G.nodes[tid]["marker"] = node_shape[tid]
         G.nodes[tid]["hatch"] = node_hatch[tid]
@@ -396,7 +396,7 @@ def draw_tn(
             hyperedges=hyperedges,
             highlight_inds=highlight_inds,
             highlight_inds_color=highlight_inds_color,
-            edge_color=edge_color,
+            edge_color=edge_colors,
             default_node_size=default_node_size,
             show_inds=show_inds,
             label_color=label_color,
@@ -684,7 +684,7 @@ def _draw_matplotlib(
                             color=(
                                 highlight_inds_color
                                 if ind in highlight_inds
-                                else edge_color
+                                else edge_color[ind] if type(edge_color) == dict else edge_color
                             ),
                             fill=True,
                             shape="full",

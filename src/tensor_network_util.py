@@ -2,20 +2,22 @@ import cotengra as ctg
 import random
 from quimb.tensor import Circuit
 import tn_draw
+import random
 
 def get_circuit(n):
     circ = Circuit(n)
 
     # randomly permute the order of qubits
     regs = list(range(n))
-    random.shuffle(regs)
-
-    # hamadard on one of the qubits
-    circ.apply_gate('H', regs[0])
 
     # chain of cnots to generate GHZ-state
-    for i in range(n - 1):
-        circ.apply_gate('CNOT', regs[i], regs[i + 1])
+    for d in range(2 * n):
+        for i in range(n - 1):
+            if random.random() > 0.3:
+                circ.apply_gate('H', regs[i])
+            circ.apply_gate('CNOT', regs[i], regs[i + 1])
+            if random.random() > 0.3:
+                circ.apply_gate('H', regs[i])
 
     # apply multi-controlled NOT
     circ.apply_gate('X', regs[-1], controls=regs[:-1])
@@ -122,7 +124,6 @@ def get_contraction_path(tensor_network, data):
 
     return usable_path
 
-
 def test(tensor_network, path):
     s = contract(tensor_network.copy(deep = True), path)
     flat_s = s.data.flatten()
@@ -147,17 +148,95 @@ def verify_path(usable_path):
 
     return True, ""
 
+def get_ind_contraction_order(tensor_network, usable_path):
+    inds_by_tensor_index = {i : t.inds  for i, t in tensor_network.tensor_map.items()}
+    ind_contraction_order = {}
+
+
+    for i, step in enumerate(usable_path):
+        contracted_inds = list(set(inds_by_tensor_index[step[0]]) & set(inds_by_tensor_index[step[1]]))
+        inds_by_tensor_index[step[1]] += inds_by_tensor_index[step[0]]
+
+        for ind in contracted_inds:
+            ind_contraction_order[ind] = i
+
+    for ind in tensor_network.outer_inds():
+        ind_contraction_order[ind] = len(usable_path)
+
+    return ind_contraction_order
+
+def get_tensor_pos(tensor_network):
+    precurser_depths = {i : [] for i in tensor_network.tensor_map.keys()}
+    tensor_pos = {}
+    check_tensor = []
+    
+    def follow(ind, i):
+        values = list(tensor_network.ind_map[ind])
+        return values[0] if len(values) == 1 else (values[0] if values[0] != i else values[1])
+
+    for s in tensor_network.sites:
+        i = follow(f"k{s}", -1)
+        precurser_depths[i].append(0)
+        check_tensor.append(i)
+
+    while check_tensor:
+        i = check_tensor.pop(0)
+        if i not in tensor_pos and len(precurser_depths[i]) >= int(len(tensor_network.tensor_map[i].shape) / 2):
+            rows = [int(tag[1:]) for tag in tensor_network.tensor_map[i].tags if "I" in tag and "PSI" not in tag]
+            row = sum(rows) / len(rows)
+            tensor_pos[i] = (min(precurser_depths[i]) - 0.2, row)
+
+            for ind in tensor_network.tensor_map[i].inds:
+                ii = follow(ind, i)
+                if ii not in tensor_pos:
+                    precurser_depths[ii].append(tensor_pos[i][0])
+                    check_tensor.append(ii)
+    
+    return tensor_pos 
+
+def draw_contraction_order(tensor_network, usable_path):
+    ind_contraction_order = get_ind_contraction_order(tensor_network, usable_path)
+    tensor_pos = get_tensor_pos(tensor_network)
+
+    edge_colors = {}
+    node_colors = {}
+
+    min_depth = min([d for d, _ in tensor_pos.values()])
+
+    for tid, pos in tensor_pos.items():
+        a = 1 - pos[0] / min_depth
+        node_colors[tid] = (a, 1 - a, 4 * a * (1 - a))
+
+    for ind, step in ind_contraction_order.items():
+        a = step / (len(usable_path))
+        edge_colors[ind] = (a, 1 - a, 4 * a * (1 - a))
+
+    tensor_pos |= {ind : (min_depth - 1 if ind[0] == "b" else 1, int(ind[1:])) for ind in tensor_network.outer_inds()}
+
+    tn_draw.draw_tn(tensor_network, fix = tensor_pos, iterations=3, initial_layout='kamada_kawai', node_color=node_colors, edge_colors=edge_colors, edge_scale=5, node_scale=10)
+
+def draw_depth_order(tensor_network):
+    tensor_depths = get_tensor_pos(tensor_network)
+
+    node_colors = {}
+
+    max_depth = max([d for d, _ in tensor_depths.values()])
+
+
+    for ind, step in tensor_depths.items():
+        a = step[0] / max_depth
+        node_colors[ind] = (a, 1 - a, 4 * a * (1 - a))
+
+    tn_draw.draw_tn(tensor_network, iterations=3, initial_layout='kamada_kawai', node_color=node_colors, edge_scale=5, node_scale=10)
 
 if __name__ == "__main__":
-    tensor_network = get_tensor_network(get_circuit(10), include_state = True, split_cnot=False)
+    tensor_network = get_tensor_network(get_circuit(10), include_state = False, split_cnot=False)
 
-    tn_draw.draw_tn(tensor_network, iterations=0, initial_layout='kamada_kawai', 
-                        highlight_inds=[i for i in tensor_network.outer_inds() + tensor_network.inner_inds()])
+    #draw_depth_order(tensor_network)
 
-    #tensor_network.draw(iterations=0, initial_layout='kamada_kawai', 
-    #                    highlight_inds=[i for i in tensor_network.outer_inds() + tensor_network.inner_inds()])
+    usable_path = get_usable_path(tensor_network, tensor_network.contraction_path(ctg.HyperOptimizer(methods = "greedy", minimize="flops", max_repeats=1, max_time=60, progbar=True, parallel=False)))
 
-    #usable_path = get_usable_path(tensor_network, tensor_network.contraction_path(ctg.HyperOptimizer(minimize="flops", max_repeats=128, max_time=60, progbar=True, parallel=False)))
+    draw_contraction_order(tensor_network, usable_path)
 
     #verified, message = verify_path(usable_path)
     #if not verified:
