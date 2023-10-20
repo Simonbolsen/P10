@@ -1,6 +1,7 @@
 import cotengra as ctg
 import random
 from quimb.tensor import Circuit
+import tn_draw
 
 def get_circuit(n):
     circ = Circuit(n)
@@ -142,13 +143,19 @@ def verify_path(usable_path):
 
 
 if __name__ == "__main__":
-    tensor_network = get_tensor_network(get_circuit(10), include_state = False, split_cnot=False)
+    tensor_network = get_tensor_network(get_circuit(10), include_state = True, split_cnot=False)
 
-    usable_path = get_usable_path(tensor_network, tensor_network.contraction_path(ctg.HyperOptimizer(minimize="flops", max_repeats=128, max_time=60, progbar=True, parallel=False)))
+    tn_draw.draw_tn(tensor_network, iterations=0, initial_layout='kamada_kawai', 
+                        highlight_inds=[i for i in tensor_network.outer_inds() + tensor_network.inner_inds()])
 
-    verified, message = verify_path(usable_path)
-    if not verified:
-        print("Path Warning: " + message)
+    #tensor_network.draw(iterations=0, initial_layout='kamada_kawai', 
+    #                    highlight_inds=[i for i in tensor_network.outer_inds() + tensor_network.inner_inds()])
+
+    #usable_path = get_usable_path(tensor_network, tensor_network.contraction_path(ctg.HyperOptimizer(minimize="flops", max_repeats=128, max_time=60, progbar=True, parallel=False)))
+
+    #verified, message = verify_path(usable_path)
+    #if not verified:
+    #    print("Path Warning: " + message)
 
     #path = tensor_network.contraction_path(ctg.HyperOptimizer(minimize="flops", max_repeats=128, max_time=60, progbar=True, parallel=False))
 

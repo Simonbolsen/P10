@@ -3,7 +3,7 @@ import plotting_util as pu
 import os
 from enum import Enum
 
-def get_compulsory_sizes(data):
+def process_sizes(data):
     sizes = data["sizes"]
     path = data["path"]
 
@@ -13,7 +13,9 @@ def get_compulsory_sizes(data):
     def advance(i):
         version_indeces[i] += 1
 
+    new_sizes = []
     compulsory_sizes = []
+    estimated_time = []
     version_indeces = {int(i) : 0 for i in sizes.keys()}
     for step in path:
         size = 0
@@ -28,29 +30,36 @@ def get_compulsory_sizes(data):
             size += get_current_size(step[1])
             flag = True  
         if flag:
+            estimated_time.append(size)
             compulsory_sizes.append((compulsory_sizes[-1] + size) if len(compulsory_sizes) > 0 else size)
 
         size = compulsory_sizes[-1] - get_current_size(step[0]) - get_current_size(step[1])
+        estimated_time.append(get_current_size(step[0])**2 + get_current_size(step[1])**2)
         advance(step[1])
         compulsory_sizes.append(size + get_current_size(step[1]))
+        new_sizes.append(get_current_size(step[1]))
 
-    return compulsory_sizes
+    return compulsory_sizes, estimated_time, new_sizes
 
 def get_nested(ls):
     return [[v] for v in ls]
 
 def plot(folder, plots, save_path = ""):
     files = fu.load_all_json(os.path.join("experiments", folder))
-    data = {Variables.SIZES : [], Variables.STEPS : [], Variables.QUBITS : [], Variables.MAX_SIZES : [], Variables.NAMES : [], Variables.CONTRACTION_TIME : []}
-    for file in files:
-        s = get_compulsory_sizes(file)
-        data[Variables.SIZES].append(s)
-        data[Variables.STEPS].append(range(len(s)))
-        q = file['circuit_settings']['qubits']
-        data[Variables.NAMES].append(f"{file['circuit_settings']['algorithm']}:{q:03d}")
-        data[Variables.QUBITS].append([q])
-        data[Variables.MAX_SIZES].append([max(s)])
-        data[Variables.CONTRACTION_TIME].append([file["contraction_time"]])
+    data = {v : [] for v in list(Variables)}
+    for file in files: 
+        if True:
+            s, estimated_time, new_sizes = process_sizes(file)
+            data[Variables.ESTIMATED_TIME].append([sum(estimated_time)])
+            data[Variables.SIZES].append(s)
+            data[Variables.NEW_SIZES].append(new_sizes)
+            data[Variables.STEPS].append(range(len(s)))
+            data[Variables.CONTRACTION_STEPS].append(range(len(new_sizes)))
+            q = file['circuit_settings']['qubits']
+            data[Variables.NAMES].append(f"{file['circuit_settings']['algorithm']}:{q:03d}")
+            data[Variables.QUBITS].append([q])
+            data[Variables.MAX_SIZES].append([max(s)])
+            data[Variables.CONTRACTION_TIME].append([file["contraction_time"]])
 
     if save_path != "":
         save_path = os.path.normpath(os.path.join(os.path.realpath(__file__), "..", "..", "experiments", save_path))
@@ -73,18 +82,24 @@ def plot(folder, plots, save_path = ""):
 class Variables(Enum):
     SIZES = "Nodes |N|"
     STEPS = "Path Steps s"
+    CONTRACTION_STEPS = "Path Contraction Steps s_c"
     QUBITS = "Qubits n"
     MAX_SIZES = "Max Nodes N_max"
     NAMES = "Names"
     ALGORITHM = "Algorithm"
-    CONTRACTION_TIME = "Contraction Time"
+    CONTRACTION_TIME = "Contraction Time t_c"
+    ESTIMATED_TIME = "Estimated Time t_e"
+    NEW_SIZES = "Newest TDD Size N_new"
 
 
 if __name__ == "__main__":
  
     plots = [("line", Variables.STEPS, Variables.SIZES, "Compulsory Sizes over Path"),
              ("points", Variables.QUBITS, Variables.MAX_SIZES, "Maximum Size by Qubits"),
-             ("points", Variables.MAX_SIZES, Variables.CONTRACTION_TIME, "Time by Maximum Size")]
+             ("points", Variables.MAX_SIZES, Variables.CONTRACTION_TIME, "Time by Maximum Size"),
+             ("points", Variables.ESTIMATED_TIME, Variables.CONTRACTION_TIME, "Time by Estimated Time"),
+             ("points", Variables.QUBITS, Variables.ESTIMATED_TIME, "Estimated Time by Qubits"),
+             ("line", Variables.CONTRACTION_STEPS, Variables.NEW_SIZES, "New Sizes over Path")]
     
     folders = ["first_experiment_2023-10-18", "first_experiment_2023-10-19_10-17", 
                "mapping_experiment_2023-10-19_16-48", "mapping_experiment_2023-10-19_17-08",
