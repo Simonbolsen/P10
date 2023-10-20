@@ -95,11 +95,17 @@ def get_contraction_path(tensor_network, data):
     path = None
     settings = data["path_settings"]
     if settings["method"] == "cotengra":
-        tree = tensor_network.contraction_tree(
-            ctg.HyperOptimizer(methods=settings["opt_method"], minimize=settings["minimize"], max_repeats=settings["max_repeats"], 
+        optimiser = ctg.HyperOptimizer(methods=settings["opt_method"], minimize=settings["minimize"], max_repeats=settings["max_repeats"], 
                                max_time=settings["max_time"], progbar=True, parallel=False)
-            )
+        tree = tensor_network.contraction_tree(optimiser)
         path = tree.get_path() 
+
+        data["path_data"]["used_trials"] = len(optimiser.times)
+        data["path_data"]["opt_times"] = optimiser.times
+        data["path_data"]["opt_sizes"] = optimiser.costs_size
+        data["path_data"]["opt_flops"] = optimiser.costs_flops
+        data["path_data"]["opt_writes"] = optimiser.costs_write
+
         data["path_data"]["flops"] = tree._flops
         data["path_data"]["size"] = tree._sizes._max_element
     
