@@ -9,6 +9,7 @@ from qiskit import QuantumCircuit
 from qiskit.compiler import transpile
 from qiskit.transpiler import PassManager, passes
 from qiskit.transpiler.passes import Unroller, UnrollCustomDefinitions, Decompose
+from random import randint
 
 selected_algorithms = [
     "dj",           # smaller
@@ -57,6 +58,19 @@ def get_dual_circuit_setup(c1: QuantumCircuit, c2: QuantumCircuit, data, draw: b
 
     if draw: 
         print(unrolled_circ)
+
+    # Find start of second circuit:
+    unrolled_first_circ_gate_count = sum(pm.run(bench_circ1).count_ops().values())
+
+    if data["circuit_settings"]["random_gate_deletions"] > (data["circuit_data"]["unrolled_qiskit_gate_count"] - unrolled_first_circ_gate_count + 1):
+        # Deleting all gates is not allowed
+        raise ValueError("Trying to delete too many gates")
+    
+    for _ in range(data["circuit_settings"]["random_gate_deletions"]):
+        # Randomly delete gates
+        random_gate_index = unrolled_first_circ_gate_count + randint(unrolled_first_circ_gate_count, data["circuit_data"]["unrolled_qiskit_gate_count"] - 1)
+        del unrolled_circ.data[random_gate_index]
+
     return unrolled_circ
 
 def get_circuit_setup_quimb(circuit: QuantumCircuit, draw: bool = False) -> Circuit:
