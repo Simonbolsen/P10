@@ -2,6 +2,7 @@ import file_util as fu
 import plotting_util as pu
 import os
 from enum import Enum
+import math
 
 def process_sizes(data):
     sizes = data["sizes"]
@@ -48,7 +49,7 @@ def plot(folder, plots, save_path = ""):
     files = fu.load_all_json(os.path.join("experiments", folder))
     data = {v : [] for v in list(Variables)}
     for file in files: 
-        if True:
+        if "conclusive" not in file or file["conclusive"]:
             s, estimated_time, new_sizes = process_sizes(file)
             data[Variables.ESTIMATED_TIME].append([sum(estimated_time)])
             data[Variables.SIZES].append(s)
@@ -60,6 +61,15 @@ def plot(folder, plots, save_path = ""):
             data[Variables.QUBITS].append([q])
             data[Variables.MAX_SIZES].append([max(s)])
             data[Variables.CONTRACTION_TIME].append([file["contraction_time"]])
+            data[Variables.PATH_FLOPS].append([math.log10(file["path_data"]["flops"])])
+            data[Variables.PATH_SIZE].append([math.log2(file["path_data"]["size"])])
+            if "used_trials" in file["path_data"]:
+                data[Variables.OPT_RUNS].append(range(file["path_data"]["used_trials"]))
+                data[Variables.OPT_TIMES].append(file["path_data"]["opt_times"])
+                data[Variables.OPT_SIZES].append([math.log2(v) for v in file["path_data"]["opt_sizes"]])
+                data[Variables.OPT_FLOPS].append([math.log10(v) for v in file["path_data"]["opt_flops"]])
+                data[Variables.OPT_WRITES].append([math.log2(v) for v in file["path_data"]["opt_writes"]])
+
 
     if save_path != "":
         save_path = os.path.normpath(os.path.join(os.path.realpath(__file__), "..", "..", "experiments", save_path))
@@ -70,14 +80,16 @@ def plot(folder, plots, save_path = ""):
     for p in plots:
         full_path = ("" if save_path == "" else os.path.join(save_path, p[3].replace(" ", "_")))
         title = p[3] + " " + files[0]['circuit_settings']['algorithm']
-        if p[0] == "line":
+        if p[0] == "line" and data[p[1]] != [] and data[p[2]]:
             pu.plot_line_series_2d(data[p[1]], data[p[2]], data[Variables.NAMES], 
                                    p[1].value, p[2].value, title=title, 
                                    save_path=full_path, legend=False)
-        elif p[0] == "points":
+        elif p[0] == "points" and data[p[1]] != [] and data[p[2]]:
             pu.plotPoints2d(data[p[1]], data[p[2]], p[1].value, p[2].value, 
                             series_labels=data[Variables.NAMES], title= title,
                             marker="o", save_path=full_path, legend=False)
+        else:
+            print(f"{p[0]} is not a valid plot type!")
 
 class Variables(Enum):
     SIZES = "Nodes |N|"
@@ -90,6 +102,13 @@ class Variables(Enum):
     CONTRACTION_TIME = "Contraction Time t_c"
     ESTIMATED_TIME = "Estimated Time t_e"
     NEW_SIZES = "Newest TDD Size N_new"
+    PATH_SIZE = "Path Size log2(ps)"
+    PATH_FLOPS = "Path Flops log10(pf)"
+    OPT_TIMES = "Optimisation Times ot"
+    OPT_WRITES = "Optimisation Writes log2(ow)"
+    OPT_FLOPS = "Optimisation Flops log10(of)"
+    OPT_SIZES = "Optimisation Sizes log2(os)"
+    OPT_RUNS = "Optimisation Runs r"
 
 
 if __name__ == "__main__":
@@ -99,11 +118,18 @@ if __name__ == "__main__":
              ("points", Variables.MAX_SIZES, Variables.CONTRACTION_TIME, "Time by Maximum Size"),
              ("points", Variables.ESTIMATED_TIME, Variables.CONTRACTION_TIME, "Time by Estimated Time"),
              ("points", Variables.QUBITS, Variables.ESTIMATED_TIME, "Estimated Time by Qubits"),
-             ("line", Variables.CONTRACTION_STEPS, Variables.NEW_SIZES, "New Sizes over Path")]
+             ("line", Variables.CONTRACTION_STEPS, Variables.NEW_SIZES, "New Sizes over Path"),
+             ("points", Variables.PATH_FLOPS, Variables.MAX_SIZES, "Max Sizes over Path Flops"),
+             ("points", Variables.PATH_SIZE, Variables.MAX_SIZES, "Max Sizes over Path Size"),
+             ("line", Variables.OPT_RUNS, Variables.OPT_FLOPS, "Optimisation Flops"),
+             ("line", Variables.OPT_RUNS, Variables.OPT_SIZES, "Optimisation Sizes"),
+             ("line", Variables.OPT_RUNS, Variables.OPT_WRITES, "Optimisation Writes"),
+             ("line", Variables.OPT_RUNS, Variables.OPT_TIMES, "Optimisation Times")]
     
     folders = ["first_experiment_2023-10-18", "first_experiment_2023-10-19_10-17", 
                "mapping_experiment_2023-10-19_16-48", "mapping_experiment_2023-10-19_17-08",
-               "mapping_experiment_2023-10-19_17-24", "mapping_experiment_2023-10-19_17-27"]
+               "mapping_experiment_2023-10-19_17-24", "mapping_experiment_2023-10-19_17-27", 
+               "mapping_experiment_2023-10-24_09-30"]
 
     for i, folder in enumerate(folders):
         plot(folder, plots, os.path.join("plots", folder)) 
