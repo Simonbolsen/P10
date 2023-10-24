@@ -165,7 +165,7 @@ def get_ind_contraction_order(tensor_network, usable_path):
 
     return ind_contraction_order
 
-def get_tensor_pos(tensor_network):
+def get_tensor_pos(tensor_network, width = 1.0):
     precurser_depths = {i : [] for i in tensor_network.tensor_map.keys()}
     tensor_pos = {}
     check_tensor = []
@@ -184,7 +184,7 @@ def get_tensor_pos(tensor_network):
         if i not in tensor_pos and len(precurser_depths[i]) >= int(len(tensor_network.tensor_map[i].shape) / 2):
             rows = [int(tag[1:]) for tag in tensor_network.tensor_map[i].tags if "I" in tag and "PSI" not in tag]
             row = sum(rows) / len(rows)
-            tensor_pos[i] = (min(precurser_depths[i]) - 0.2, row)
+            tensor_pos[i] = (min(precurser_depths[i]) - width, row)
 
             for ind in tensor_network.tensor_map[i].inds:
                 ii = follow(ind, i)
@@ -196,7 +196,7 @@ def get_tensor_pos(tensor_network):
 
 def draw_contraction_order(tensor_network, usable_path):
     ind_contraction_order = get_ind_contraction_order(tensor_network, usable_path)
-    tensor_pos = get_tensor_pos(tensor_network)
+    tensor_pos = get_tensor_pos(tensor_network, 0.2)
 
     edge_colors = {}
     node_colors = {}
