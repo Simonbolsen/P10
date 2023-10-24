@@ -3,6 +3,7 @@ import random
 from quimb.tensor import Circuit
 import tn_draw
 import random
+import os
 
 def get_circuit(n):
     circ = Circuit(n)
@@ -194,9 +195,9 @@ def get_tensor_pos(tensor_network, width = 1.0):
     
     return tensor_pos 
 
-def draw_contraction_order(tensor_network, usable_path):
+def draw_contraction_order(tensor_network, usable_path, width = 1.0, save_path = ""):
     ind_contraction_order = get_ind_contraction_order(tensor_network, usable_path)
-    tensor_pos = get_tensor_pos(tensor_network, 0.2)
+    tensor_pos = get_tensor_pos(tensor_network, width)
 
     edge_colors = {}
     node_colors = {}
@@ -213,7 +214,8 @@ def draw_contraction_order(tensor_network, usable_path):
 
     tensor_pos |= {ind : (min_depth - 1 if ind[0] == "b" else 1, int(ind[1:])) for ind in tensor_network.outer_inds()}
 
-    tn_draw.draw_tn(tensor_network, fix = tensor_pos, iterations=3, initial_layout='kamada_kawai', node_color=node_colors, edge_colors=edge_colors, edge_scale=5, node_scale=10)
+    tn_draw.draw_tn(tensor_network, fix = tensor_pos, iterations=0, 
+                    node_color=node_colors, edge_colors=edge_colors, edge_scale=5, node_scale=10, save_path = save_path)
 
 def draw_depth_order(tensor_network):
     tensor_depths = get_tensor_pos(tensor_network)
@@ -236,7 +238,7 @@ if __name__ == "__main__":
 
     usable_path = get_usable_path(tensor_network, tensor_network.contraction_path(ctg.HyperOptimizer(methods = "greedy", minimize="flops", max_repeats=1, max_time=60, progbar=True, parallel=False)))
 
-    draw_contraction_order(tensor_network, usable_path)
+    draw_contraction_order(tensor_network, usable_path, save_path=os.path.join(os.path.realpath(__file__), "..", "..", "experiments", "plots", "contraction_order"))
 
     #verified, message = verify_path(usable_path)
     #if not verified:
