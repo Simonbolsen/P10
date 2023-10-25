@@ -104,6 +104,7 @@ def get_contraction_path(tensor_network, data):
         tree = tensor_network.contraction_tree(optimiser)
         path = tree.get_path() 
 
+        data["path_data"]["original_path"] = path
         data["path_data"]["used_trials"] = len(optimiser.times)
         data["path_data"]["opt_times"] = optimiser.times
         data["path_data"]["opt_sizes"] = optimiser.costs_size

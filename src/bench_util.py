@@ -1,16 +1,19 @@
 from mqt.bench import CompilerSettings, QiskitSettings, TKETSettings
 from mqt.bench import get_benchmark
 from mqt.bench.utils import get_supported_benchmarks
+from mqt import qcec
 import mqt.bench.qiskit_helper as qiskit_helper
 from quimb.tensor import Circuit
 import tdd_util as tddu
 import circuit_util as cu
 import tensor_network_util as tnu
 from qiskit import QuantumCircuit
+from qiskit.quantum_info import Operator
 from qiskit.compiler import transpile
 from qiskit.transpiler import PassManager, passes
 from qiskit.transpiler.passes import Unroller, UnrollCustomDefinitions, Decompose
 from random import randint
+import numpy as np
 
 selected_algorithms = [
     "dj",           # smaller
@@ -32,6 +35,13 @@ def get_circuit_setup(circuit: QuantumCircuit, draw: bool = False) -> QuantumCir
     if draw: 
         print(unrolled_circ)
     return unrolled_circ
+
+def sanity_check(circuit: QuantumCircuit, data):
+    identity_qc = QuantumCircuit(data["circuit_settings"]["qubits"])
+    
+    au = Operator(circuit)
+    bu = Operator(identity_qc)
+    data["sanity_check"] = au.dim == bu.dim and np.allclose(au.data, bu.data)
 
 def get_dual_circuit_setup(c1: QuantumCircuit, c2: QuantumCircuit, data, draw: bool = False) -> QuantumCircuit:
     bench_circ1 = prepare_circuit(c1)
@@ -62,6 +72,8 @@ def get_dual_circuit_setup(c1: QuantumCircuit, c2: QuantumCircuit, data, draw: b
     if draw: 
         print(unrolled_circ)
 
+    sanity_check(unrolled_circ, data)
+
     # bench_circ1_copy = bench_circ1.copy()
     # # Find start of second circuit:
     # unrolled_first_circ_gate_count = sum(pm.run(bench_circ1_copy).count_ops().values())
@@ -83,7 +95,7 @@ def get_circuit_setup_quimb(circuit: QuantumCircuit, draw: bool = False) -> Circ
     return cu.qiskit_to_quimb_circuit(get_circuit_setup(circuit, draw))
 
 level_mapping = {
-    0: lambda qc: qc,
+    0: lambda qc: qc.copy(),
     1: lambda qc: get_independent_level(qc),
     2: lambda qc: get_native_gates_level(qc),
     3: lambda qc: get_mapped_level(qc)
