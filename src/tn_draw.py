@@ -66,6 +66,7 @@ def draw_tn(
     get=None,
     return_fig=False,
     ax=None,
+    save_path = ""
 ):
     """Plot this tensor network as a networkx graph using matplotlib,
     with edge width corresponding to bond dimension.
@@ -403,6 +404,7 @@ def draw_tn(
             show_tags=show_tags,
             colors=colors,
             node_outline_darkness=node_outline_darkness,
+            save_path = save_path,
             title=title,
             legend=legend,
             multiedge_spread=multiedge_spread,
@@ -427,6 +429,7 @@ def draw_tn(
         return _draw_matplotlib3d(
             G,
             pos,
+            save_path,
             figsize=figsize,
             ax=ax,
             return_fig=return_fig,
@@ -517,6 +520,7 @@ def _draw_matplotlib(
     show_tags,
     colors,
     node_outline_darkness,
+    save_path,
     title=None,
     legend=True,
     multiedge_spread=0.1,
@@ -772,10 +776,11 @@ def _draw_matplotlib(
         if ylims is not None:
             ax.set_ylim(ylims)
 
-    if return_fig:
-        return fig
-    else:
+    if save_path == "":
         plt.show()
+        plt.close(fig)
+    else:
+        plt.savefig(save_path)
         plt.close(fig)
 
 
@@ -823,10 +828,11 @@ def _linearize_graph_data(G, pos):
 
 def _draw_matplotlib3d(
     G,
-    pos,
+    pos, 
+    save_path, 
     figsize=(6, 6),
     return_fig=False,
-    ax=None,
+    ax=None, 
 ):
     import matplotlib.pyplot as plt
 
@@ -910,10 +916,11 @@ def _draw_matplotlib3d(
                 fontsize=6,
             )
 
-    if return_fig:
-        return fig
-    else:
+    if save_path == "":
         plt.show()
+        plt.close(fig)
+    else:
+        plt.savefig(save_path)
         plt.close(fig)
 
 
