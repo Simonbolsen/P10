@@ -53,8 +53,12 @@ def contract_tdds(tdds, data, max_time=-1, max_node_size=-1):
             return None
 
     resulting_tdd = tdds[right_index]
-    data["equivalence"] = tddu.is_tdd_identitiy(resulting_tdd)
-    data["conclusive"] = True
+    if "simulate" not in data or not data["simulate"]:
+        data["equivalence"] = tddu.is_tdd_identitiy(resulting_tdd)
+        data["conclusive"] = True
+    else:
+        data["equivalence"] = tddu.is_tdd_identitiy(resulting_tdd)
+        data["conclusive"] = True
     data["sizes"] = sizes
 
     return resulting_tdd
@@ -77,12 +81,14 @@ def first_experiment():
         os.makedirs(folder_path, exist_ok=True)
     # Experiment settings
     settings = {
+        "simulate": False,
         "algorithms": selected_algorithms,
         "levels": [(0, 2)], #[i for i in combinations(range(4), 2)],
         "qubits": [i for i in range(4, 257, 2)]
     }
 
     settings = {
+        "simulate": False,
         "algorithms": ["graphstate"],
         "levels": [(0, 2)],
         "qubits": range(5,57)#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
@@ -117,6 +123,10 @@ def first_experiment():
             "path_data": {}
         }
 
+        if "simulate" in settings and settings["simulate"]:
+            options = [[1 + 0j, 0j], [0j, 1 + 0j]]
+            settings["state"] = [random.choice(options) for _ in range(circ_conf["qubits"])]
+
         # Prepare circuit
         print("Preparing circuits...")
         #circuit = bu.get_circuit_setup_quimb(bu.get_benchmark_circuit(circ_conf), draw=False)
@@ -127,7 +137,8 @@ def first_experiment():
         # Transform to tensor networks (without initial states and cnot decomp)
         print("Constructing tensor network...")
         starting_time = time.time_ns()
-        tensor_network = tnu.get_tensor_network(circuit, include_state = False, split_cnot=False)
+        tensor_network = tnu.get_tensor_network(circuit, split_cnot=False, 
+                                                state = settings["state"] if "state" in settings else None)
         data["tn_construnction_time"] = int((time.time_ns() - starting_time) / 1000000)
         
         #tensor_network.draw(color=['PSI0', 'H', 'CX', 'RZ', 'RX', 'CZ'])
