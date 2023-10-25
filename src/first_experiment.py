@@ -2,7 +2,7 @@ from quimb.tensor import Circuit
 import cotengra as ctg
 import numpy as np
 import random
-from tddpure.TDD.TDD import Ini_TDD, TDD
+from tddpure.TDD.TDD import Ini_TDD, TDD, tdd_2_np
 from tddpure.TDD.TN import Index,Tensor,TensorNetwork
 from tddpure.TDD.TDD_Q import cir_2_tn,get_real_qubit_num,add_trace_line,add_inputs,add_outputs
 import circuit_util as cu
@@ -91,7 +91,7 @@ def first_experiment():
         "simulate": False,
         "algorithms": ["graphstate"],
         "levels": [(0, 2)],
-        "qubits": range(13,57)#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
+        "qubits": range(5,57)#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
     }
 
     print(f"Performing experiment with {settings['algorithms']} for levels: {settings['levels']}\n\tqubits: {settings['qubits']}")
@@ -155,13 +155,24 @@ def first_experiment():
             path = tnu.get_contraction_path(tensor_network, data)
             data["path_construction_time"] = int((time.time_ns() - starting_time) / 1000000)
 
-            tnu.draw_contraction_order(tensor_network, path)
+            tn_draw.draw_tn(tensor_network, color=['PSI0', 'H', 'CX', 'RZ', 'RX', 'CZ'], save_path=os.path.join(folder_path, data["file_name"] + f"_R{attempts}"))
+            #tnu.draw_contraction_order(tensor_network, path, save_path=os.path.join(folder_path, data["file_name"] + f"_R{attempts}"))
 
             # Prepare gate TDDs
             print("Preparing gate TDDs...")
             starting_time = time.time_ns()
             gate_tdds = tddu.get_tdds_from_quimb_tensor_network(tensor_network)
             data["gate_prep_time"] = int((time.time_ns() - starting_time) / 1000000)
+
+
+            # def reverse_lexicographic_key(s):
+            #     return (len(s), s[::-1])
+
+            # quimb_result = tensor_network.contract(optimize=data["path_data"]["original_path"])
+            # variable_order = sorted(list(quimb_result.inds), key=reverse_lexicographic_key, reverse=True)
+            # processed_result = quimb_result.transpose(*variable_order, inplace=False)
+
+            # np.array([v.real if abs(v) > 0.01 else 0 for v in (quimb_result.data*(-1j)).flatten()]).reshape((32,32))
 
             # Contract TDDs + equivalence checking
             print(f"Contracting {len(path)} times...")
@@ -176,7 +187,7 @@ def first_experiment():
                 with open(file_path, "w") as file:
                     json.dump(data, file, indent=4)
 
-            result_tdd.show(name="Tester")
+            result_tdd.show(name=os.path.join(folder_path, data["file_name"] + f"_R{attempts}" + "_TDD"))
             if result_tdd is not None:
                 succeeded = True
             else:
