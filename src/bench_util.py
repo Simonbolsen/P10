@@ -1,6 +1,7 @@
 from mqt.bench import CompilerSettings, QiskitSettings, TKETSettings
 from mqt.bench import get_benchmark
 from mqt.bench.utils import get_supported_benchmarks
+import mqt.bench.qiskit_helper as qiskit_helper
 from quimb.tensor import Circuit
 import tdd_util as tddu
 import circuit_util as cu
@@ -36,6 +37,8 @@ def get_dual_circuit_setup(c1: QuantumCircuit, c2: QuantumCircuit, data, draw: b
     bench_circ1 = prepare_circuit(c1)
     bench_circ2 = prepare_circuit(c2)
     if draw:
+        print(bench_circ1.count_ops().values())
+        print(bench_circ2.count_ops().values())
         print(bench_circ1)
         print(bench_circ2)
     comb_circuit = bench_circ1.compose(bench_circ2.inverse())
@@ -59,31 +62,46 @@ def get_dual_circuit_setup(c1: QuantumCircuit, c2: QuantumCircuit, data, draw: b
     if draw: 
         print(unrolled_circ)
 
-    # Find start of second circuit:
-    unrolled_first_circ_gate_count = sum(pm.run(bench_circ1).count_ops().values())
+    # bench_circ1_copy = bench_circ1.copy()
+    # # Find start of second circuit:
+    # unrolled_first_circ_gate_count = sum(pm.run(bench_circ1_copy).count_ops().values())
 
-    if data["circuit_settings"]["random_gate_deletions"] > (data["circuit_data"]["unrolled_qiskit_gate_count"] - unrolled_first_circ_gate_count + 1):
-        # Deleting all gates is not allowed
-        raise ValueError("Trying to delete too many gates")
+    # if data["circuit_settings"]["random_gate_deletions"] > (data["circuit_data"]["unrolled_qiskit_gate_count"] - unrolled_first_circ_gate_count + 1):
+    #     # Deleting all gates is not allowed
+    #     raise ValueError("Trying to delete too many gates")
     
-    for _ in range(data["circuit_settings"]["random_gate_deletions"]):
-        # Randomly delete gates
-        random_gate_index = unrolled_first_circ_gate_count + randint(unrolled_first_circ_gate_count, data["circuit_data"]["unrolled_qiskit_gate_count"] - 1)
-        del unrolled_circ.data[random_gate_index]
+    # data["circuit_data"]["random_gate_deletions"] = []
+    # for _ in range(data["circuit_settings"]["random_gate_deletions"]):
+    #     # Randomly delete gates
+    #     random_gate_index = randint(unrolled_first_circ_gate_count, data["circuit_data"]["unrolled_qiskit_gate_count"] - 1)
+    #     data["circuit_data"]["random_gate_deletions"].append(random_gate_index)
+    #     del unrolled_circ.data[random_gate_index]
 
     return unrolled_circ
 
 def get_circuit_setup_quimb(circuit: QuantumCircuit, draw: bool = False) -> Circuit:
     return cu.qiskit_to_quimb_circuit(get_circuit_setup(circuit, draw))
 
+level_mapping = {
+    0: lambda qc: qc,
+    1: lambda qc: get_independent_level(qc),
+    2: lambda qc: get_native_gates_level(qc),
+    3: lambda qc: get_mapped_level(qc)
+}
+
 def get_dual_circuit_setup_quimb(data, draw: bool = False) -> Circuit:
     assert data["circuit_settings"] is not None
     circ_conf = data["circuit_settings"]
 
     assert circ_conf["algorithm"] is not None and circ_conf["level"] is not None and circ_conf["qubits"] is not None
+    
+    base_circ = get_benchmark(circ_conf["algorithm"], level=0, circuit_size=circ_conf["qubits"])
 
-    c1 = get_benchmark(circ_conf["algorithm"], circ_conf["level"][0], circ_conf["qubits"])
-    c2 = get_benchmark(circ_conf["algorithm"], circ_conf["level"][1], circ_conf["qubits"])
+    c1 = level_mapping[circ_conf["level"][0]](base_circ)
+    c2 = level_mapping[circ_conf["level"][1]](base_circ)
+
+    # c1 = get_benchmark(circ_conf["algorithm"], circ_conf["level"][0], circ_conf["qubits"])
+    # c2 = get_benchmark(circ_conf["algorithm"], circ_conf["level"][1], circ_conf["qubits"])
     return get_dual_circuit_setup_quimb_from_circuits(c1, c2, data, draw)
 
 def get_dual_circuit_setup_quimb_from_circuits(c1: QuantumCircuit, c2: QuantumCircuit, data, draw: bool = False) -> Circuit:
@@ -146,6 +164,20 @@ def vary_number_of_qubits_set(base_algorithm: str, abstraction_level: int, qubit
 
     prepared_circuits = [get_circuit_setup_quimb(circuit) for circuit in circuits]
     return prepared_circuits
+
+
+def get_independent_level(circuit: QuantumCircuit) -> QuantumCircuit:
+    qc = circuit.copy()
+    return qiskit_helper.get_indep_level(qc, num_qubits=None, file_precheck=False, return_qc=True)
+
+def get_native_gates_level(circuit: QuantumCircuit) -> QuantumCircuit:
+    qc = circuit.copy()
+    # by https://github.com/cda-tum/mqt-bench/blob/3cedf4b76c5773f3e14b434258b53f49eae2877c/src/mqt/bench/benchmark_generator.py#L45
+    return qiskit_helper.get_native_gates_level(qc, num_qubits=None, gate_set_name="ibm", opt_level=1, file_precheck=False, return_qc=True)
+
+def get_mapped_level(circuit: QuantumCircuit) -> QuantumCircuit:
+    qc = circuit.copy()
+    return qiskit_helper.get_mapped_level(qc, num_qubits=None, gate_set_name="ibm", device_name="ibm_washington", opt_level=1, file_precheck=False, return_qc=True)
 
 
 
