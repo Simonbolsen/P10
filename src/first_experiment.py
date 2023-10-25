@@ -13,6 +13,7 @@ import os
 from datetime import datetime
 import time
 import json
+import tn_draw
 from tqdm import tqdm
 from itertools import combinations
 
@@ -82,9 +83,9 @@ def first_experiment():
     }
 
     settings = {
-        "algorithms": ["dj"],
+        "algorithms": ["graphstate"],
         "levels": [(0, 2)],
-        "qubits": [4]#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
+        "qubits": range(13,57)#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
     }
 
     print(f"Performing experiment with {settings['algorithms']} for levels: {settings['levels']}\n\tqubits: {settings['qubits']}")
@@ -94,7 +95,7 @@ def first_experiment():
 
     # For each circuit, run equivalence checking:
     for circ_conf in circuit_configs:
-        circ_conf["random_gate_deletions"] = 1
+        circ_conf["random_gate_deletions"] = 0
         # Prepare data container
         data = {
             "experiment_name": experiment_name,
@@ -110,7 +111,7 @@ def first_experiment():
                 "method": "cotengra",
                 "opt_method": "greedy",
                 "minimize": "flops",
-                "max_repeats": 120,
+                "max_repeats": 256,
                 "max_time": 60
             },
             "path_data": {}
@@ -143,6 +144,8 @@ def first_experiment():
             path = tnu.get_contraction_path(tensor_network, data)
             data["path_construction_time"] = int((time.time_ns() - starting_time) / 1000000)
 
+            tnu.draw_contraction_order(tensor_network, path)
+
             # Prepare gate TDDs
             print("Preparing gate TDDs...")
             starting_time = time.time_ns()
@@ -162,6 +165,7 @@ def first_experiment():
                 with open(file_path, "w") as file:
                     json.dump(data, file, indent=4)
 
+            result_tdd.show(name="Tester")
             if result_tdd is not None:
                 succeeded = True
             else:
