@@ -50,6 +50,9 @@ def get_identity_tdd(inds):
     t = Tensor(identity_tensor, inds)
     return t.tdd() if n <= len(TDD.global_index_order) else None
 
+def is_tdd_equal(tdd, tensor):
+     return False #TODO
+
 def is_tdd_identitiy(node):
         if type(node) == TDD.TDD:
             node = node.node

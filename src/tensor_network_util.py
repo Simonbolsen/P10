@@ -65,10 +65,13 @@ def contract(tensor_network, path, draw_frequency = -1):
     
     return tensor_network.tensor_map[usable_path[-1][1]]
 
-def get_tensor_network(circuit, include_state = True, split_cnot = True):
+def get_tensor_network(circuit, split_cnot = True, state = None):
     
-    if include_state:
+    if state is not None:
         tensor_network = circuit.psi
+
+        for i, q in enumerate(state):
+            tensor_network.tensor_map[i]._set_data(q)
     else:
         tensor_network = circuit.get_uni(transposed = True)
         
@@ -90,8 +93,6 @@ def get_tensor_network(circuit, include_state = True, split_cnot = True):
                         break
         for pair in pairs:
             tensor_network._contract_between_tids(pair[0], pair[1])
-
-    #tensor_network.tensor_map = {i: t for i, t in enumerate(tensor_network.tensor_map.values())}
 
     return tensor_network
 
@@ -232,7 +233,11 @@ def draw_depth_order(tensor_network):
     tn_draw.draw_tn(tensor_network, iterations=3, initial_layout='kamada_kawai', node_color=node_colors, edge_scale=5, node_scale=10)
 
 if __name__ == "__main__":
-    tensor_network = get_tensor_network(get_circuit(10), include_state = False, split_cnot=False)
+    n = 10
+    options = [[1 + 0j, 0j], [0j, 1 + 0j]]
+    state = [random.choice(options) for _ in range(n)]
+
+    tensor_network = get_tensor_network(get_circuit(n), split_cnot=False, state = state)
 
     #draw_depth_order(tensor_network)
 
