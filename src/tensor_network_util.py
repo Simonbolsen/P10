@@ -4,6 +4,7 @@ from quimb.tensor import Circuit
 import tn_draw
 import random
 import os
+import numpy as np
 
 def get_circuit(n):
     circ = Circuit(n)
@@ -44,7 +45,6 @@ def get_usable_path(tensor_network, path):
     usable_path = []
     index_map = {i: t for i, t in enumerate(tensor_network.tensor_map.keys())}
     next_index = len(path) + 1
-    min_id = min(tensor_network.tensor_map.keys())
 
     for step in reasonable_path:
         i0 = index_map[step[0]]
@@ -64,6 +64,8 @@ def contract(tensor_network, path, draw_frequency = -1):
         tensor_network._contract_between_tids(step[0], step[1])
     
     return tensor_network.tensor_map[usable_path[-1][1]]
+
+
 
 def get_tensor_network(circuit, split_cnot = True, state = None):
     
@@ -96,6 +98,37 @@ def get_tensor_network(circuit, split_cnot = True, state = None):
 
     return tensor_network
 
+def get_linear_path(tensor_network, fraction = 0.0):
+    tensor_pos = get_tensor_pos(tensor_network)
+
+    pairs = []
+
+    for ts in tensor_network.ind_map.values():
+        ts = list(ts)
+        if len(ts) > 1:
+            pairs.append((*ts, (tensor_pos[ts[0]][0] + tensor_pos[ts[1]][0]) / 2))
+
+    sorted(pairs, key=lambda x:x[2])
+
+    part_of = {i:i for i in tensor_network.tensor_map.keys()}
+
+    def get_current_tensor(i):
+        p = part_of[i]
+        return p if p == i else get_current_tensor(p)
+
+    path = []
+
+    while len(pairs) > 0:
+        pair = pairs.pop(int(len(pairs) * fraction))
+        left = get_current_tensor(pair[0])
+        right = get_current_tensor(pair[1])
+
+        if left != right:
+            path.append((left, right))
+            part_of[left] = right
+
+    return path
+
 def get_contraction_path(tensor_network, data):
     path = None
     settings = data["path_settings"]
@@ -115,12 +148,15 @@ def get_contraction_path(tensor_network, data):
         data["path_data"]["flops"] = tree._flops
         data["path_data"]["size"] = tree._sizes._max_element
     
-    if path is None:
+        usable_path = get_usable_path(tensor_network, path)
+        
+    elif settings["method"] == "linear":
+        usable_path = get_linear_path(tensor_network, settings["linear_fraction"] if "linear_fraction" in settings else 0.0)
+        
+    else:
         raise NotImplementedError(f"Method {settings['method']} is not supported")
 
-    usable_path = get_usable_path(tensor_network, path)
     data["path"] = usable_path
-
     (verified, msg) = verify_path(usable_path)
     if not verified:
         raise AssertionError(f"Not valid path: {msg}")
@@ -242,9 +278,12 @@ if __name__ == "__main__":
 
     #draw_depth_order(tensor_network)
 
-    usable_path = get_usable_path(tensor_network, tensor_network.contraction_path(ctg.HyperOptimizer(methods = "greedy", minimize="flops", max_repeats=1, max_time=60, progbar=True, parallel=False)))
+    usable_path = get_linear_path(tensor_network, fraction=0.5)
+    print(verify_path(usable_path))
 
-    draw_contraction_order(tensor_network, usable_path, save_path=os.path.join(os.path.realpath(__file__), "..", "..", "experiments", "plots", "contraction_order"))
+    #usable_path = get_usable_path(tensor_network, tensor_network.contraction_path(ctg.HyperOptimizer(methods = "greedy", minimize="flops", max_repeats=1, max_time=60, progbar=True, parallel=False)))
+
+    draw_contraction_order(tensor_network, usable_path, width = 0.2) #save_path=os.path.join(os.path.realpath(__file__), "..", "..", "experiments", "plots", "contraction_order"))
 
     #verified, message = verify_path(usable_path)
     #if not verified:
