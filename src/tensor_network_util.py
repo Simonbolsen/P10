@@ -4,6 +4,7 @@ from quimb.tensor import Circuit
 import tn_draw
 import random
 import os
+import numpy as np
 
 def get_circuit(n):
     circ = Circuit(n)
@@ -66,7 +67,6 @@ def contract(tensor_network, path, draw_frequency = -1):
     return tensor_network.tensor_map[usable_path[-1][1]]
 
 def get_tensor_network(circuit, split_cnot = True, state = None):
-    
     if state is not None:
         tensor_network = circuit.psi
 
@@ -94,7 +94,45 @@ def get_tensor_network(circuit, split_cnot = True, state = None):
         for pair in pairs:
             tensor_network._contract_between_tids(pair[0], pair[1])
 
+        cz_tag = "CZ"
+        pairs = []
+        for i, tensor_1 in tensor_network.tensor_map.items():
+            if cz_tag in tensor_1.tags:
+                done = False
+                for ii, tensor_2 in tensor_network.tensor_map.items():
+                    if cz_tag in tensor_2.tags:
+                        for tag in tensor_1.tags:
+                            if "GATE" in tag and tag in tensor_2.tags:
+                                pairs.append((i, ii))
+                                done = True
+                                break
+                    if done:
+                        break
+        for pair in pairs:
+            tensor_network._contract_between_tids(pair[0], pair[1])
+
+    # Fixing problematic gates (S, ...?)
+    problematic_gates = ["S"]
+    for problem_gate in problematic_gates:
+        for idx in tensor_network.tag_map[problem_gate]:
+            data = tensor_network.tensor_map[idx].data
+            data_shape = data.shape
+            rectified_data = np.array([rectify_complex(v) for v in data.flatten()]).reshape(data_shape)
+            tensor_network.tensor_map[idx]._set_data(rectified_data)
+
     return tensor_network
+
+def rectify_complex(v: complex, threshold=1e-12) -> complex:
+    new_v_real = v.real
+    if v.real - round(v.real) < threshold:
+        new_v_real = round(v.real)
+    
+    new_v_imag = v.imag
+    if v.imag - round(v.imag) < threshold:
+        new_v_imag = round(v.imag)
+
+    return complex(new_v_real, new_v_imag)
+
 
 def get_contraction_path(tensor_network, data):
     path = None

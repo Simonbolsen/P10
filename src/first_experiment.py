@@ -34,11 +34,14 @@ selected_algorithms = [
 ]
 
 # ---------------------- SUPPORT FUNCTIONS ------------------------------
-def contract_tdds(tdds, data, max_time=-1, max_node_size=-1):
+def contract_tdds(tdds, data, max_time=-1, max_node_size=-1, save_intermediate_results=False, folder_path=""):
     start_time = time.time()
     usable_path = data["path"]
     sizes = {i: [0, tdd.node_number()] for i, tdd in tdds.items()}
-
+    folder = os.path.join(folder_path, "intermediate_results")
+    if not os.path.exists(folder):
+        os.makedirs(folder, exist_ok=True)
+        
     for left_index, right_index in tqdm(usable_path):
         if max_time > 0 and int(time.time() - start_time) > max_time:
             data["conclusive"] = False
@@ -47,6 +50,9 @@ def contract_tdds(tdds, data, max_time=-1, max_node_size=-1):
         tdds[right_index] = tddu.cont(tdds[left_index], tdds[right_index])
         intermediate_tdd_size = tdds[right_index].node_number()
         sizes[right_index].append(intermediate_tdd_size)
+        if save_intermediate_results:
+            file_path = os.path.join(folder, "tdd_" + str(left_index) + "_" + str(right_index))
+            tdds[right_index].show(name=file_path)
         if max_node_size > 0 and intermediate_tdd_size > max_node_size:
             data["conclusive"] = False
             print("Node size limit reached. Aborting check")
@@ -164,20 +170,22 @@ def first_experiment():
             gate_tdds = tddu.get_tdds_from_quimb_tensor_network(tensor_network)
             data["gate_prep_time"] = int((time.time_ns() - starting_time) / 1000000)
 
+            tddu.draw_all_tdds(gate_tdds, folder=os.path.join(folder_path, data["file_name"] + f"_R{attempts}"))
 
-            # def reverse_lexicographic_key(s):
-            #     return (len(s), s[::-1])
 
-            # quimb_result = tensor_network.contract(optimize=data["path_data"]["original_path"])
-            # variable_order = sorted(list(quimb_result.inds), key=reverse_lexicographic_key, reverse=True)
-            # processed_result = quimb_result.transpose(*variable_order, inplace=False)
+            def reverse_lexicographic_key(s):
+                return (len(s), s[::-1])
+
+            quimb_result = tensor_network.contract(optimize=data["path_data"]["original_path"])
+            variable_order = sorted(list(quimb_result.inds), key=reverse_lexicographic_key, reverse=True)
+            processed_result = quimb_result.transpose(*variable_order, inplace=False)
 
             # np.array([v.real if abs(v) > 0.01 else 0 for v in (quimb_result.data*(-1j)).flatten()]).reshape((32,32))
 
             # Contract TDDs + equivalence checking
             print(f"Contracting {len(path)} times...")
             starting_time = time.time_ns()
-            result_tdd = contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"])
+            result_tdd = contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"], save_intermediate_results=True, folder_path=os.path.join(folder_path, data["file_name"] + f"_R{attempts}"))
             data["contraction_time"] = int((time.time_ns() - starting_time) / 1000000)
 
             # Save data for circuit
