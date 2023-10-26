@@ -22,7 +22,7 @@ def tdd_contract(tdd1: TDD, tdd2: TDD):
 def reverse_lexicographic_key(s):
         return (len(s), s[::-1])
 
-def get_tdds_from_quimb_tensor_network(tensor_network):
+def get_tdds_from_quimb_tensor_network(tensor_network) -> dict[int,TDD.TDD]:
     variable_order = sorted(list(tensor_network.all_inds()), key=reverse_lexicographic_key, reverse=True)
     Ini_TDD(variable_order, max_rank=5000)
     
@@ -35,10 +35,11 @@ def get_tdds_from_quimb_tensor_network(tensor_network):
     return tdds
 
 
-def draw_all_tdds(tdds: dict[int,TDD.TDD]):
-    folder_name = "tdds_images"
+def draw_all_tdds(tdds: dict[int,TDD.TDD], folder="tdds_images"):
+    if not os.path.exists(folder):
+        os.makedirs(folder, exist_ok=True)
     for key, tdd in tdds.items():
-        file_path = os.path.join(folder_name, "tdd_" + str(key))
+        file_path = os.path.join(folder, "tdd_" + str(key))
         tdd.show(name=file_path)
 
 def get_identity_tdd(inds):
