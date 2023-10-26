@@ -50,21 +50,28 @@ def get_identity_tdd(inds):
     t = Tensor(identity_tensor, inds)
     return t.tdd() if n <= len(TDD.global_index_order) else None
 
+def to_complex(z):
+    return z.r.val + z.i.val * 1j
 
-def matrix_of_tdd(tdd):    
-    return QTensor(matrix_of_node(TDD.node, tdd.weight, tdd.index_set), tdd.index_set)
+def tensor_of_tdd(tdd):    
+    t = tensor_of_node(tdd.node, to_complex(tdd.weight), tdd.index_set[::-1])
+    return QTensor(t, tdd.index_set)
 
-def matrix_of_node(node, weight, inds):
+def tensor_of_node(node, weight, inds):
     if node == TDD.terminal_node:
-        return np.array([weight + 0j])
+        if inds == []:
+            return weight
+        else:
+            t = tensor_of_node(node, weight, inds[1:])
+            return [t, t]
 
     ind = inds[0]
 
-    if node.id == ind:
-        left = matrix_of_node(node.succ[0], weight * node.out_weight[0], inds[1:])
-        right = matrix_of_node(node.succ[1], weight * node.out_weight[1], inds[1:])
+    if node.key == TDD.global_index_order[ind.name]:
+        left = tensor_of_node(node.succ[0], weight * to_complex(node.out_weight[0]), inds[1:])
+        right = tensor_of_node(node.succ[1], weight * to_complex(node.out_weight[1]), inds[1:])
     else:
-        left = matrix_of_node(node, weight, inds[1:])
+        left = tensor_of_node(node, weight, inds[1:])
         right = left
 
     return [left, right]
@@ -88,3 +95,13 @@ def is_tdd_identitiy(node):
                 right_node.out_weight[1] == ct.cn1 and
                 left_node.succ[0] == right_node.succ[1] and
                 is_tdd_identitiy(left_node.succ[0]))
+
+if __name__ == "__main__":
+    inds = [str(i) for i in range(4)]
+    Ini_TDD(inds)
+
+    I = get_identity_tdd([Index(i) for i in inds])
+
+    m = tensor_of_tdd(I)
+
+    print("?")
