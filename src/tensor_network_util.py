@@ -152,7 +152,7 @@ def get_contraction_path(tensor_network, data):
         
     elif settings["method"] == "linear":
         usable_path = get_linear_path(tensor_network, settings["linear_fraction"] if "linear_fraction" in settings else 0.0)
-        
+
     else:
         raise NotImplementedError(f"Method {settings['method']} is not supported")
 
@@ -278,7 +278,7 @@ if __name__ == "__main__":
 
     #draw_depth_order(tensor_network)
 
-    usable_path = get_linear_path(tensor_network, fraction=0.5)
+    usable_path = get_linear_path(tensor_network, fraction=0.8)
     print(verify_path(usable_path))
 
     #usable_path = get_usable_path(tensor_network, tensor_network.contraction_path(ctg.HyperOptimizer(methods = "greedy", minimize="flops", max_repeats=1, max_time=60, progbar=True, parallel=False)))

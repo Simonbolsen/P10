@@ -6,6 +6,7 @@ import os
 import numpy as np
 import tddpure.TDD.ComplexTable as ct
 import tddpure.TDD.TDD as TDD
+from quimb.tensor import Tensor as QTensor
 
 def tn_to_tdd(tn: TensorNetwork):
     return tn.cont()
@@ -48,22 +49,24 @@ def get_identity_tdd(inds):
     t = Tensor(identity_tensor, inds)
     return t.tdd() if n <= len(TDD.global_index_order) else None
 
-def matrix_of_tdd(node):
-    if type(node) == TDD.TDD:
-        node = node.node
+
+def matrix_of_tdd(tdd):    
+    return QTensor(matrix_of_node(TDD.node, tdd.weight, tdd.index_set), tdd.index_set)
+
+def matrix_of_node(node, weight, inds):
     if node == TDD.terminal_node:
-        return np.array([1 + 0j])
-    
-    n0 = node.succ[0]
-    n1 = node.succ[1]
+        return np.array([weight + 0j])
 
-    m00 = (node.out_weight[0] * n0.out_weight[0]) * matrix_of_tdd(n0.succ[0])
-    m01 = (node.out_weight[0] * n0.out_weight[1]) * matrix_of_tdd(n0.succ[1])
-    m10 = (node.out_weight[1] * n1.out_weight[0]) * matrix_of_tdd(n1.succ[0])
-    m11 = (node.out_weight[1] * n1.out_weight[1]) * matrix_of_tdd(n1.succ[1])
+    ind = inds[0]
 
-    return np.concatenate((np.vstack(m00, m10), np.vstack(m01, m11)), axis = 1)
+    if node.id == ind:
+        left = matrix_of_node(node.succ[0], weight * node.out_weight[0], inds[1:])
+        right = matrix_of_node(node.succ[1], weight * node.out_weight[1], inds[1:])
+    else:
+        left = matrix_of_node(node, weight, inds[1:])
+        right = left
 
+    return [left, right]
 
 def is_tdd_equal(tdd, tensor):
      return False #TODO
