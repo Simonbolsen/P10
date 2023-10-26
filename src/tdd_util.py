@@ -1,9 +1,7 @@
-from mqt.ddsim.pathqasmsimulator import create_tensor_network
 from qiskit import QuantumCircuit
 from tddpure.TDD.TDD import Ini_TDD, cont
 from tddpure.TDD.TN import Index,Tensor,TensorNetwork
-from tddpure.TDD.TDD_Q import cir_2_tn,get_real_qubit_num,add_trace_line,add_inputs,add_outputs
-import circuit_util as cu
+from tddpure.TDD.TDD_Q import cir_2_tn
 import os
 import numpy as np
 import tddpure.TDD.ComplexTable as ct
@@ -50,6 +48,23 @@ def get_identity_tdd(inds):
                                     [int(i / 2) + (i % 2) * n for i in range(n * 2)])
     t = Tensor(identity_tensor, inds)
     return t.tdd() if n <= len(TDD.global_index_order) else None
+
+def matrix_of_tdd(node):
+    if type(node) == TDD.TDD:
+        node = node.node
+    if node == TDD.terminal_node:
+        return np.array([1 + 0j])
+    
+    n0 = node.succ[0]
+    n1 = node.succ[1]
+
+    m00 = (node.out_weight[0] * n0.out_weight[0]) * matrix_of_tdd(n0.succ[0])
+    m01 = (node.out_weight[0] * n0.out_weight[1]) * matrix_of_tdd(n0.succ[1])
+    m10 = (node.out_weight[1] * n1.out_weight[0]) * matrix_of_tdd(n1.succ[0])
+    m11 = (node.out_weight[1] * n1.out_weight[1]) * matrix_of_tdd(n1.succ[1])
+
+    return np.concatenate((np.vstack(m00, m10), np.vstack(m01, m11)), axis = 1)
+
 
 def is_tdd_equal(tdd, tensor):
      return False #TODO
