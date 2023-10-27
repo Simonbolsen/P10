@@ -5,6 +5,7 @@ import tn_draw
 import random
 import os
 import numpy as np
+import urllib.parse
 
 def get_circuit(n):
     circ = Circuit(n)
@@ -64,8 +65,6 @@ def contract(tensor_network, path, draw_frequency = -1):
         tensor_network._contract_between_tids(step[0], step[1])
     
     return tensor_network.tensor_map[usable_path[-1][1]]
-
-
 
 def get_tensor_network(circuit, split_cnot = True, state = None):
     if state is not None:
@@ -223,6 +222,18 @@ def verify_path(usable_path):
 
     return True, ""
 
+def get_dot_from_path(input_list):
+    # Initialize an empty list to store the transformed strings
+    transformed_list = []
+
+    # Iterate through the sublists and format them as required
+    for sublist in input_list:
+        if len(sublist) == 2:
+            transformed_list.append(f'a{sublist[0]} -> a{sublist[1]}')
+
+    # Join the transformed strings with semicolons and return the result
+    return "https://dreampuf.github.io/GraphvizOnline/#" + urllib.parse.quote("digraph G {" + '; '.join(transformed_list) + ";}")
+
 def get_ind_contraction_order(tensor_network, usable_path):
     inds_by_tensor_index = {i : t.inds  for i, t in tensor_network.tensor_map.items()}
     ind_contraction_order = {}
@@ -306,6 +317,11 @@ def draw_depth_order(tensor_network):
     tn_draw.draw_tn(tensor_network, iterations=3, initial_layout='kamada_kawai', node_color=node_colors, edge_scale=5, node_scale=10)
 
 if __name__ == "__main__":
+
+    print(get_dot_from_path([[24,22],[25,22],[26,22],[27,22],[28,22],[33,29],[34,29],[22,29],[35,29],[36,29],[37,29],[19,20],[31,20],[29,20],[40,38],[41,38],[42,38],[16,17],[38,17],[20,17],[47,45],[44,45],[48,45],[43,45],[49,45],[50,45],[13,14],[45,14],[54,52],[51,52],[55,52],[10,11],[52,11],[14,11],[7,8],[6,8],[11,8],[17,8],[58,59],[61,59],[62,59],[63,59],[64,59],[57,59],[56,59],[65,59],[8,59]]))
+
+
+
     n = 10
     options = [[1 + 0j, 0j], [0j, 1 + 0j]]
     state = [random.choice(options) for _ in range(n)]
