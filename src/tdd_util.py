@@ -6,6 +6,7 @@ import os
 import numpy as np
 import tddpure.TDD.ComplexTable as ct
 import tddpure.TDD.TDD as TDD
+from quimb.tensor import Tensor as QTensor
 
 def tn_to_tdd(tn: TensorNetwork):
     return tn.cont()
@@ -49,22 +50,31 @@ def get_identity_tdd(inds):
     t = Tensor(identity_tensor, inds)
     return t.tdd() if n <= len(TDD.global_index_order) else None
 
-def matrix_of_tdd(node):
-    if type(node) == TDD.TDD:
-        node = node.node
+def to_complex(z):
+    return z.r.val + z.i.val * 1j
+
+def tensor_of_tdd(tdd):    
+    t = tensor_of_node(tdd.node, to_complex(tdd.weight), tdd.index_set[::-1])
+    return QTensor(t, tdd.index_set)
+
+def tensor_of_node(node, weight, inds):
     if node == TDD.terminal_node:
-        return np.array([1 + 0j])
-    
-    n0 = node.succ[0]
-    n1 = node.succ[1]
+        if inds == []:
+            return weight
+        else:
+            t = tensor_of_node(node, weight, inds[1:])
+            return [t, t]
 
-    m00 = (node.out_weight[0] * n0.out_weight[0]) * matrix_of_tdd(n0.succ[0])
-    m01 = (node.out_weight[0] * n0.out_weight[1]) * matrix_of_tdd(n0.succ[1])
-    m10 = (node.out_weight[1] * n1.out_weight[0]) * matrix_of_tdd(n1.succ[0])
-    m11 = (node.out_weight[1] * n1.out_weight[1]) * matrix_of_tdd(n1.succ[1])
+    ind = inds[0]
 
-    return np.concatenate((np.vstack(m00, m10), np.vstack(m01, m11)), axis = 1)
+    if node.key == TDD.global_index_order[ind.name]:
+        left = tensor_of_node(node.succ[0], weight * to_complex(node.out_weight[0]), inds[1:])
+        right = tensor_of_node(node.succ[1], weight * to_complex(node.out_weight[1]), inds[1:])
+    else:
+        left = tensor_of_node(node, weight, inds[1:])
+        right = left
 
+    return [left, right]
 
 def is_tdd_equal(tdd, tensor):
      return False #TODO
@@ -85,3 +95,13 @@ def is_tdd_identitiy(node):
                 right_node.out_weight[1] == ct.cn1 and
                 left_node.succ[0] == right_node.succ[1] and
                 is_tdd_identitiy(left_node.succ[0]))
+
+if __name__ == "__main__":
+    inds = [str(i) for i in range(4)]
+    Ini_TDD(inds)
+
+    I = get_identity_tdd([Index(i) for i in inds])
+
+    m = tensor_of_tdd(I)
+
+    print("?")
