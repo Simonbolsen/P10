@@ -195,6 +195,7 @@ def get_contraction_path(tensor_network, data):
     data["path"] = usable_path
     (verified, msg) = verify_path(usable_path)
     if not verified:
+        print(usable_path)
         raise AssertionError(f"Not valid path: {msg}")
 
     return usable_path
