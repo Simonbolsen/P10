@@ -2,7 +2,7 @@ from quimb.tensor import Circuit
 import cotengra as ctg
 import numpy as np
 import random
-from tddpure.TDD.TDD import Ini_TDD, TDD, tdd_2_np
+from tddpure.TDD.TDD import Ini_TDD, TDD, tdd_2_np, cont
 from tddpure.TDD.TN import Index,Tensor,TensorNetwork
 from tddpure.TDD.TDD_Q import cir_2_tn,get_real_qubit_num,add_trace_line,add_inputs,add_outputs
 import circuit_util as cu
@@ -34,24 +34,51 @@ selected_algorithms = [
 ]
 
 # ---------------------- SUPPORT FUNCTIONS ------------------------------
-def contract_tdds(tdds, data, max_time=-1, max_node_size=-1, save_intermediate_results=False, folder_path=""):
+def contract_tdds(tdds, data, max_time=-1, max_node_size=-1, save_intermediate_results=False, comprehensive_saving=False, folder_path=""):
     start_time = time.time()
     usable_path = data["path"]
     sizes = {i: [0, tdd.node_number()] for i, tdd in tdds.items()}
     folder = os.path.join(folder_path, "intermediate_results")
     if not os.path.exists(folder):
         os.makedirs(folder, exist_ok=True)
-        
+
+    working_layer = ""
+    it = 0 
     for left_index, right_index in tqdm(usable_path):
         if max_time > 0 and int(time.time() - start_time) > max_time:
             data["conclusive"] = False
             print("Time limit for contraction reached. Aborting check")
             return None
-        tdds[right_index] = tddu.cont(tdds[left_index], tdds[right_index])
+        if save_intermediate_results:
+            if comprehensive_saving:
+                working_layer = f"Contraction_{it}__{left_index}_{right_index}"
+                if not os.path.exists(folder):
+                    os.makedirs(folder, exist_ok=True)
+                tdds[left_index].show(name=os.path.join(folder, working_layer, "tdd_" + str(left_index)))
+                tdds[right_index].show(name=os.path.join(folder, working_layer, "tdd_" + str(right_index)))
+                it += 1
+        left_tensor = tddu.tensor_of_tdd(tdds[left_index])
+        right_tensor = tddu.tensor_of_tdd(tdds[right_index])
+        presumed_result_tensor = left_tensor.contract(right_tensor)
+
+        tdds[right_index] = cont(tdds[left_index], tdds[right_index])
+
+        result_tensor = tddu.tensor_of_tdd(tdds[right_index])
+        presumed_result_tensor = presumed_result_tensor.transpose(*result_tensor.inds)
+        # Check tdd and tensor are same
+        same = presumed_result_tensor.inds == result_tensor.inds
+        same = same and np.allclose(presumed_result_tensor.data, result_tensor.data)
+        wrong_nodes = []
+        if not same:
+            data["not_same_tensors"].append((left_index, right_index))
+            wrong_nodes.append(right_index)
+
+        data["path_data"]["dot"] = tnu.get_dot_from_path(usable_path, wrong_nodes)
+
         intermediate_tdd_size = tdds[right_index].node_number()
         sizes[right_index].append(intermediate_tdd_size)
         if save_intermediate_results:
-            file_path = os.path.join(folder, "tdd_" + str(left_index) + "_" + str(right_index))
+            file_path = os.path.join(folder, working_layer, "tdd_" + str(left_index) + "_" + str(right_index))
             tdds[right_index].show(name=file_path)
         if max_node_size > 0 and intermediate_tdd_size > max_node_size:
             data["conclusive"] = False
@@ -113,7 +140,7 @@ def first_experiment():
             "experiment_name": experiment_name,
             "file_name": f"circuit_{circ_conf['algorithm']}_{circ_conf['level'][0]}{circ_conf['level'][1]}_{circ_conf['qubits']}",
             "contraction_settings": {
-                "max_time": 60, # in seconds, -1 for inf
+                "max_time": -1, # in seconds, -1 for inf
                 "max_replans": 3,
                 "max_intermediate_node_size": -1 #-1 for inf
             },
@@ -126,12 +153,17 @@ def first_experiment():
                 "max_repeats": 256,
                 "max_time": 60
             },
-            "path_data": {}
+            "path_data": {},
+            "not_same_tensors": []
         }
 
         if "simulate" in settings and settings["simulate"]:
             options = [[1 + 0j, 0j], [0j, 1 + 0j]]
             settings["state"] = [random.choice(options) for _ in range(circ_conf["qubits"])]
+        
+        working_path = os.path.join(folder_path, data["file_name"])
+        if not os.path.exists(working_path):
+            os.makedirs(working_path, exist_ok=True)
 
         # Prepare circuit
         print("Preparing circuits...")
@@ -161,8 +193,8 @@ def first_experiment():
             path = tnu.get_contraction_path(tensor_network, data)
             data["path_construction_time"] = int((time.time_ns() - starting_time) / 1000000)
 
-            tn_draw.draw_tn(tensor_network, color=['PSI0', 'H', 'CX', 'RZ', 'RX', 'CZ'], save_path=os.path.join(folder_path, data["file_name"] + f"_R{attempts}"))
-            #tnu.draw_contraction_order(tensor_network, path, save_path=os.path.join(folder_path, data["file_name"] + f"_R{attempts}"))
+            tn_draw.draw_tn(tensor_network, color=['PSI0', 'H', 'CX', 'RZ', 'RX', 'CZ'], save_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
+            #tnu.draw_contraction_order(tensor_network, path, save_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
 
             # Prepare gate TDDs
             print("Preparing gate TDDs...")
@@ -170,7 +202,7 @@ def first_experiment():
             gate_tdds = tddu.get_tdds_from_quimb_tensor_network(tensor_network)
             data["gate_prep_time"] = int((time.time_ns() - starting_time) / 1000000)
 
-            tddu.draw_all_tdds(gate_tdds, folder=os.path.join(folder_path, data["file_name"] + f"_R{attempts}"))
+            #tddu.draw_all_tdds(gate_tdds, folder=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
 
 
             def reverse_lexicographic_key(s):
@@ -179,33 +211,76 @@ def first_experiment():
             quimb_result = tensor_network.contract(optimize=data["path_data"]["original_path"])
             variable_order = sorted(list(quimb_result.inds), key=reverse_lexicographic_key, reverse=True)
             processed_result = quimb_result.transpose(*variable_order, inplace=False)
+            Tensor(processed_result.data, [Index(s) for s in processed_result.inds]).tdd().show(name=os.path.join(working_path, data["file_name"] + f"_R{attempts}" + "_tensor_cont"))
 
             # np.array([v.real if abs(v) > 0.01 else 0 for v in (quimb_result.data*(-1j)).flatten()]).reshape((32,32))
 
             # Contract TDDs + equivalence checking
             print(f"Contracting {len(path)} times...")
             starting_time = time.time_ns()
-            result_tdd = contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"], save_intermediate_results=True, folder_path=os.path.join(folder_path, data["file_name"] + f"_R{attempts}"))
+            result_tdd = contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"], save_intermediate_results=False, comprehensive_saving=False, folder_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
             data["contraction_time"] = int((time.time_ns() - starting_time) / 1000000)
 
             # Save data for circuit
             if not debug:
                 print("Saving data...")
-                file_path = os.path.join(folder_path, data["file_name"] + f"_R{attempts}" + ".json")
+                file_path = os.path.join(working_path, data["file_name"] + f"_R{attempts}" + ".json")
                 with open(file_path, "w") as file:
                     json.dump(data, file, indent=4)
 
-            result_tdd.show(name=os.path.join(folder_path, data["file_name"] + f"_R{attempts}" + "_TDD"))
+            result_tdd.show(name=os.path.join(working_path, data["file_name"] + f"_R{attempts}" + "_TDD"))
             if result_tdd is not None:
                 succeeded = True
             else:
                 print(f"Retry #{attempts+1}")
 
-        if not succeeded:
-            print("Failed to check equivalence of circuits")
+        # ------------------------------- RUNNING THE LINEAR PLAN -------------------------------
+        if False:
+            print("------------------- Starting Linear Run -------------------")
+            data["path_settings"]["method"] = "linear"
+            data["linear_fraction"] = 0
+            data["file_name"] = data["file_name"] + "_lin"
 
-        #print("Saving resulting TDD image...")
-        #result_tdd.show(name="tester")
+            print("Find contraction path...")
+            starting_time = time.time_ns()
+            path = tnu.get_contraction_path(tensor_network, data)
+            data["path_construction_time"] = int((time.time_ns() - starting_time) / 1000000)
+
+            tn_draw.draw_tn(tensor_network, color=['PSI0', 'H', 'CX', 'RZ', 'RX', 'CZ'], save_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
+            #tnu.draw_contraction_order(tensor_network, path, save_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
+
+            # Prepare gate TDDs
+            print("Preparing gate TDDs...")
+            starting_time = time.time_ns()
+            gate_tdds = tddu.get_tdds_from_quimb_tensor_network(tensor_network)
+            data["gate_prep_time"] = int((time.time_ns() - starting_time) / 1000000)
+
+            #tddu.draw_all_tdds(gate_tdds, folder=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
+
+            # Contract TDDs + equivalence checking
+            print(f"Contracting {len(path)} times...")
+            starting_time = time.time_ns()
+            result_tdd = contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"], save_intermediate_results=False, comprehensive_saving=False, folder_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
+            data["contraction_time"] = int((time.time_ns() - starting_time) / 1000000)
+
+            # Save data for circuit
+            if not debug:
+                print("Saving data...")
+                file_path = os.path.join(working_path, data["file_name"] + f"_R{attempts}" + ".json")
+                with open(file_path, "w") as file:
+                    json.dump(data, file, indent=4)
+
+            result_tdd.show(name=os.path.join(working_path, data["file_name"] + f"_R{attempts}" + "_TDD"))
+            if result_tdd is not None:
+                succeeded = True
+            else:
+                print(f"Retry #{attempts+1}")
+
+            if not succeeded:
+                print("Failed to check equivalence of circuits")
+
+            #print("Saving resulting TDD image...")
+            #result_tdd.show(name="tester")
 
     # Save collected data
 

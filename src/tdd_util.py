@@ -29,12 +29,11 @@ def get_tdds_from_quimb_tensor_network(tensor_network) -> dict[int,TDD.TDD]:
     tdds = {}
 
     for i, tensor in tensor_network.tensor_map.items():
-        tensor_t = tensor.transpose(*(sorted(list(tensor.inds), key=reverse_lexicographic_key, reverse=True)))
-        t = Tensor(tensor_t.data, [Index(s) for s in tensor_t.inds])
+        #tensor_t = tensor.transpose(*(sorted(list(tensor.inds), key=reverse_lexicographic_key, reverse=False)))
+        t = Tensor(tensor.data, [Index(s) for s in tensor.inds])
         tdds[i] = t.tdd()
         check = tensor_of_tdd(tdds[i])
-        same = check.inds == tensor_t.inds
-        same = same and np.allclose(check.data, tensor_t.data)
+        same = np.allclose(check.data, tensor.transpose(*check.inds).data)
         ...
 
     return tdds
@@ -59,25 +58,26 @@ def to_complex(z):
     return z.r.val + z.i.val * 1j
 
 def tensor_of_tdd(tdd):    
-    t = tensor_of_node(tdd.node, to_complex(tdd.weight), tdd.index_set[::-1], tdd.index_set)
-    idx_names = [idx.name for idx in tdd.index_set]
-    return QTensor(t, idx_names)#.transpose(*sorted(list(), key=reverse_lexicographic_key, reverse=True))
+    ki_set = tdd.key_2_index
+    idx_names = [ki_set[i] for i in range(len(ki_set))]#[idx.name for idx in tdd.index_set]
+    t = tensor_of_node(tdd.node, to_complex(tdd.weight), idx_names, ki_set)
+    return QTensor(t, idx_names[::-1])#.transpose(*sorted(list(), key=reverse_lexicographic_key, reverse=True))
 
-def tensor_of_node(node, weight, inds, index_set):
+def tensor_of_node(node, weight, inds, key_index_set):
     if node == TDD.terminal_node:
         if inds == []:
             return weight
         else:
-            t = tensor_of_node(node, weight, inds[1:], index_set)
+            t = tensor_of_node(node, weight, inds[:-1], key_index_set)
             return [t, t]
 
-    ind = inds[0]
+    ind = inds[-1]
 
-    if index_set[node.key].name == ind.name:
-        left = tensor_of_node(node.succ[0], weight * to_complex(node.out_weight[0]), inds[1:], index_set)
-        right = tensor_of_node(node.succ[1], weight * to_complex(node.out_weight[1]), inds[1:], index_set)
+    if key_index_set[node.key] == ind:
+        left = tensor_of_node(node.succ[0], weight * to_complex(node.out_weight[0]), inds[:-1], key_index_set)
+        right = tensor_of_node(node.succ[1], weight * to_complex(node.out_weight[1]), inds[:-1], key_index_set)
     else:
-        left = tensor_of_node(node, weight, inds[1:], index_set)
+        left = tensor_of_node(node, weight, inds[:-1], key_index_set)
         right = left
 
     return [left, right]

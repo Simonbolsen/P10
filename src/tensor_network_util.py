@@ -223,7 +223,7 @@ def verify_path(usable_path):
 
     return True, ""
 
-def get_dot_from_path(input_list):
+def get_dot_from_path(input_list, wrong_nodes=[]):
     # Initialize an empty list to store the transformed strings
     transformed_list = []
 
@@ -232,8 +232,10 @@ def get_dot_from_path(input_list):
         if len(sublist) == 2:
             transformed_list.append(f'a{sublist[0]} -> a{sublist[1]}')
 
+    wrong_nodes_str = "\n".join(["a" + str(wrong_node) + "[style = filled, color = red]" for wrong_node in wrong_nodes])
+
     # Join the transformed strings with semicolons and return the result
-    return "https://dreampuf.github.io/GraphvizOnline/#" + urllib.parse.quote("digraph G {" + '; '.join(transformed_list) + ";}")
+    return "https://dreampuf.github.io/GraphvizOnline/#" + urllib.parse.quote("digraph G {" + '; '.join(transformed_list) + ";\n\n" + wrong_nodes_str + "}")
 
 def get_ind_contraction_order(tensor_network, usable_path):
     inds_by_tensor_index = {i : t.inds  for i, t in tensor_network.tensor_map.items()}
