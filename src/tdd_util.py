@@ -29,8 +29,13 @@ def get_tdds_from_quimb_tensor_network(tensor_network) -> dict[int,TDD.TDD]:
     tdds = {}
 
     for i, tensor in tensor_network.tensor_map.items():
-        t = Tensor(tensor.data, [Index(s) for s in tensor.inds])
+        tensor_t = tensor.transpose(*(sorted(list(tensor.inds), key=reverse_lexicographic_key, reverse=True)))
+        t = Tensor(tensor_t.data, [Index(s) for s in tensor_t.inds])
         tdds[i] = t.tdd()
+        check = tensor_of_tdd(tdds[i])
+        same = check.inds == tensor_t.inds
+        same = same and np.allclose(check.data, tensor_t.data)
+        ...
 
     return tdds
 
@@ -54,24 +59,25 @@ def to_complex(z):
     return z.r.val + z.i.val * 1j
 
 def tensor_of_tdd(tdd):    
-    t = tensor_of_node(tdd.node, to_complex(tdd.weight), tdd.index_set[::-1])
-    return QTensor(t, tdd.index_set)
+    t = tensor_of_node(tdd.node, to_complex(tdd.weight), tdd.index_set[::-1], tdd.index_set)
+    idx_names = [idx.name for idx in tdd.index_set]
+    return QTensor(t, idx_names)#.transpose(*sorted(list(), key=reverse_lexicographic_key, reverse=True))
 
-def tensor_of_node(node, weight, inds):
+def tensor_of_node(node, weight, inds, index_set):
     if node == TDD.terminal_node:
         if inds == []:
             return weight
         else:
-            t = tensor_of_node(node, weight, inds[1:])
+            t = tensor_of_node(node, weight, inds[1:], index_set)
             return [t, t]
 
     ind = inds[0]
 
-    if node.key == TDD.global_index_order[ind.name]:
-        left = tensor_of_node(node.succ[0], weight * to_complex(node.out_weight[0]), inds[1:])
-        right = tensor_of_node(node.succ[1], weight * to_complex(node.out_weight[1]), inds[1:])
+    if index_set[node.key].name == ind.name:
+        left = tensor_of_node(node.succ[0], weight * to_complex(node.out_weight[0]), inds[1:], index_set)
+        right = tensor_of_node(node.succ[1], weight * to_complex(node.out_weight[1]), inds[1:], index_set)
     else:
-        left = tensor_of_node(node, weight, inds[1:])
+        left = tensor_of_node(node, weight, inds[1:], index_set)
         right = left
 
     return [left, right]
