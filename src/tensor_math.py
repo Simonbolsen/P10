@@ -36,7 +36,7 @@ def test1():
     a_inds = ['k3', 'J', 'R', 'c', 'r', 'w']
     b_inds = ['b3', 'r', 'w', 'z']
     c_inds = ['b3', 'k3', 'J', 'R', 'c', 'z']
-    c = np.einsum("abcdef,gefh->gabcdh", a, b)
+    c = np.einsum("ax b c d e f,g e f h->g ax b c d h", a, b)
 
     TDD.Ini_TDD(['b3', 'k3', 'J', 'R', 'c', 'r', 'w', 'z'])
     ta = Tensor(a, get_indeces(a_inds))
@@ -49,8 +49,9 @@ def test1():
 
     print([f"{k}: {i.node_number()}" for k, i in tdds.items()])
 
-    for k, i in tdds.items():
-        i.show(name = k)
+    #for k, i in tdds.items():
+    #    i.show(name = k)
 
 if __name__ == "__main__":
-    test_experiment(example)
+    #test_experiment(example)
+    test1()
