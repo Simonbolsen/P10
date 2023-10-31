@@ -124,11 +124,11 @@ def get_tensor_network(circuit, split_cnot = True, state = None):
 
 def rectify_complex(v: complex, threshold=1e-12) -> complex:
     new_v_real = v.real
-    if v.real - round(v.real) < threshold:
+    if abs(v.real - round(v.real)) < threshold:
         new_v_real = round(v.real)
     
     new_v_imag = v.imag
-    if v.imag - round(v.imag) < threshold:
+    if abs(v.imag - round(v.imag)) < threshold:
         new_v_imag = round(v.imag)
 
     return complex(new_v_real, new_v_imag)
