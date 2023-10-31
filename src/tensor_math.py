@@ -2,6 +2,7 @@ import numpy as np
 import tddpure.TDD.TDD as TDD
 from tddpure.TDD.TN import Tensor
 from example import tdd_analysis as example
+from correct_example import correct_example
 from tdd_util import reverse_lexicographic_key
 
 def get_indeces(inds):
@@ -22,6 +23,8 @@ def test_experiment(data):
     tdds = {name : t.tdd() for name, t in tensors.items()}
 
     print([f"{k}: {i.node_number()}" for k, i in tdds.items()])
+
+    TDD.cont(tdds["left"], tdds["right"])
 
     # for k, i in tdds.items():
     #    i.show(name = k)
@@ -54,3 +57,4 @@ def test1():
 
 if __name__ == "__main__":
     test_experiment(example)
+    test_experiment(correct_example)
