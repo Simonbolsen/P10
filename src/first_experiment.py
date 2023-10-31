@@ -34,6 +34,13 @@ selected_algorithms = [
 ]
 
 # ---------------------- SUPPORT FUNCTIONS ------------------------------
+
+def map_complex(data):
+    if isinstance(data, list):
+        return [map_complex(item) for item in data]
+    else:
+        return (data.real, data.imag)
+    
 def contract_tdds(tdds, data, max_time=-1, max_node_size=-1, save_intermediate_results=False, comprehensive_saving=False, folder_path=""):
     start_time = time.time()
     usable_path = data["path"]
@@ -70,6 +77,22 @@ def contract_tdds(tdds, data, max_time=-1, max_node_size=-1, save_intermediate_r
         same = same and np.allclose(presumed_result_tensor.data, result_tensor.data)
         wrong_nodes = []
         if not same:
+            if data["tdd_analysis"] is None:
+                
+                data["tdd_analysis"] = {
+                    "left_tensor": map_complex(left_tensor.data.tolist()),
+                    "right_tensor": map_complex(right_tensor.data.tolist()),
+                    "result_tensor": map_complex(presumed_result_tensor.data.tolist()),
+                    "actual_result_tensor": map_complex(result_tensor.data.tolist()),
+                    "left_tensor_inds": left_tensor.inds,
+                    "right_tensor_inds": right_tensor.inds,
+                    "result_tensor_inds": presumed_result_tensor.inds,
+                    "actual_result_tensor_inds": result_tensor.inds,
+                    "tdds_in": os.path.join(folder, working_layer, "tdd_" + str(left_index)),
+                    "left_tdd_name": left_index,
+                    "right_tdd_name": right_index
+                }
+
             data["not_same_tensors"].append((left_index, right_index))
             wrong_nodes.append(right_index)
 
@@ -154,7 +177,8 @@ def first_experiment():
                 "max_time": 60
             },
             "path_data": {},
-            "not_same_tensors": []
+            "not_same_tensors": [],
+            "tdd_analysis": None
         }
 
         if "simulate" in settings and settings["simulate"]:
@@ -211,15 +235,20 @@ def first_experiment():
             quimb_result = tensor_network.contract(optimize=data["path_data"]["original_path"])
             variable_order = sorted(list(quimb_result.inds), key=reverse_lexicographic_key, reverse=True)
             processed_result = quimb_result.transpose(*variable_order, inplace=False)
-            Tensor(processed_result.data, [Index(s) for s in processed_result.inds]).tdd().show(name=os.path.join(working_path, data["file_name"] + f"_R{attempts}" + "_tensor_cont"))
+            quimb_result_tdd = Tensor(processed_result.data, [Index(s) for s in processed_result.inds]).tdd()
+            quimb_result_tdd.show(name=os.path.join(working_path, data["file_name"] + f"_R{attempts}" + "_tensor_cont"))
+            data["quimb_equivalence"] = tddu.is_tdd_identitiy(quimb_result_tdd)
 
             # np.array([v.real if abs(v) > 0.01 else 0 for v in (quimb_result.data*(-1j)).flatten()]).reshape((32,32))
 
             # Contract TDDs + equivalence checking
             print(f"Contracting {len(path)} times...")
             starting_time = time.time_ns()
-            result_tdd = contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"], save_intermediate_results=False, comprehensive_saving=False, folder_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
+            result_tdd = contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"], save_intermediate_results=True, comprehensive_saving=True, folder_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
             data["contraction_time"] = int((time.time_ns() - starting_time) / 1000000)
+
+            if (data["quimb_equivalence"] != data["equivalence"]):
+                print('\033[31m' + "Erroneous result: Quimb != TDD" + '\033[m')
 
             # Save data for circuit
             if not debug:
