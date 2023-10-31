@@ -1,7 +1,8 @@
 import numpy as np
 import tddpure.TDD.TDD as TDD
 from tddpure.TDD.TN import Tensor
-from P9.src.example import tdd_analysis as example
+from example import tdd_analysis as example
+from tdd_util import reverse_lexicographic_key
 
 def get_indeces(inds):
     return [TDD.Index(i) for i in inds]
@@ -15,14 +16,14 @@ def to_complex(data):
 def test_experiment(data):
     names = {"left" : "left_tensor", "right" : "right_tensor", "tensor_result" : "result_tensor", "tdd_result" : "actual_result_tensor"}
     arrays = {name:np.array(to_complex(data[data_key])) for name, data_key in names.items()}
-    TDD.Ini_TDD(list(set(data["left_tensor_inds"]) | set(data["right_tensor_inds"])))
+    TDD.Ini_TDD(sorted(list(set(data["left_tensor_inds"]) | set(data["right_tensor_inds"])), key=reverse_lexicographic_key, reverse=True))
 
     tensors = {name : Tensor(arrays[name], get_indeces(data[data_key + "_inds"])) for name, data_key in names.items()}
     tdds = {name : t.tdd() for name, t in tensors.items()}
 
     print([f"{k}: {i.node_number()}" for k, i in tdds.items()])
 
-    #for k, i in tdds.items():
+    # for k, i in tdds.items():
     #    i.show(name = k)
 
 def test1():
