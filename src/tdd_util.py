@@ -32,8 +32,8 @@ def get_tdds_from_quimb_tensor_network(tensor_network) -> dict[int,TDD.TDD]:
         #tensor_t = tensor.transpose(*(sorted(list(tensor.inds), key=reverse_lexicographic_key, reverse=False)))
         t = Tensor(tensor.data, [Index(s) for s in tensor.inds])
         tdds[i] = t.tdd()
-        check = tensor_of_tdd(tdds[i])
-        same = np.allclose(check.data, tensor.transpose(*check.inds).data)
+        #check = tensor_of_tdd(tdds[i])
+        #same = np.allclose(check.data, tensor.transpose(*check.inds).data)
         ...
 
     return tdds
@@ -83,24 +83,38 @@ def tensor_of_node(node, weight, inds, key_index_set):
     return [left, right]
 
 def is_tdd_equal(tdd, tensor):
-     return False #TODO
+     return is_node_equal(tdd.node, tensor)
+
+def is_node_equal(node, tensor):
+    if node == TDD.terminal_node:
+        return True
+    t = tensor[0]
+
+    if node.out_weight[0] == TDD.cn1 and t[0] == 1:
+        return is_node_equal(node.succ[0], tensor[1:])
+    
+    if node.out_weight[1] == TDD.cn1 and t[1] == 1:
+        return is_node_equal(node.succ[1], tensor[1:])
+
+    return False
+
 
 def is_tdd_identitiy(node):
-        if type(node) == TDD.TDD:
-            node = node.node
-        if node == TDD.terminal_node:
-            return True
-        left_node = node.succ[0]
-        right_node = node.succ[1]
+    if type(node) == TDD.TDD:
+        node = node.node
+    if node == TDD.terminal_node:
+        return True
+    left_node = node.succ[0]
+    right_node = node.succ[1]
 
-        return (node.out_weight[0] == ct.cn1 and 
-                node.out_weight[1] == ct.cn1 and
-                left_node.out_weight[0] == ct.cn1 and
-                left_node.out_weight[1] == ct.cn0 and
-                right_node.out_weight[0] == ct.cn0 and
-                right_node.out_weight[1] == ct.cn1 and
-                left_node.succ[0] == right_node.succ[1] and
-                is_tdd_identitiy(left_node.succ[0]))
+    return (node.out_weight[0] == ct.cn1 and 
+            node.out_weight[1] == ct.cn1 and
+            left_node.out_weight[0] == ct.cn1 and
+            left_node.out_weight[1] == ct.cn0 and
+            right_node.out_weight[0] == ct.cn0 and
+            right_node.out_weight[1] == ct.cn1 and
+            left_node.succ[0] == right_node.succ[1] and
+            is_tdd_identitiy(left_node.succ[0]))
 
 if __name__ == "__main__":
     inds = [str(i) for i in range(4)]
