@@ -11,11 +11,13 @@ def load_all_json(folder):
     path = os.scandir(os.path.normpath(os.path.join(os.path.dirname(__file__), '..', folder)))
     files = []
 
-    for file in path:
-        if not file.is_dir() and os.path.splitext(file)[1] == ".json":
-            with open(file, 'r') as json_file:
-                data = json_file.read()
-                files.append(json.loads(data))
+    for sf in path:
+        sub_path = os.scandir(sf)
+        for file in sub_path:
+            if not file.is_dir() and os.path.splitext(file)[1] == ".json":
+                with open(file, 'r') as json_file:
+                    data = json_file.read()
+                    files.append(json.loads(data))
 
     return files
 

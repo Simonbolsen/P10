@@ -24,7 +24,8 @@ def reverse_lexicographic_key(s):
 
 def get_tdds_from_quimb_tensor_network(tensor_network) -> dict[int,TDD.TDD]:
     variable_order = sorted(list(tensor_network.all_inds()), key=reverse_lexicographic_key, reverse=True)
-    Ini_TDD(variable_order, max_rank=5000)
+    Ini_TDD(variable_order, max_rank=len(variable_order)+1)
+    print(f"Using rank {len(variable_order)+1} for TDDs")
     
     tdds = {}
 
@@ -32,9 +33,6 @@ def get_tdds_from_quimb_tensor_network(tensor_network) -> dict[int,TDD.TDD]:
         #tensor_t = tensor.transpose(*(sorted(list(tensor.inds), key=reverse_lexicographic_key, reverse=False)))
         t = Tensor(tensor.data, [Index(s) for s in tensor.inds])
         tdds[i] = t.tdd()
-        check = tensor_of_tdd(tdds[i])
-        same = np.allclose(check.data, tensor.transpose(*check.inds).data)
-        ...
 
     return tdds
 

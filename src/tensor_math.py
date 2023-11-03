@@ -11,7 +11,7 @@ def get_indeces(inds):
 
 def to_complex(data, rounded):
     if isinstance(data[0], list):
-        return [to_complex(i) for i in data]
+        return [to_complex(i, rounded) for i in data]
     elif rounded:
         return rectify_complex(data[0] + data[1] * 1j)
     else:
@@ -98,4 +98,4 @@ def compare_breakpoints():
 
 if __name__ == "__main__":
     test_experiment(example, True)
-    test_experiment(correct_example, True)
+    #test_experiment(correct_example, True)

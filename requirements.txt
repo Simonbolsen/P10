@@ -10,6 +10,7 @@ kahypar
 networkx
 matplotlib
 numpy
+mqt.qcec
 
 numpy
 pandas

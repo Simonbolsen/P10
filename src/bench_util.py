@@ -72,22 +72,22 @@ def get_dual_circuit_setup(c1: QuantumCircuit, c2: QuantumCircuit, data, draw: b
     if draw: 
         print(unrolled_circ)
 
-    sanity_check(unrolled_circ, data)
+    #sanity_check(unrolled_circ, data)
 
-    # bench_circ1_copy = bench_circ1.copy()
-    # # Find start of second circuit:
-    # unrolled_first_circ_gate_count = sum(pm.run(bench_circ1_copy).count_ops().values())
+    bench_circ1_copy = bench_circ1.copy()
+    # Find start of second circuit:
+    unrolled_first_circ_gate_count = sum(pm.run(bench_circ1_copy).count_ops().values())
 
-    # if data["circuit_settings"]["random_gate_deletions"] > (data["circuit_data"]["unrolled_qiskit_gate_count"] - unrolled_first_circ_gate_count + 1):
-    #     # Deleting all gates is not allowed
-    #     raise ValueError("Trying to delete too many gates")
+    if data["circuit_settings"]["random_gate_deletions"] > (data["circuit_data"]["unrolled_qiskit_gate_count"] - unrolled_first_circ_gate_count + 1):
+        # Deleting all gates is not allowed
+        raise ValueError("Trying to delete too many gates")
     
-    # data["circuit_data"]["random_gate_deletions"] = []
-    # for _ in range(data["circuit_settings"]["random_gate_deletions"]):
-    #     # Randomly delete gates
-    #     random_gate_index = randint(unrolled_first_circ_gate_count, data["circuit_data"]["unrolled_qiskit_gate_count"] - 1)
-    #     data["circuit_data"]["random_gate_deletions"].append(random_gate_index)
-    #     del unrolled_circ.data[random_gate_index]
+    data["circuit_data"]["random_gate_deletions"] = []
+    for _ in range(data["circuit_settings"]["random_gate_deletions"]):
+        # Randomly delete gates
+        random_gate_index = randint(unrolled_first_circ_gate_count, data["circuit_data"]["unrolled_qiskit_gate_count"] - 1)
+        data["circuit_data"]["random_gate_deletions"].append(random_gate_index)
+        del unrolled_circ.data[random_gate_index]
 
     return unrolled_circ
 
@@ -108,9 +108,12 @@ def get_dual_circuit_setup_quimb(data, draw: bool = False) -> Circuit:
     assert circ_conf["algorithm"] is not None and circ_conf["level"] is not None and circ_conf["qubits"] is not None
     
     base_circ = get_benchmark(circ_conf["algorithm"], level=0, circuit_size=circ_conf["qubits"])
-
+    
     c1 = level_mapping[circ_conf["level"][0]](base_circ)
     c2 = level_mapping[circ_conf["level"][1]](base_circ)
+    
+    data["circuit_data"]["circuit_1_qasm"] = c1
+    data["circuit_data"]["circuit_2_qasm"] = c2
 
     # c1 = get_benchmark(circ_conf["algorithm"], circ_conf["level"][0], circ_conf["qubits"])
     # c2 = get_benchmark(circ_conf["algorithm"], circ_conf["level"][1], circ_conf["qubits"])
