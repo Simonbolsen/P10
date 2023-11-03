@@ -4,6 +4,7 @@ output
 *.tensor
 tdds_images
 experiments
+debug_images
 src/tddpure/*
 
 # Byte-compiled / optimized / DLL files
