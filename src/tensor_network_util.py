@@ -6,6 +6,8 @@ import random
 import os
 import numpy as np
 import urllib.parse
+import math
+from quimb.tensor.tensor_arbgeom import TensorNetworkGenVector
 
 def get_circuit(n):
     circ = Circuit(n)
@@ -85,6 +87,109 @@ def contract(tensor_network, path, draw_frequency = -1):
         tensor_network._contract_between_tids(step[0], step[1])
     
     return tensor_network.tensor_map[usable_path[-1][1]]
+
+def slice_tensor_network_vertically(tensor_network):
+    grid = get_grid(tensor_network)
+
+    for r, row in enumerate(grid):
+        ind = f"k{r}"
+        for cell in row:
+            ...
+
+def get_grid_pos(tensor_network, width = 1.0):
+    grid_pos = {}
+
+    grid = get_grid(tensor_network)
+
+    for y, row in enumerate(grid):
+        for x, cell in enumerate(row):
+            grid_pos[cell] = (-x * width , -y)
+
+    return grid_pos
+
+def get_grid(tensor_network): 
+    grid = []
+    in_grid = {}
+    check_tensor = []
+    
+    def follow(ind):
+        l = list(tensor_network.ind_map[ind])
+        for i in l:
+            if i not in in_grid:
+                check_tensor.append(i)
+        return l
+    
+    def follow_all(i):
+        for ind in tensor_network.tensor_map[i].inds:
+            follow(ind)
+
+    tensor_pair_tags = {}
+    tensor_pair_pos = {}
+
+    row = {k:[int(tag[1:]) for tag in t.tags if "I" in tag and "PSI" not in tag][0] for k,t in tensor_network.tensor_map.items()}
+
+    def set_pair_pos(i, x_pos):
+        tag = tensor_pair_tags[i]
+        if tensor_pair_pos[tag] is None:
+            tensor_pair_pos[tag] = x_pos
+        else: 
+            l = list(tensor_network.tag_map[tag])
+            r0 = row[l[0]]
+            r1 = row[l[1]]
+
+            column = max(tensor_pair_pos[tag], x_pos)
+
+            while len(grid[r0]) < column:
+                grid[r0].append(-1)
+
+            while len(grid[r1]) < column:
+                grid[r1].append(-1)
+
+            grid[r0].append(l[0])
+            grid[r1].append(l[1])
+            in_grid[l[0]] = True
+            in_grid[l[1]] = True
+            follow_all(l[0])
+            follow_all(l[1])
+
+    for tag, tensor_set in tensor_network.tag_map.items():
+        if len(tensor_set) == 2:
+            l = list(tensor_set)
+            tensor_pair_tags[l[0]] = tag
+            tensor_pair_tags[l[1]] = tag
+            tensor_pair_pos[tag] = None
+
+    for s in tensor_network.sites:
+        i = follow(f"k{s}")[0]
+        if i in tensor_pair_tags:
+            grid.append([-1])
+            set_pair_pos(i, 0)
+        else:
+            grid.append([i])
+            in_grid[i] = True
+            follow_all(i)
+        
+    while check_tensor:
+        i = check_tensor.pop(0)
+        if i not in in_grid:
+            r = row[i]
+            if i in tensor_pair_tags:
+                set_pair_pos(i, len(grid[r]))
+            else:
+                grid[r].append(i)
+                in_grid[i] = True
+                follow_all(i)
+
+    max_len = max([len(row) for row in grid])
+
+    for row in grid:
+        while len(row) < max_len:
+            if type(tensor_network) == TensorNetworkGenVector:
+                row.insert(-1, -1)
+            else:
+                row.append(-1)
+
+    return grid
 
 def get_tensor_network(circuit, split_cnot = True, state = None):
     if state is not None:
@@ -308,7 +413,7 @@ def get_tensor_pos(tensor_network, width = 1.0):
 
 def draw_contraction_order(tensor_network, usable_path, width = 1.0, save_path = ""):
     ind_contraction_order = get_ind_contraction_order(tensor_network, usable_path)
-    tensor_pos = get_tensor_pos(tensor_network, width)
+    tensor_pos = get_grid_pos(tensor_network, width)
 
     edge_colors = {}
     node_colors = {}
@@ -344,11 +449,11 @@ def draw_depth_order(tensor_network):
 
 if __name__ == "__main__":
 
-    n = 10
+    n = 8
     options = [[1 + 0j, 0j], [0j, 1 + 0j]]
     state = [random.choice(options) for _ in range(n)]
 
-    tensor_network = get_tensor_network(get_circuit(n), split_cnot=False, state = state)
+    tensor_network = get_tensor_network(get_circuit(n), split_cnot=True, state = state)
 
     #draw_depth_order(tensor_network)
 
@@ -357,7 +462,13 @@ if __name__ == "__main__":
 
     #usable_path = get_usable_path(tensor_network, tensor_network.contraction_path(ctg.HyperOptimizer(methods = "greedy", minimize="flops", max_repeats=1, max_time=60, progbar=True, parallel=False)))
 
-    draw_contraction_order(tensor_network, usable_path, width = 0.2) #save_path=os.path.join(os.path.realpath(__file__), "..", "..", "experiments", "plots", "contraction_order"))
+    draw_contraction_order(tensor_network, usable_path, width = 0.5) #save_path=os.path.join(os.path.realpath(__file__), "..", "..", "experiments", "plots", "contraction_order"))
+
+    slice_tensor_network_vertically(tensor_network)
+
+    usable_path = get_linear_path(tensor_network, fraction=0.8)
+
+    draw_contraction_order(tensor_network, usable_path, width = 0.2)
 
     #verified, message = verify_path(usable_path)
     #if not verified:
