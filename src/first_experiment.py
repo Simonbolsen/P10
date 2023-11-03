@@ -80,8 +80,8 @@ def fast_contract_tdds(tdds, data, max_time=-1, max_node_size=-1):
         data["equivalence"] = tddu.is_tdd_identitiy(resulting_tdd)
         data["conclusive"] = True
     else:
-        data["equivalence"] = tddu.is_tdd_identitiy(resulting_tdd)
-        data["conclusive"] = True
+        data["equivalence"] = tddu.is_tdd_equal(resulting_tdd, data["state"])
+        data["conclusive"] = not data["equivalence"]
     data["sizes"] = sizes
 
     return resulting_tdd
@@ -173,8 +173,8 @@ def contract_tdds(tdds, data, max_time=-1, max_node_size=-1, save_intermediate_r
         data["equivalence"] = tddu.is_tdd_identitiy(resulting_tdd)
         data["conclusive"] = True
     else:
-        data["equivalence"] = tddu.is_tdd_identitiy(resulting_tdd)
-        data["conclusive"] = True
+        data["equivalence"] = tddu.is_tdd_equal(resulting_tdd, data["state"])
+        data["conclusive"] = not data["equivalence"]
     data["sizes"] = sizes
 
     return resulting_tdd
