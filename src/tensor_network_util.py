@@ -27,6 +27,26 @@ def get_circuit(n):
 
     return circ
 
+def get_nontriv_identity_circuit(n):
+    circ = Circuit(n)
+
+    # randomly permute the order of qubits
+    regs = list(range(n))
+
+    # chain of cnots to generate GHZ-state
+    for d in range(n - 1):
+        circ.apply_gate('H', regs[d])
+        circ.apply_gate('CNOT', regs[d], regs[d + 1])
+
+    circ.apply_gate('H', regs[0])
+
+    for d in range(n - 2, -1, -1):
+        circ.apply_gate('CNOT', regs[d], regs[d + 1])
+        circ.apply_gate('H', regs[d])
+
+    return circ
+    
+
 def get_reasonable_path(path):
     num_of_tensors = len(path) + 1
     reasonable_path = []
@@ -114,11 +134,12 @@ def get_tensor_network(circuit, split_cnot = True, state = None):
     # Fixing problematic gates (S, ...?)
     problematic_gates = ["S"]
     for problem_gate in problematic_gates:
-        for idx in tensor_network.tag_map[problem_gate]:
-            data = tensor_network.tensor_map[idx].data
-            data_shape = data.shape
-            rectified_data = np.array([rectify_complex(v) for v in data.flatten()]).reshape(data_shape)
-            tensor_network.tensor_map[idx]._set_data(rectified_data)
+        if problem_gate in tensor_network.tag_map:
+            for idx in tensor_network.tag_map[problem_gate]:
+                data = tensor_network.tensor_map[idx].data
+                data_shape = data.shape
+                rectified_data = np.array([rectify_complex(v) for v in data.flatten()]).reshape(data_shape)
+                tensor_network.tensor_map[idx]._set_data(rectified_data)
 
     return tensor_network
 
@@ -268,16 +289,18 @@ def get_tensor_pos(tensor_network, width = 1.0):
         precurser_depths[i].append(0)
         check_tensor.append(i)
 
+    rows = {k:[int(tag[1:]) for tag in t.tags if "I" in tag and "PSI" not in tag] for k,t in tensor_network.tensor_map.items()}
+
     while check_tensor:
         i = check_tensor.pop(0)
         if i not in tensor_pos and len(precurser_depths[i]) >= int(len(tensor_network.tensor_map[i].shape) / 2):
-            rows = [int(tag[1:]) for tag in tensor_network.tensor_map[i].tags if "I" in tag and "PSI" not in tag]
-            row = sum(rows) / len(rows)
-            tensor_pos[i] = (min(precurser_depths[i]) - width, row)
+            
+            row = sum(rows[i]) / len(rows[i])
+            tensor_pos[i] = (min(precurser_depths[i]) - width, -row)
 
             for ind in tensor_network.tensor_map[i].inds:
                 ii = follow(ind, i)
-                if ii not in tensor_pos:
+                if ii not in tensor_pos and len(set(rows[i]) & set(rows[ii])) > 0:
                     precurser_depths[ii].append(tensor_pos[i][0])
                     check_tensor.append(ii)
     
@@ -300,7 +323,7 @@ def draw_contraction_order(tensor_network, usable_path, width = 1.0, save_path =
         a = step / (len(usable_path))
         edge_colors[ind] = (a, 1 - a, 4 * a * (1 - a))
 
-    tensor_pos |= {ind : (min_depth - 1 if ind[0] == "b" else 1, int(ind[1:])) for ind in tensor_network.outer_inds()}
+    tensor_pos |= {ind : (min_depth - 1 if ind[0] == "b" else 1, -int(ind[1:])) for ind in tensor_network.outer_inds()}
 
     tn_draw.draw_tn(tensor_network, fix = tensor_pos, iterations=0, 
                     node_color=node_colors, edge_colors=edge_colors, edge_scale=5, node_scale=10, save_path = save_path)
@@ -320,10 +343,6 @@ def draw_depth_order(tensor_network):
     tn_draw.draw_tn(tensor_network, iterations=3, initial_layout='kamada_kawai', node_color=node_colors, edge_scale=5, node_scale=10)
 
 if __name__ == "__main__":
-
-    print(get_dot_from_path([[24,22],[25,22],[26,22],[27,22],[28,22],[33,29],[34,29],[22,29],[35,29],[36,29],[37,29],[19,20],[31,20],[29,20],[40,38],[41,38],[42,38],[16,17],[38,17],[20,17],[47,45],[44,45],[48,45],[43,45],[49,45],[50,45],[13,14],[45,14],[54,52],[51,52],[55,52],[10,11],[52,11],[14,11],[7,8],[6,8],[11,8],[17,8],[58,59],[61,59],[62,59],[63,59],[64,59],[57,59],[56,59],[65,59],[8,59]]))
-
-
 
     n = 10
     options = [[1 + 0j, 0j], [0j, 1 + 0j]]

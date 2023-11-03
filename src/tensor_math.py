@@ -2,9 +2,11 @@ import numpy as np
 import tddpure.TDD.TDD as TDD
 from tddpure.TDD.TN import Tensor
 from example import tdd_analysis as example
-from correct_example import correct_example
 from tdd_util import reverse_lexicographic_key
 from tensor_network_util import rectify_complex
+import tensor_network_util as tnu
+import tdd_util as tddu
+import random
 
 def get_indeces(inds):
     return [TDD.Index(i) for i in inds]
@@ -96,6 +98,33 @@ def compare_breakpoints():
     for k in list(set(first.keys()) | set(second.keys())):
         print(f"{k}: {first[k]}, {second[k]}")
 
+def contract(tdds, usable_path): 
+    for left_index, right_index in usable_path:
+        tdds[right_index] = TDD.cont(tdds[left_index], tdds[right_index])
+
+    return tdds[right_index]
+
 if __name__ == "__main__":
-    test_experiment(example, True)
+    #test_experiment(example, True)
     #test_experiment(correct_example, True)
+    options = [[1 + 0j, 0j], [0j, 1 + 0j]]
+
+    n = 3
+
+    while True:
+        curcuit = tnu.get_nontriv_identity_circuit(n)
+        state = [random.choice(options) for _ in range(n)]
+        tn = tnu.get_tensor_network(curcuit, split_cnot=True, state = state)
+        path = tnu.get_linear_path(tensor_network=tn, fraction=0.0)
+        tnu.draw_contraction_order(tn, path, width=0.5)
+        
+        tdds = tddu.get_tdds_from_quimb_tensor_network(tn)
+        result = contract(tdds, path)
+        
+        t = tddu.tensor_of_tdd(result).data.flatten()
+        print(sum([abs(v)**2 for v in t]))
+        print("Input: " + str(state))
+        print("Output: " + str(t))
+        print("Equal" if tddu.is_tdd_equal(result, state) else "Not Equal")
+        print("")
+    ...
