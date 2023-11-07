@@ -8,18 +8,24 @@ def load_json(file_path):
     return json.loads(data)
 
 def load_all_json(folder):
-    path = os.scandir(os.path.normpath(os.path.join(os.path.dirname(__file__), '..', folder)))
     files = []
-
-    for sf in path:
-        sub_path = os.scandir(sf)
-        for file in sub_path:
-            if not file.is_dir() and os.path.splitext(file)[1] == ".json":
-                with open(file, 'r') as json_file:
-                    data = json_file.read()
-                    files.append(json.loads(data))
-
+    load_rec_json(os.path.normpath(os.path.join(os.path.dirname(__file__), '..', folder)), files)    
     return files
+
+def load_rec_json(file, files):
+    path = os.scandir(file)
+    for sf in path:
+        if sf.is_dir():
+            load_rec_json(sf, files)
+        elif is_json(sf):
+            files.append(load_single_json(sf))
+
+def is_json(file):
+    return os.path.splitext(file)[1] == ".json"
+
+def load_single_json(file):
+    with open(file, 'r') as json_file:
+        return json.loads(json_file.read())
 
 """Data that needs to be collected:
 

@@ -45,33 +45,40 @@ def process_sizes(data):
 def get_nested(ls):
     return [[v] for v in ls]
 
-def plot(folder, plots, save_path = ""):
+def plot(folder, plots, save_path = "", inclusion_condition = lambda file, data:True):
     files = fu.load_all_json(os.path.join("experiments", folder))
     data = {v : [] for v in list(Variables)}
+    file_data = {v : None for v in list(Variables)}
     for file in files: 
-        if "conclusive" not in file or file["conclusive"]:
+        success = True
+        try:
             s, estimated_time, new_sizes = process_sizes(file)
-            data[Variables.ESTIMATED_TIME].append([sum(estimated_time)])
-            data[Variables.SIZES].append(s)
-            data[Variables.LOG_SIZES].append([math.log10(point) for point in s])
-            data[Variables.NEW_SIZES].append(new_sizes)
-            data[Variables.STEPS].append(range(len(s)))
-            data[Variables.CONTRACTION_STEPS].append(range(len(new_sizes)))
+            file_data[Variables.ESTIMATED_TIME] = ([sum(estimated_time)])
+            file_data[Variables.SIZES] = (s)
+            file_data[Variables.LOG_SIZES] = ([math.log10(point) for point in s])
+            file_data[Variables.NEW_SIZES] = (new_sizes)
+            file_data[Variables.STEPS] = (range(len(s)))
+            file_data[Variables.CONTRACTION_STEPS] = (range(len(new_sizes)))
             q = file['circuit_settings']['qubits']
-            data[Variables.NAMES].append(f"{file['circuit_settings']['algorithm']}:{q:03d}")
-            data[Variables.QUBITS].append([q])
-            data[Variables.MAX_SIZES].append([max(s)])
-            data[Variables.LOG_MAX_SIZES].append([math.log10(max(s))])
-            data[Variables.CONTRACTION_TIME].append([file["contraction_time"]])
+            file_data[Variables.NAMES] = (f"{file['circuit_settings']['algorithm']}:{q:03d}")
+            file_data[Variables.QUBITS] = ([q])
+            file_data[Variables.MAX_SIZES] = ([max(s)])
+            file_data[Variables.LOG_MAX_SIZES] = ([math.log10(max(s))])
+            file_data[Variables.CONTRACTION_TIME] = ([file["contraction_time"]])
             if file["path_settings"]["method"] == "cotengra":
-                data[Variables.PATH_FLOPS].append([math.log10(file["path_data"]["flops"])])
-                data[Variables.PATH_SIZE].append([math.log2(file["path_data"]["size"])])
+                file_data[Variables.PATH_FLOPS] = ([math.log10(file["path_data"]["flops"])])
+                file_data[Variables.PATH_SIZE] = ([math.log2(file["path_data"]["size"])])
             if "used_trials" in file["path_data"]:
-                data[Variables.OPT_RUNS].append(range(file["path_data"]["used_trials"]))
-                data[Variables.OPT_TIMES].append(file["path_data"]["opt_times"])
-                data[Variables.OPT_SIZES].append([math.log2(v) for v in file["path_data"]["opt_sizes"]])
-                data[Variables.OPT_FLOPS].append([math.log10(v) for v in file["path_data"]["opt_flops"]])
-                data[Variables.OPT_WRITES].append([math.log2(v) for v in file["path_data"]["opt_writes"]])
+                file_data[Variables.OPT_RUNS] = (range(file["path_data"]["used_trials"]))
+                file_data[Variables.OPT_TIMES] = (file["path_data"]["opt_times"])
+                file_data[Variables.OPT_SIZES] = ([math.log2(v) for v in file["path_data"]["opt_sizes"]])
+                file_data[Variables.OPT_FLOPS] = ([math.log10(v) for v in file["path_data"]["opt_flops"]])
+                file_data[Variables.OPT_WRITES] = ([math.log2(v) for v in file["path_data"]["opt_writes"]])
+        except:
+            success = False
+        if success and inclusion_condition(file, file_data):
+            for v in list(Variables):
+                data[v].append(file_data[v])
 
 
     if save_path != "":
@@ -83,16 +90,18 @@ def plot(folder, plots, save_path = ""):
     for p in plots:
         full_path = ("" if save_path == "" else os.path.join(save_path, p[3].replace(" ", "_")))
         title = p[3] + " " + files[0]['circuit_settings']['algorithm']
-        if p[0] == "line" and data[p[1]] != [] and data[p[2]]:
-            pu.plot_line_series_2d(data[p[1]], data[p[2]], data[Variables.NAMES], 
-                                   p[1].value, p[2].value, title=title, 
-                                   save_path=full_path, legend=False)
-        elif p[0] == "points" and data[p[1]] != [] and data[p[2]]:
-            pu.plotPoints2d(data[p[1]], data[p[2]], p[1].value, p[2].value, 
-                            series_labels=data[Variables.NAMES], title= title,
-                            marker="o", save_path=full_path, legend=False)
+        if p[0] == "line":
+            if None not in data[p[1]] and None not in data[p[2]]:
+                pu.plot_line_series_2d(data[p[1]], data[p[2]], data[Variables.NAMES], 
+                                        p[1].value, p[2].value, title=title, 
+                                        save_path=full_path, legend=False)
+        elif p[0] == "points": 
+            if None not in data[p[1]] and None not in data[p[2]]:
+                pu.plotPoints2d(data[p[1]], data[p[2]], p[1].value, p[2].value, 
+                                series_labels=data[Variables.NAMES], title= title,
+                                marker="o", save_path=full_path, legend=False)
         else:
-            print(f"{p[3]} is not a valid plot!")
+            print(f"{p[0]} is not a valid plot type!")
 
 class Variables(Enum):
     SIZES = "Nodes |N|"
@@ -134,12 +143,15 @@ if __name__ == "__main__":
              ("line", Variables.OPT_RUNS, Variables.OPT_TIMES, "Optimisation Times"),
              ("points", Variables.QUBITS, Variables.CONTRACTION_TIME, "Contraction Time by Qubits")]
 
-    folders = ["driver_linear_ltr_2023-11-06_15-04"]
-            # ["first_experiment_2023-10-18", "first_experiment_2023-10-19_10-17", 
-            #    "mapping_experiment_2023-10-19_16-48", "mapping_experiment_2023-10-19_17-08",
-            #    "mapping_experiment_2023-10-19_17-24", "mapping_experiment_2023-10-19_17-27", 
-            #    "mapping_experiment_2023-10-24_09-30"]
+    folders = ["first_experiment_2023-10-18", "first_experiment_2023-10-19_10-17", 
+                "mapping_experiment_2023-10-19_16-48", "mapping_experiment_2023-10-19_17-08",
+                "mapping_experiment_2023-10-19_17-24", "mapping_experiment_2023-10-19_17-27", 
+                "mapping_experiment_2023-10-24_09-30"]
+    #["driver_linear_ltr_2023-11-06_15-04"]
+
+    #file is the raw loaded file, and data is the processed variables for that file
+    inclusion_condition = lambda file, data : ("conclusive" not in file or file["conclusive"])
 
     for i, folder in enumerate(folders):
-        plot(folder, plots, os.path.join("plots", folder)) 
+        plot(folder, plots, os.path.join("plots", folder), inclusion_condition=inclusion_condition) 
         print(f"Plotted: {int((i + 1) / len(folders) * 100)}%")
