@@ -8,6 +8,7 @@ import numpy as np
 import urllib.parse
 import math
 from quimb.tensor.tensor_arbgeom import TensorNetworkGenVector
+from quimb.tensor import Tensor, TensorNetwork, oset
 
 def get_circuit(n):
     circ = Circuit(n)
@@ -48,7 +49,6 @@ def get_nontriv_identity_circuit(n):
 
     return circ
     
-
 def get_reasonable_path(path):
     num_of_tensors = len(path) + 1
     reasonable_path = []
@@ -79,8 +79,11 @@ def get_usable_path(tensor_network, path):
     
     return usable_path
 
-def contract(tensor_network, path, draw_frequency = -1):
-    usable_path = get_usable_path(path, tensor_network)
+def contract(tensor_network, path=None, usable_path=None, draw_frequency = -1):
+    if usable_path is None:
+        if path is None:
+            raise Exception("Path must be given to tensor network contraction")
+        usable_path = get_usable_path(path, tensor_network)
     for i, step in enumerate(usable_path):
         if draw_frequency > 0 and i % draw_frequency == 0: 
             tensor_network.draw()
@@ -89,13 +92,76 @@ def contract(tensor_network, path, draw_frequency = -1):
     return tensor_network.tensor_map[usable_path[-1][1]]
 
 def slice_tensor_network_vertically(tensor_network):
+    fill_identity(tensor_network)
     grid = get_grid(tensor_network)
 
-    for r, row in enumerate(grid):
-        ind = f"k{r}"
-        for cell in row:
-            ...
+    grid = np.array(grid).transpose().tolist()
 
+    for column in grid:
+        for c, cell in enumerate(column):
+            if c < len(column) - 1:
+                tensor_network._contract_between_tids(cell, column[c+1])
+
+
+
+def fill_identity(tensor_network):
+    grid = get_grid(tensor_network)
+    row_from_tid = get_row_dict(tensor_network)
+
+    def replace(inds, old, new):
+        return tuple([new if i == old else i for i in inds])
+    
+    def is_pair(ind):
+        ts = list(tensor_network.ind_map[ind])
+        return len(ts) > 1 and row_from_tid[ts[0]] != row_from_tid[ts[1]]
+
+    identity = [[1 + 0j, 0 + 0j], [0 + 0j, 1 + 0j]]
+
+    new_ind_count = 0
+
+    for r, row in enumerate(grid):
+        out_ind = f"k{r}"
+        ind = out_ind
+        ind_pos = -1
+        moved_ind = ind
+        for c, cell in enumerate(row):
+            if cell == -1:
+                new_ind = f"grid_ind_{new_ind_count}"
+                new_tag = f"grid_tag_{new_ind_count}"
+                t = Tensor(identity, inds=(ind, new_ind), tags=(new_tag, f"I{r}"))
+                old_ind = ind
+                ind = new_ind
+                if old_ind == out_ind:
+                    tensor_network.ind_map.pop(out_ind)
+                else:
+                    tensor_network.ind_map[old_ind] = oset([ind_pos]) if ind_pos != -1 else oset([])
+                tensor_network.ind_map[new_ind] = oset()
+                tensor_network.add_tensor(t, virtual = True)
+                tid = list(tensor_network._get_tids_from_tags([new_tag]))[0]
+                row_from_tid[tid] = r
+                new_ind_count += 1
+
+                
+                ind_pos = tid
+
+                if c == len(row) - 1:
+                    tensor_network.ind_map[ind] = oset([tid])
+            else:
+                t = tensor_network.tensor_map[cell]
+                if ind not in t.inds:
+                    t._inds = replace(t.inds, moved_ind, ind)
+                    tensor_network.ind_map[ind] = oset([cell, ind_pos])
+                ind_pos = cell
+                stuck = True
+                for i in t.inds:
+                    if i != ind and not is_pair(i):
+                        moved_ind = i
+                        ind = i
+                        stuck = False
+                        break
+                if stuck and c < len(row) - 1:
+                    raise Exception("No usable ind")
+                    
 def get_grid_pos(tensor_network, width = 1.0):
     grid_pos = {}
 
@@ -107,26 +173,29 @@ def get_grid_pos(tensor_network, width = 1.0):
 
     return grid_pos
 
+def get_row_dict(tensor_network):
+    return {k:[int(tag[1:]) for tag in t.tags if "I" in tag and "PSI" not in tag][0] for k,t in tensor_network.tensor_map.items()}
+
 def get_grid(tensor_network): 
     grid = []
     in_grid = {}
     check_tensor = []
     
-    def follow(ind):
+    def follow(ind, r):
         l = list(tensor_network.ind_map[ind])
         for i in l:
-            if i not in in_grid:
+            if i not in in_grid and row_from_tid[i] == r:
                 check_tensor.append(i)
         return l
     
     def follow_all(i):
         for ind in tensor_network.tensor_map[i].inds:
-            follow(ind)
+            follow(ind, row_from_tid[i])
 
     tensor_pair_tags = {}
     tensor_pair_pos = {}
 
-    row = {k:[int(tag[1:]) for tag in t.tags if "I" in tag and "PSI" not in tag][0] for k,t in tensor_network.tensor_map.items()}
+    row_from_tid = get_row_dict(tensor_network)
 
     def set_pair_pos(i, x_pos):
         tag = tensor_pair_tags[i]
@@ -134,8 +203,8 @@ def get_grid(tensor_network):
             tensor_pair_pos[tag] = x_pos
         else: 
             l = list(tensor_network.tag_map[tag])
-            r0 = row[l[0]]
-            r1 = row[l[1]]
+            r0 = row_from_tid[l[0]]
+            r1 = row_from_tid[l[1]]
 
             column = max(tensor_pair_pos[tag], x_pos)
 
@@ -160,7 +229,7 @@ def get_grid(tensor_network):
             tensor_pair_pos[tag] = None
 
     for s in tensor_network.sites:
-        i = follow(f"k{s}")[0]
+        i = list(tensor_network.ind_map[f"k{s}"])[0]
         if i in tensor_pair_tags:
             grid.append([-1])
             set_pair_pos(i, 0)
@@ -172,7 +241,7 @@ def get_grid(tensor_network):
     while check_tensor:
         i = check_tensor.pop(0)
         if i not in in_grid:
-            r = row[i]
+            r = row_from_tid[i]
             if i in tensor_pair_tags:
                 set_pair_pos(i, len(grid[r]))
             else:
@@ -269,7 +338,7 @@ def get_linear_path(tensor_network, fraction = 0.0):
         if len(ts) > 1:
             pairs.append((*ts, (tensor_pos[ts[0]][0] + tensor_pos[ts[1]][0]) / 2))
 
-    sorted(pairs, key=lambda x:x[2])
+    pairs = sorted(pairs, key=lambda x:x[2])
 
     part_of = {i:i for i in tensor_network.tensor_map.keys()}
 
@@ -413,7 +482,7 @@ def get_tensor_pos(tensor_network, width = 1.0):
 
 def draw_contraction_order(tensor_network, usable_path, width = 1.0, save_path = ""):
     ind_contraction_order = get_ind_contraction_order(tensor_network, usable_path)
-    tensor_pos = get_grid_pos(tensor_network, width)
+    tensor_pos = get_tensor_pos(tensor_network, width)
 
     edge_colors = {}
     node_colors = {}
@@ -453,22 +522,24 @@ if __name__ == "__main__":
     options = [[1 + 0j, 0j], [0j, 1 + 0j]]
     state = [random.choice(options) for _ in range(n)]
 
-    tensor_network = get_tensor_network(get_circuit(n), split_cnot=True, state = state)
+    tensor_network = get_tensor_network(get_nontriv_identity_circuit(n), split_cnot=True, state = state)
 
     #draw_depth_order(tensor_network)
 
     usable_path = get_linear_path(tensor_network, fraction=0.8)
-    print(verify_path(usable_path))
+    #print(verify_path(usable_path))
 
     #usable_path = get_usable_path(tensor_network, tensor_network.contraction_path(ctg.HyperOptimizer(methods = "greedy", minimize="flops", max_repeats=1, max_time=60, progbar=True, parallel=False)))
 
     draw_contraction_order(tensor_network, usable_path, width = 0.5) #save_path=os.path.join(os.path.realpath(__file__), "..", "..", "experiments", "plots", "contraction_order"))
-
+    
     slice_tensor_network_vertically(tensor_network)
-
     usable_path = get_linear_path(tensor_network, fraction=0.8)
+    draw_contraction_order(tensor_network, usable_path, width = 0.5)
 
-    draw_contraction_order(tensor_network, usable_path, width = 0.2)
+    result = contract(tensor_network, usable_path = usable_path)
+
+    print(result)
 
     #verified, message = verify_path(usable_path)
     #if not verified:
