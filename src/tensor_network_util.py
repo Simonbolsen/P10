@@ -328,8 +328,8 @@ def rectify_complex(v: complex, threshold=1e-12) -> complex:
 
     return complex(new_v_real, new_v_imag)
 
-def get_linear_path(tensor_network, fraction = 0.0):
-    tensor_pos = get_tensor_pos(tensor_network)
+def get_linear_path(tensor_network, fraction = 0.0, gridded = False):
+    tensor_pos = get_grid_pos(tensor_network) if gridded else get_tensor_pos(tensor_network)
 
     pairs = []
 
