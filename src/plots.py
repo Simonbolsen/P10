@@ -45,12 +45,14 @@ def process_sizes(data):
 def get_nested(ls):
     return [[v] for v in ls]
 
-def plot(folder, plots, save_path = "", inclusion_condition = lambda file, data:True):
+def is_non_empty(l):
+    return len(l) > 0
+
+def plot(folder, plots, save_path = "", inclusion_condition = (lambda file, data:True), show_3d = False):
     files = fu.load_all_json(os.path.join("experiments", folder))
     data = {v : [] for v in list(Variables)}
     file_data = {v : None for v in list(Variables)}
-    for file in files: 
-        success = True
+    for file in files:
         try:
             s, estimated_time, new_sizes = process_sizes(file)
             file_data[Variables.ESTIMATED_TIME] = ([sum(estimated_time)])
@@ -74,11 +76,15 @@ def plot(folder, plots, save_path = "", inclusion_condition = lambda file, data:
                 file_data[Variables.OPT_SIZES] = ([math.log2(v) for v in file["path_data"]["opt_sizes"]])
                 file_data[Variables.OPT_FLOPS] = ([math.log10(v) for v in file["path_data"]["opt_flops"]])
                 file_data[Variables.OPT_WRITES] = ([math.log2(v) for v in file["path_data"]["opt_writes"]])
-        except:
-            success = False
-        if success and inclusion_condition(file, file_data):
-            for v in list(Variables):
-                data[v].append(file_data[v])
+        except KeyError:
+            ...
+        except Exception as e:
+            print(e)
+        else: 
+            if inclusion_condition(file, file_data):
+                for v in list(Variables):
+                    if file_data[v] is not None:
+                        data[v].append(file_data[v])
 
 
     if save_path != "":
@@ -88,18 +94,23 @@ def plot(folder, plots, save_path = "", inclusion_condition = lambda file, data:
             os.makedirs(save_path)
 
     for p in plots:
-        full_path = ("" if save_path == "" else os.path.join(save_path, p[3].replace(" ", "_")))
-        title = p[3] + " " + files[0]['circuit_settings']['algorithm']
+        full_path = ("" if save_path == "" else os.path.join(save_path, p[-1].replace(" ", "_")))
+        title = p[-1] + " " + files[0]['circuit_settings']['algorithm']
         if p[0] == "line":
-            if None not in data[p[1]] and None not in data[p[2]]:
+            if is_non_empty(data[p[1]]) and is_non_empty(data[p[2]]):
                 pu.plot_line_series_2d(data[p[1]], data[p[2]], data[Variables.NAMES], 
                                         p[1].value, p[2].value, title=title, 
                                         save_path=full_path, legend=False)
         elif p[0] == "points": 
-            if None not in data[p[1]] and None not in data[p[2]]:
+            if is_non_empty(data[p[1]]) and is_non_empty(data[p[2]]):
                 pu.plotPoints2d(data[p[1]], data[p[2]], p[1].value, p[2].value, 
                                 series_labels=data[Variables.NAMES], title= title,
                                 marker="o", save_path=full_path, legend=False)
+        elif p[0] == "3d_points": 
+            if is_non_empty(data[p[1]]) and is_non_empty(data[p[2]]) and is_non_empty(data[p[3]]):
+                pu.plotPoints(data[p[1]], data[p[2]], data[p[3]], [p[1].value, p[2].value, p[3].value], 
+                              legend=False, series_labels=data[Variables.NAMES], marker="o", title=title, 
+                              save_path="" if show_3d else full_path)
         else:
             print(f"{p[0]} is not a valid plot type!")
 
@@ -111,8 +122,8 @@ class Variables(Enum):
     MAX_SIZES = "Max Nodes N_max"
     NAMES = "Names"
     ALGORITHM = "Algorithm"
-    CONTRACTION_TIME = "Contraction Time t_c"
-    ESTIMATED_TIME = "Estimated Time t_e"
+    CONTRACTION_TIME = "Contraction Time t_c [ms]"
+    ESTIMATED_TIME = "Estimated Time t_e []"
     NEW_SIZES = "Newest TDD Size N_new"
     PATH_SIZE = "Path Size log2(ps)"
     PATH_FLOPS = "Path Flops log10(pf)"
@@ -141,7 +152,9 @@ if __name__ == "__main__":
              ("line", Variables.OPT_RUNS, Variables.OPT_SIZES, "Optimisation Sizes"),
              ("line", Variables.OPT_RUNS, Variables.OPT_WRITES, "Optimisation Writes"),
              ("line", Variables.OPT_RUNS, Variables.OPT_TIMES, "Optimisation Times"),
-             ("points", Variables.QUBITS, Variables.CONTRACTION_TIME, "Contraction Time by Qubits")]
+             ("points", Variables.QUBITS, Variables.CONTRACTION_TIME, "Contraction Time by Qubits"),
+             ("3d_points", Variables.QUBITS, Variables.MAX_SIZES, 
+                Variables.CONTRACTION_TIME, "Qubits, Maximum Size, and Contraction Time")]
 
     folders = ["first_experiment_2023-10-18", "first_experiment_2023-10-19_10-17", 
                 "mapping_experiment_2023-10-19_16-48", "mapping_experiment_2023-10-19_17-08",
@@ -153,5 +166,5 @@ if __name__ == "__main__":
     inclusion_condition = lambda file, data : ("conclusive" not in file or file["conclusive"])
 
     for i, folder in enumerate(folders):
-        plot(folder, plots, os.path.join("plots", folder), inclusion_condition=inclusion_condition) 
+        plot(folder, plots, os.path.join("plots", folder), inclusion_condition=inclusion_condition, show_3d=True) 
         print(f"Plotted: {int((i + 1) / len(folders) * 100)}%")

@@ -182,11 +182,11 @@ def get_min_max(xs):
             x_min = min(x_min, min(x))
     return x_min, x_max
 
-def plotPoints(xs, ys, zs, axis_names = ["", "", ""], legend = True, num_of_series = 1, series_labels=[], marker = "o"):
+def plotPoints(xs, ys, zs, axis_names = ["", "", ""], legend = True, series_labels=[], marker = "o", title = "", save_path = ""):
     mpl.rcParams['legend.fontsize'] = 10
 
     if series_labels == []: 
-        series_labels = [axis_names[2] for _ in range(num_of_series)]
+        series_labels = [axis_names[2] for _ in xs]
 
     if(not isinstance(xs[0], list)):
         xs = [xs]
@@ -197,27 +197,31 @@ def plotPoints(xs, ys, zs, axis_names = ["", "", ""], legend = True, num_of_seri
     y_min, y_max = get_min_max(ys)
     z_min, z_max = get_min_max(zs)
 
-    COLOR = get_colors(num_of_series)
+    COLOR = get_colors(len(xs))
     fig = plt.figure()
     axe = plt.axes(projection='3d')
     
 
-    for series in range(num_of_series):
-        axe.plot(xs[series], ys[series], zs[series], marker, color=COLOR[series], label=series_labels[series])
+    for series, x in enumerate(xs):
+        axe.plot(x, ys[series], zs[series], marker, color=COLOR[series], label=series_labels[series])
 
     axe.set_xlabel(axis_names[0])
     axe.set_ylabel(axis_names[1])
     axe.set_zlabel(axis_names[2])
+    axe.set_title(title)
 
     axe.set_xbound(x_min, x_max)
     axe.set_ybound(y_min, y_max)
     axe.set_zbound(z_min, z_max)
-    axe.w_zaxis.set_major_formatter(plt.FuncFormatter(lambda x, pos: f"{function(x):.3f}"))
 
     if legend:
         axe.legend()
 
-    plt.show()
+    if save_path == "":
+        plt.show()
+    else:
+        plt.savefig(save_path)
+        plt.close()
 
 def plotPoints2d(xs, ys, x_label, y_label, legend = True, series_labels=[], marker = "o", marker_size = 20, title = "", save_path = ""):
     if series_labels == []: 
