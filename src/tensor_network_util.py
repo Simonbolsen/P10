@@ -207,8 +207,8 @@ def get_contraction_path(tensor_network, data):
         usable_path = get_usable_path(tensor_network, path)
         
     elif settings["method"] == "linear":
+        print(f"Linear fraction: {settings['linear_fraction']}")
         usable_path = get_linear_path(tensor_network, settings["linear_fraction"] if "linear_fraction" in settings else 0.0)
-
     else:
         raise NotImplementedError(f"Method {settings['method']} is not supported")
 

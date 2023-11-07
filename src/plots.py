@@ -53,6 +53,7 @@ def plot(folder, plots, save_path = ""):
             s, estimated_time, new_sizes = process_sizes(file)
             data[Variables.ESTIMATED_TIME].append([sum(estimated_time)])
             data[Variables.SIZES].append(s)
+            data[Variables.LOG_SIZES].append([math.log10(point) for point in s])
             data[Variables.NEW_SIZES].append(new_sizes)
             data[Variables.STEPS].append(range(len(s)))
             data[Variables.CONTRACTION_STEPS].append(range(len(new_sizes)))
@@ -60,9 +61,11 @@ def plot(folder, plots, save_path = ""):
             data[Variables.NAMES].append(f"{file['circuit_settings']['algorithm']}:{q:03d}")
             data[Variables.QUBITS].append([q])
             data[Variables.MAX_SIZES].append([max(s)])
+            data[Variables.LOG_MAX_SIZES].append([math.log10(max(s))])
             data[Variables.CONTRACTION_TIME].append([file["contraction_time"]])
-            data[Variables.PATH_FLOPS].append([math.log10(file["path_data"]["flops"])])
-            data[Variables.PATH_SIZE].append([math.log2(file["path_data"]["size"])])
+            if file["path_settings"]["method"] == "cotengra":
+                data[Variables.PATH_FLOPS].append([math.log10(file["path_data"]["flops"])])
+                data[Variables.PATH_SIZE].append([math.log2(file["path_data"]["size"])])
             if "used_trials" in file["path_data"]:
                 data[Variables.OPT_RUNS].append(range(file["path_data"]["used_trials"]))
                 data[Variables.OPT_TIMES].append(file["path_data"]["opt_times"])
@@ -89,7 +92,7 @@ def plot(folder, plots, save_path = ""):
                             series_labels=data[Variables.NAMES], title= title,
                             marker="o", save_path=full_path, legend=False)
         else:
-            print(f"{p[0]} is not a valid plot type!")
+            print(f"{p[3]} is not a valid plot!")
 
 class Variables(Enum):
     SIZES = "Nodes |N|"
@@ -109,12 +112,16 @@ class Variables(Enum):
     OPT_FLOPS = "Optimisation Flops log10(of)"
     OPT_SIZES = "Optimisation Sizes log2(os)"
     OPT_RUNS = "Optimisation Runs r"
+    LOG_SIZES = "Nodes log10(|N|)"
+    LOG_MAX_SIZES = "Max Nodes log10(|N_max|)"
 
 
 if __name__ == "__main__":
  
     plots = [("line", Variables.STEPS, Variables.SIZES, "Compulsory Sizes over Path"),
+             ("line", Variables.STEPS, Variables.LOG_SIZES, "Compulsory log10 Sizes over Path"),
              ("points", Variables.QUBITS, Variables.MAX_SIZES, "Maximum Size by Qubits"),
+             ("points", Variables.QUBITS, Variables.LOG_MAX_SIZES, "Maximum log10 Size by Qubits"),
              ("points", Variables.MAX_SIZES, Variables.CONTRACTION_TIME, "Time by Maximum Size"),
              ("points", Variables.ESTIMATED_TIME, Variables.CONTRACTION_TIME, "Time by Estimated Time"),
              ("points", Variables.QUBITS, Variables.ESTIMATED_TIME, "Estimated Time by Qubits"),
@@ -124,12 +131,14 @@ if __name__ == "__main__":
              ("line", Variables.OPT_RUNS, Variables.OPT_FLOPS, "Optimisation Flops"),
              ("line", Variables.OPT_RUNS, Variables.OPT_SIZES, "Optimisation Sizes"),
              ("line", Variables.OPT_RUNS, Variables.OPT_WRITES, "Optimisation Writes"),
-             ("line", Variables.OPT_RUNS, Variables.OPT_TIMES, "Optimisation Times")]
-    
-    folders = ["first_experiment_2023-10-18", "first_experiment_2023-10-19_10-17", 
-               "mapping_experiment_2023-10-19_16-48", "mapping_experiment_2023-10-19_17-08",
-               "mapping_experiment_2023-10-19_17-24", "mapping_experiment_2023-10-19_17-27", 
-               "mapping_experiment_2023-10-24_09-30"]
+             ("line", Variables.OPT_RUNS, Variables.OPT_TIMES, "Optimisation Times"),
+             ("points", Variables.QUBITS, Variables.CONTRACTION_TIME, "Contraction Time by Qubits")]
+
+    folders = ["driver_linear_ltr_2023-11-06_15-04"]
+            # ["first_experiment_2023-10-18", "first_experiment_2023-10-19_10-17", 
+            #    "mapping_experiment_2023-10-19_16-48", "mapping_experiment_2023-10-19_17-08",
+            #    "mapping_experiment_2023-10-19_17-24", "mapping_experiment_2023-10-19_17-27", 
+            #    "mapping_experiment_2023-10-24_09-30"]
 
     for i, folder in enumerate(folders):
         plot(folder, plots, os.path.join("plots", folder)) 

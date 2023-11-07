@@ -11,6 +11,9 @@ networkx
 matplotlib
 numpy
 mqt.qcec
+argparse
+bcolors
+tabulate
 
 numpy
 pandas

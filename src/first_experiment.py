@@ -191,7 +191,7 @@ def get_all_configs(settings):
 debug=False
 def first_experiment():
     # Prepare save folder and file paths
-    experiment_name = f"mapping_experiment_{datetime.today().strftime('%Y-%m-%d_%H-%M')}"
+    experiment_name = f"driver_linear_prop_{datetime.today().strftime('%Y-%m-%d_%H-%M')}"
     folder_path = os.path.join("experiments", experiment_name)
     if not os.path.exists(folder_path):
         os.makedirs(folder_path, exist_ok=True)
@@ -207,7 +207,7 @@ def first_experiment():
         "simulate": False,
         "algorithms": ["dj"],#, "ghz", "graphstate", "qftentangled"],
         "levels": [(0, 2)],
-        "qubits": range(208,257)#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
+        "qubits": range(2,257)#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
     }
 
     print(f"Performing experiment with {settings['algorithms']} for levels: {settings['levels']}\n\tqubits: {settings['qubits']}")
@@ -224,18 +224,20 @@ def first_experiment():
             "experiment_name": experiment_name,
             "file_name": f"circuit_{circ_conf['algorithm']}_{circ_conf['level'][0]}{circ_conf['level'][1]}_{circ_conf['qubits']}",
             "contraction_settings": {
-                "max_time": -1, # in seconds, -1 for inf
-                "max_replans": 3,
+                "max_time": 3600, # in seconds, -1 for inf
+                "max_replans": 1,
                 "max_intermediate_node_size": -1 #-1 for inf
             },
             "circuit_settings": circ_conf,
             "circuit_data": {},
             "path_settings": {
-                "method": "cotengra",
-                "opt_method": "greedy", # greedy, betweenness, walktrap
+                "method": "linear",
+                "opt_method": "betweenness", # greedy, betweenness, walktrap
                 "minimize": "flops",
                 "max_repeats": 50,
-                "max_time": 60
+                "max_time": 60,
+                "use_proportional": True,
+                "linear_fraction": 0
             },
             "path_data": {},
             "not_same_tensors": [],

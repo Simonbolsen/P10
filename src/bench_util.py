@@ -77,6 +77,8 @@ def get_dual_circuit_setup(c1: QuantumCircuit, c2: QuantumCircuit, data, draw: b
     bench_circ1_copy = bench_circ1.copy()
     # Find start of second circuit:
     unrolled_first_circ_gate_count = sum(pm.run(bench_circ1_copy).count_ops().values())
+    if data["path_settings"]["use_proportional"]:
+        data["path_settings"]["linear_fraction"] = unrolled_first_circ_gate_count / data["circuit_data"]["unrolled_qiskit_gate_count"]
 
     if data["circuit_settings"]["random_gate_deletions"] > (data["circuit_data"]["unrolled_qiskit_gate_count"] - unrolled_first_circ_gate_count + 1):
         # Deleting all gates is not allowed
