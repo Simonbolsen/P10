@@ -512,7 +512,7 @@ def get_tensor_pos(tensor_network, width = 1.0):
 
 def draw_contraction_order(tensor_network, usable_path, width = 1.0, save_path = ""):
     ind_contraction_order = get_ind_contraction_order(tensor_network, usable_path)
-    tensor_pos = get_tensor_pos(tensor_network, width)
+    tensor_pos = get_grid_pos(tensor_network, width)
 
     edge_colors = {}
     node_colors = {}
@@ -594,13 +594,15 @@ if __name__ == "__main__":
     # options = [[1 + 0j, 0j], [0j, 1 + 0j]]
     # state = [random.choice(options) for _ in range(n)]
 
+    # tensor_network = get_tensor_network(get_circuit(n), split_cnot=True, state = None)
+
     tensor_network = get_tensor_network(get_subgraph_containing_circuit(n), split_cnot=False, state = None)
     #tensor_network.draw()
     find_and_split_subgraphs_in_tn(tensor_network)
     #draw_depth_order(tensor_network)
 
-    # usable_path = get_linear_path(tensor_network, fraction=0.8)
-    # #print(verify_path(usable_path))
+    #usable_path = get_linear_path(tensor_network, fraction=0.8, gridded=True)
+    #print(verify_path(usable_path))
 
     # #usable_path = get_usable_path(tensor_network, tensor_network.contraction_path(ctg.HyperOptimizer(methods = "greedy", minimize="flops", max_repeats=1, max_time=60, progbar=True, parallel=False)))
 

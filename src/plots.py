@@ -67,6 +67,12 @@ def plot(folder, plots, save_path = "", inclusion_condition = (lambda file, data
             file_data[Variables.MAX_SIZES] = ([max(s)])
             file_data[Variables.LOG_MAX_SIZES] = ([math.log10(max(s))])
             file_data[Variables.CONTRACTION_TIME] = ([file["contraction_time"]])
+            if "qcec_time" in file:
+                file_data[Variables.QCEC_TIME] = [file["qcec_time"]]
+                file_data[Variables.CIRCUIT_SETUP_TIME] = [file["circuit_setup_time"]]
+                file_data[Variables.GATE_PREP_TIME] = [file["gate_prep_time"]]
+                file_data[Variables.TN_CONSTRUNCTION_TIME] = [file["tn_construnction_time"]]
+                file_data[Variables.PATH_CONSTRUCTION_TIME] = [file["path_construction_time"]]
             if file["path_settings"]["method"] == "cotengra":
                 file_data[Variables.PATH_FLOPS] = ([math.log10(file["path_data"]["flops"])])
                 file_data[Variables.PATH_SIZE] = ([math.log2(file["path_data"]["size"])])
@@ -134,11 +140,20 @@ class Variables(Enum):
     OPT_RUNS = "Optimisation Runs r"
     LOG_SIZES = "Nodes log10(|N|)"
     LOG_MAX_SIZES = "Max Nodes log10(|N_max|)"
-
+    QCEC_TIME = "QCEC Time t_qcec [ms]"
+    CIRCUIT_SETUP_TIME = "Circuit Setup Time t_cs [ms]"
+    PATH_CONSTRUCTION_TIME = "Path Construction Time t_pc [ms]"
+    TN_CONSTRUNCTION_TIME = "Tensor Network Construction Time t_tn [ms]"
+    GATE_PREP_TIME = "Gate TDD Construction Time t_gtc [ms]"
 
 if __name__ == "__main__":
  
-    plots = [("line", Variables.STEPS, Variables.SIZES, "Compulsory Sizes over Path"),
+    plots = [("points", Variables.QUBITS, Variables.QCEC_TIME, "QCEC Time by Qubits"),
+             ("points", Variables.QUBITS, Variables.TN_CONSTRUNCTION_TIME, "Tensor Network Construction Time by Qubits"),
+             ("points", Variables.QUBITS, Variables.PATH_CONSTRUCTION_TIME, "Path Construction Time by Qubits"), 
+             ("points", Variables.QUBITS, Variables.GATE_PREP_TIME, "Gate TDD Construction Time by Qubits"),
+             ("points", Variables.QUBITS, Variables.CIRCUIT_SETUP_TIME, "Circuit Setup Time by Qubits"),
+             ("line", Variables.STEPS, Variables.SIZES, "Compulsory Sizes over Path"),
              ("line", Variables.STEPS, Variables.LOG_SIZES, "Compulsory log10 Sizes over Path"),
              ("points", Variables.QUBITS, Variables.MAX_SIZES, "Maximum Size by Qubits"),
              ("points", Variables.QUBITS, Variables.LOG_MAX_SIZES, "Maximum log10 Size by Qubits"),
@@ -156,10 +171,9 @@ if __name__ == "__main__":
              ("3d_points", Variables.QUBITS, Variables.MAX_SIZES, 
                 Variables.CONTRACTION_TIME, "Qubits, Maximum Size, and Contraction Time")]
 
-    folders = ["first_experiment_2023-10-18", "first_experiment_2023-10-19_10-17", 
-                "mapping_experiment_2023-10-19_16-48", "mapping_experiment_2023-10-19_17-08",
-                "mapping_experiment_2023-10-19_17-24", "mapping_experiment_2023-10-19_17-27", 
-                "mapping_experiment_2023-10-24_09-30"]
+    folders = [ "mapping_experiment_2023-10-19_16-48", "mapping_experiment_2023-10-19_17-08",
+                "mapping_experiment_2023-10-19_17-27", "mapping_experiment_2023-10-24_09-30", 
+                "mapping_experiment_2023-11-03_13-39"]
     #["driver_linear_ltr_2023-11-06_15-04"]
 
     #file is the raw loaded file, and data is the processed variables for that file
