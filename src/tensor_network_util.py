@@ -9,6 +9,8 @@ import urllib.parse
 import math
 from quimb.tensor.tensor_arbgeom import TensorNetworkGenVector
 from quimb.tensor import Tensor, TensorNetwork, oset
+import igraph as ig
+import matplotlib.pyplot as plt
 
 def get_circuit(n):
     circ = Circuit(n)
@@ -49,6 +51,34 @@ def get_nontriv_identity_circuit(n):
 
     return circ
     
+def get_subgraph_containing_circuit(n):
+    circ = Circuit(n)
+
+    # randomly permute the order of qubits
+    regs = list(range(n))
+
+    middle = int(n / 2)
+    # chain of cnots to generate GHZ-state
+    for d in range(middle):
+        circ.apply_gate('H', regs[d])
+        circ.apply_gate('CNOT', regs[d], regs[d + 1])
+
+    for d in range(middle+1, n-1):
+        circ.apply_gate('H', regs[d])
+        circ.apply_gate('CNOT', regs[d], regs[d + 1])
+
+    circ.apply_gate('H', regs[0])
+
+    for d in range(middle-1, -1, -1):
+        circ.apply_gate('CNOT', regs[d], regs[d + 1])
+        circ.apply_gate('H', regs[d])
+
+    for d in range(n-2, middle+1, -1):
+        circ.apply_gate('CNOT', regs[d], regs[d + 1])
+        circ.apply_gate('H', regs[d])
+
+    return circ
+
 def get_reasonable_path(path):
     num_of_tensors = len(path) + 1
     reasonable_path = []
@@ -306,7 +336,7 @@ def get_tensor_network(circuit, split_cnot = True, state = None):
             tensor_network._contract_between_tids(pair[0], pair[1])
 
     # Fixing problematic gates (S, ...?)
-    problematic_gates = ["S"]
+    problematic_gates = []#["S"]
     for problem_gate in problematic_gates:
         if problem_gate in tensor_network.tag_map:
             for idx in tensor_network.tag_map[problem_gate]:
@@ -382,7 +412,7 @@ def get_contraction_path(tensor_network, data):
         
     elif settings["method"] == "linear":
         print(f"Linear fraction: {settings['linear_fraction']}")
-        usable_path = get_linear_path(tensor_network, settings["linear_fraction"] if "linear_fraction" in settings else 0.0)
+        usable_path = get_linear_path(tensor_network, settings["linear_fraction"] if "linear_fraction" in settings else 0.0, gridded=settings["gridded"])
     else:
         raise NotImplementedError(f"Method {settings['method']} is not supported")
 
@@ -516,30 +546,73 @@ def draw_depth_order(tensor_network):
 
     tn_draw.draw_tn(tensor_network, iterations=3, initial_layout='kamada_kawai', node_color=node_colors, edge_scale=5, node_scale=10)
 
+def plot_igraph(G: ig.Graph):
+    fig, ax = plt.subplots()
+    ig.plot(G, target=ax)
+    plt.show()
+
+def plot_components(components):
+    fig, ax = plt.subplots()
+    ig.plot(
+        components,
+        target=ax,
+        palette=ig.RainbowPalette(),
+        vertex_size=7,
+        vertex_color=list(map(int, ig.rescale(components.membership, (0, 200), clamp=True))),
+        edge_width=0.7
+    )
+    plt.show()
+
+def find_and_split_subgraphs_in_tn(tn: TensorNetwork, draw=False) -> ig.Graph:
+    edges = [tuple(e) for e in tn.ind_map.values() if len(e) > 1]
+    G = ig.Graph(edges)
+    components = G.connected_components(mode="weak")
+    if draw:
+        plot_components(components)
+
+    used_tags = []
+    for (i, tensor) in tn.tensor_map.items():
+        new_tag = f"Subgraph_{components.membership[i]}"
+        tensor.add_tag(new_tag)
+        used_tags.append(new_tag)
+    
+    used_tags = list(set(used_tags))
+
+    sub_tns = []
+    for tag in used_tags:
+        sub_tns.append(tn.select(tag, which="any", virtual=False))
+
+    if draw:
+        for sub_tn in sub_tns:
+            sub_tn.draw()
+
+    return sub_tns
+
 if __name__ == "__main__":
 
     n = 8
-    options = [[1 + 0j, 0j], [0j, 1 + 0j]]
-    state = [random.choice(options) for _ in range(n)]
+    # options = [[1 + 0j, 0j], [0j, 1 + 0j]]
+    # state = [random.choice(options) for _ in range(n)]
 
-    tensor_network = get_tensor_network(get_nontriv_identity_circuit(n), split_cnot=True, state = state)
-
+    tensor_network = get_tensor_network(get_subgraph_containing_circuit(n), split_cnot=False, state = None)
+    #tensor_network.draw()
+    find_and_split_subgraphs_in_tn(tensor_network)
     #draw_depth_order(tensor_network)
 
-    usable_path = get_linear_path(tensor_network, fraction=0.8)
-    #print(verify_path(usable_path))
+    # usable_path = get_linear_path(tensor_network, fraction=0.8)
+    # #print(verify_path(usable_path))
 
-    #usable_path = get_usable_path(tensor_network, tensor_network.contraction_path(ctg.HyperOptimizer(methods = "greedy", minimize="flops", max_repeats=1, max_time=60, progbar=True, parallel=False)))
+    # #usable_path = get_usable_path(tensor_network, tensor_network.contraction_path(ctg.HyperOptimizer(methods = "greedy", minimize="flops", max_repeats=1, max_time=60, progbar=True, parallel=False)))
 
-    draw_contraction_order(tensor_network, usable_path, width = 0.5) #save_path=os.path.join(os.path.realpath(__file__), "..", "..", "experiments", "plots", "contraction_order"))
+    # draw_contraction_order(tensor_network, usable_path, width = 0.5) #save_path=os.path.join(os.path.realpath(__file__), "..", "..", "experiments", "plots", "contraction_order"))
     
-    slice_tensor_network_vertically(tensor_network)
-    usable_path = get_linear_path(tensor_network, fraction=0.8)
-    draw_contraction_order(tensor_network, usable_path, width = 0.5)
+    # slice_tensor_network_vertically(tensor_network)
+    # usable_path = get_linear_path(tensor_network, fraction=0.8)
+    # draw_contraction_order(tensor_network, usable_path, width = 0.5)
 
-    result = contract(tensor_network, usable_path = usable_path)
+    # result = contract(tensor_network, usable_path = usable_path)
 
-    print(result)
+    # print(result)
 
     #verified, message = verify_path(usable_path)
     #if not verified:

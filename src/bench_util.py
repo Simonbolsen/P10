@@ -103,13 +103,25 @@ level_mapping = {
     3: lambda qc: get_mapped_level(qc)
 }
 
+def get_rounded_circuit(circuit: QuantumCircuit, decimal_places=4) -> QuantumCircuit:
+    if decimal_places < 0:
+        return circuit
+    
+    import re
+    rounder = re.compile(r"\d*\.\d+")
+    def mround(match):
+        return "{:.{prec}f}".format(float(match.group()), prec=decimal_places)
+
+    rounded_qasm_circuit = re.sub(rounder, mround, circuit.qasm())
+    return QuantumCircuit.from_qasm_str(rounded_qasm_circuit)
+
 def get_dual_circuit_setup_quimb(data, draw: bool = False) -> Circuit:
     assert data["circuit_settings"] is not None
     circ_conf = data["circuit_settings"]
 
     assert circ_conf["algorithm"] is not None and circ_conf["level"] is not None and circ_conf["qubits"] is not None
     
-    base_circ = get_benchmark(circ_conf["algorithm"], level=0, circuit_size=circ_conf["qubits"])
+    base_circ = get_rounded_circuit(get_benchmark(circ_conf["algorithm"], level=0, circuit_size=circ_conf["qubits"]), decimal_places=-1)
     
     c1 = level_mapping[circ_conf["level"][0]](base_circ)
     c2 = level_mapping[circ_conf["level"][1]](base_circ)

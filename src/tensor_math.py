@@ -1,12 +1,13 @@
 import numpy as np
 import tddpure.TDD.TDD as TDD
 from tddpure.TDD.TN import Tensor
-from example import tdd_analysis as example
+from another_tdd_bug_example import tdd_analysis as example
 from tdd_util import reverse_lexicographic_key
 from tensor_network_util import rectify_complex
 import tensor_network_util as tnu
 import tdd_util as tddu
 import random
+from tdd_util import tensor_of_tdd
 
 def get_indeces(inds):
     return [TDD.Index(i) for i in inds]
@@ -44,6 +45,7 @@ def test_experiment(data, rounded = True):
     TDD.Ini_TDD(global_index_order)
     tdds = {name : t.tdd() for name, t in tensors.items()}
     tdds["repeated_tdd_result"] = TDD.cont(tdds["left"], tdds["right"])
+    arrays["repeated_tdd_result"] = tensor_of_tdd(tdds["repeated_tdd_result"]).data
 
     print([f"{k}: {i.node_number()}" for k, i in tdds.items()])
 
@@ -105,26 +107,26 @@ def contract(tdds, usable_path):
     return tdds[right_index]
 
 if __name__ == "__main__":
-    #test_experiment(example, True)
+    test_experiment(example, True)
     #test_experiment(correct_example, True)
-    options = [[1 + 0j, 0j], [0j, 1 + 0j]]
+    # options = [[1 + 0j, 0j], [0j, 1 + 0j]]
 
-    n = 3
+    # n = 3
 
-    while True:
-        curcuit = tnu.get_nontriv_identity_circuit(n)
-        state = [random.choice(options) for _ in range(n)]
-        tn = tnu.get_tensor_network(curcuit, split_cnot=True, state = state)
-        path = tnu.get_linear_path(tensor_network=tn, fraction=0.0)
-        tnu.draw_contraction_order(tn, path, width=0.5)
+    # while True:
+    #     curcuit = tnu.get_nontriv_identity_circuit(n)
+    #     state = [random.choice(options) for _ in range(n)]
+    #     tn = tnu.get_tensor_network(curcuit, split_cnot=True, state = state)
+    #     path = tnu.get_linear_path(tensor_network=tn, fraction=0.0)
+    #     tnu.draw_contraction_order(tn, path, width=0.5)
         
-        tdds = tddu.get_tdds_from_quimb_tensor_network(tn)
-        result = contract(tdds, path)
+    #     tdds = tddu.get_tdds_from_quimb_tensor_network(tn)
+    #     result = contract(tdds, path)
         
-        t = tddu.tensor_of_tdd(result).data.flatten()
-        print(sum([abs(v)**2 for v in t]))
-        print("Input: " + str(state))
-        print("Output: " + str(t))
-        print("Equal" if tddu.is_tdd_equal(result, state) else "Not Equal")
-        print("")
-    ...
+    #     t = tddu.tensor_of_tdd(result).data.flatten()
+    #     print(sum([abs(v)**2 for v in t]))
+    #     print("Input: " + str(state))
+    #     print("Output: " + str(t))
+    #     print("Equal" if tddu.is_tdd_equal(result, state) else "Not Equal")
+    #     print("")
+    # ...
