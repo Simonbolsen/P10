@@ -85,9 +85,9 @@ def get_dual_circuit_setup(c1: QuantumCircuit, c2: QuantumCircuit, data, draw: b
         raise ValueError("Trying to delete too many gates")
     
     data["circuit_data"]["random_gate_deletions"] = []
-    for _ in range(data["circuit_settings"]["random_gate_deletions"]):
+    for i in range(data["circuit_settings"]["random_gate_deletions"]):
         # Randomly delete gates
-        random_gate_index = randint(unrolled_first_circ_gate_count, data["circuit_data"]["unrolled_qiskit_gate_count"] - 1)
+        random_gate_index = randint(unrolled_first_circ_gate_count, data["circuit_data"]["unrolled_qiskit_gate_count"] - (i + 1))
         data["circuit_data"]["random_gate_deletions"].append(random_gate_index)
         del unrolled_circ.data[random_gate_index]
 
