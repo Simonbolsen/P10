@@ -99,12 +99,16 @@ def is_node_equal(node, tensor):
 
     return False
 
-
-def is_tdd_identitiy(node):
+def is_tdd_identitiy(node, expected_length = -1):
     if type(node) == TDD.TDD:
-        node = node.node
+        return is_node_identitiy(node.node, expected_length == -1, expected_length)
     if node == TDD.terminal_node:
-        return True
+        return expected_length == 0 or expected_length is None
+    return False
+
+def is_node_identitiy(node, length_indifferent, expected_length):
+    if node == TDD.terminal_node or (not length_indifferent and expected_length < 0):
+        return length_indifferent or expected_length == 0
     left_node = node.succ[0]
     right_node = node.succ[1]
 
@@ -116,7 +120,7 @@ def is_tdd_identitiy(node):
             right_node.out_weight[0] == ct.cn0 and
             right_node.out_weight[1] == ct.cn1 and
             left_node.succ[0] == right_node.succ[1] and
-            is_tdd_identitiy(left_node.succ[0]))
+            is_node_identitiy(left_node.succ[0], length_indifferent, -1 if length_indifferent else expected_length - 1))
 
 if __name__ == "__main__":
     inds = [str(i) for i in range(4)]
@@ -125,5 +129,7 @@ if __name__ == "__main__":
     I = get_identity_tdd([Index(i) for i in inds])
 
     m = tensor_of_tdd(I)
+
+    print(is_tdd_identitiy(I))
 
     print("?")
