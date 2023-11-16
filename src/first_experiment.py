@@ -77,8 +77,8 @@ def fast_contract_tdds(tdds, data, max_time=-1, max_node_size=-1):
             return None
 
     resulting_tdd = tdds[right_index]
-    if "simulate" not in data or not data["simulate"]:
-        data["equivalence"] = tddu.is_tdd_identitiy(resulting_tdd)
+    if "simulate" not in data["settings"] or not data["settings"]["simulate"]:
+        data["equivalence"] = tddu.is_tdd_identitiy(resulting_tdd, data["circuit_settings"]["qubits"])
         data["conclusive"] = True
     else:
         data["equivalence"] = tddu.is_tdd_equal(resulting_tdd, data["state"])
@@ -170,8 +170,8 @@ def contract_tdds(tdds, data, max_time=-1, max_node_size=-1, save_intermediate_r
             return None
 
     resulting_tdd = tdds[right_index]
-    if "simulate" not in data or not data["simulate"]:
-        data["equivalence"] = tddu.is_tdd_identitiy(resulting_tdd)
+    if "simulate" not in data["settings"] or not data["settings"]["simulate"]:
+        data["equivalence"] = tddu.is_tdd_identitiy(resulting_tdd, data["circuit_settings"]["qubits"])
         data["conclusive"] = True
     else:
         data["equivalence"] = tddu.is_tdd_equal(resulting_tdd, data["state"])
