@@ -192,7 +192,7 @@ def get_all_configs(settings):
 debug=False
 def first_experiment():
     # Prepare save folder and file paths
-    experiment_name = f"debug_detection_{datetime.today().strftime('%Y-%m-%d_%H-%M')}"
+    experiment_name = f"inequivalent_graph_del_3_{datetime.today().strftime('%Y-%m-%d_%H-%M')}"
     folder_path = os.path.join("experiments", experiment_name)
     if not os.path.exists(folder_path):
         os.makedirs(folder_path, exist_ok=True)
@@ -201,16 +201,17 @@ def first_experiment():
         "simulate": False,
         "algorithms": selected_algorithms,
         "levels": [(0, 2)], #[i for i in combinations(range(4), 2)],
-        "qubits": [i for i in range(4, 257, 2)]
+        "qubits": [i for i in range(2, 257, 2)]
     }
 
     settings = {
         "simulate": False,
-        "algorithms": ["su2random"],#, "ghz", "graphstate", "qftentangled"],
+        "algorithms": ["graphstate"],#, "ghz", "graphstate", "qftentangled"],
         "levels": [(0, 2)],
-        "qubits": list(range(4,21)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
+        "qubits": list(range(4,257)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
         "sliced": False,
-        "cnot_split": False
+        "cnot_split": False,
+        "use_subnets": True
     }
 
     print(f"Performing experiment with {settings['algorithms']} for levels: {settings['levels']}\n\tqubits: {settings['qubits']}")
@@ -220,11 +221,12 @@ def first_experiment():
 
     # For each circuit, run equivalence checking:
     for circ_conf in circuit_configs:
-        circ_conf["random_gate_deletions"] = 0
+        circ_conf["random_gate_deletions"] = 3
         # Prepare data container
         data = {
-            #"max_rank": circuit_difficulty[circ_conf["algorithm"]] * circ_conf["qubits"],
+            "version": 1,
             "experiment_name": experiment_name,
+            "expect_equivalence": False,
             "file_name": f"circuit_{circ_conf['algorithm']}_{circ_conf['level'][0]}{circ_conf['level'][1]}_{circ_conf['qubits']}",
             "settings": settings,
             "contraction_settings": {
@@ -236,9 +238,9 @@ def first_experiment():
             "circuit_data": {},
             "path_settings": {
                 "method": "cotengra",
-                "opt_method": "betweenness", # greedy, betweenness, walktrap
+                "opt_method": "rgreedy", #  kahypar-balanced, kahypar-agglom, labels, labels-agglom
                 "minimize": "flops",
-                "max_repeats": 1,
+                "max_repeats": 50,
                 "max_time": 60,
                 "use_proportional": True,
                 "gridded": False,
@@ -277,60 +279,71 @@ def first_experiment():
         #tensor_network.draw(color=['PSI0', 'H', 'CX', 'RZ', 'RX', 'CZ'])
         print(f"Number of tensors: {len(tensor_network.tensor_map)}")
 
-        print(f"Attemping tensor network split...")
-        sub_tensor_networks = tnu.find_and_split_subgraphs_in_tn(tensor_network)
-        print(f"Split tensor network into {len(sub_tensor_networks)}")
+        if data["settings"]["use_subnets"]:
+            print(f"Attemping tensor network split...")
+            sub_tensor_networks = tnu.find_and_split_subgraphs_in_tn(tensor_network)
+            print(f"Split tensor network into {len(sub_tensor_networks)}")
+            data["sub_networks"] = len(sub_tensor_networks)
+        else:
+            sub_tensor_networks = [tensor_network]
 
         attempts = 0
         succeeded = False
         while (attempts < data["contraction_settings"]["max_replans"] and not succeeded):
             attempts += 1
-            # data_containers = [deepcopy(data) for _ in sub_tensor_networks]
-            # for i, stn in enumerate(sub_tensor_networks):
-            #     data = data_containers[i]
 
-            # Construct the plan from CoTenGra
-            print("Find contraction path...")
-            starting_time = time.time_ns()
-            path = tnu.get_contraction_path(tensor_network, data)
-            data["path_construction_time"] = int((time.time_ns() - starting_time) / 1000000)
-
-            #tn_draw.draw_tn(tensor_network, color=['PSI0', 'H', 'CX', 'RZ', 'RX', 'CZ'], save_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
-            #tnu.draw_contraction_order(tensor_network, path, save_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
-
-            # Prepare gate TDDs
-            print("Preparing gate TDDs...")
-            starting_time = time.time_ns()
-            gate_tdds = tddu.get_tdds_from_quimb_tensor_network(tensor_network)
-            data["gate_prep_time"] = int((time.time_ns() - starting_time) / 1000000)
-
-            #tddu.draw_all_tdds(gate_tdds, folder=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
-            print("Starting QCEC sanity check")
-            starting_time = time.time_ns()
-            data["qcec_equivalence"] = verify(data["circuit_data"]["circuit_1_qasm"], data["circuit_data"]["circuit_2_qasm"]).equivalence.value in [1,4,5]  # see https://mqt.readthedocs.io/projects/qcec/en/latest/library/EquivalenceCriterion.html
-            data["qcec_time"] = int((time.time_ns() - starting_time) / 1000000)
-            print(f"QCEC says: {data['qcec_equivalence']}")
+            # print("Starting QCEC sanity check")
+            # starting_time = time.time_ns()
+            # data["qcec_equivalence"] = verify(data["circuit_data"]["circuit_1_qasm"], data["circuit_data"]["circuit_2_qasm"]).equivalence.value in [1,4,5]  # see https://mqt.readthedocs.io/projects/qcec/en/latest/library/EquivalenceCriterion.html
+            # data["qcec_time"] = int((time.time_ns() - starting_time) / 1000000)
+            # print(f"QCEC says: {data['qcec_equivalence']}")
             data["circuit_data"]["circuit_1_qasm"] = data["circuit_data"]["circuit_1_qasm"].qasm()
             data["circuit_data"]["circuit_2_qasm"] = data["circuit_data"]["circuit_2_qasm"].qasm()
 
-            quimb_result = tensor_network.contract(optimize=data["path_data"]["original_path"])
-            variable_order = sorted(list(quimb_result.inds), key=reverse_lexicographic_key, reverse=True)
-            processed_result = quimb_result.transpose(*variable_order, inplace=False)
-            quimb_result_tdd = Tensor(processed_result.data, [Index(s) for s in processed_result.inds]).tdd()
-            quimb_result_tdd.show(name=os.path.join(working_path, data["file_name"] + f"_R{attempts}" + "_tensor_cont"))
-            data["quimb_equivalence"] = tddu.is_tdd_identitiy(quimb_result_tdd)
-            print(f"Quimb says: {data['quimb_equivalence']}")
+            # quimb_result = tensor_network.contract(optimize=data["path_data"]["original_path"])
+            # variable_order = sorted(list(quimb_result.inds), key=reverse_lexicographic_key, reverse=True)
+            # processed_result = quimb_result.transpose(*variable_order, inplace=False)
+            # quimb_result_tdd = Tensor(processed_result.data, [Index(s) for s in processed_result.inds]).tdd()
+            # quimb_result_tdd.show(name=os.path.join(working_path, data["file_name"] + f"_R{attempts}" + "_tensor_cont"))
+            # data["quimb_equivalence"] = tddu.is_tdd_identitiy(quimb_result_tdd)
+            # print(f"Quimb says: {data['quimb_equivalence']}")
             # np.array([v.real if abs(v) > 0.01 else 0 for v in (quimb_result.data*(-1j)).flatten()]).reshape((32,32))
 
-            # Contract TDDs + equivalence checking
-            print(f"Contracting {len(path)} times...")
-            starting_time = time.time_ns()
-            #result_tdd = contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"], save_intermediate_results=True, comprehensive_saving=True, folder_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
-            result_tdd = fast_contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"])
-            data["contraction_time"] = int((time.time_ns() - starting_time) / 1000000)
+            data_containers = [deepcopy(data) for _ in sub_tensor_networks]
+            for i, stn in enumerate(sub_tensor_networks):
+                data = data_containers[i]
 
-            if (data["qcec_equivalence"] != data["equivalence"]):
-                print('\033[31m' + "Erroneous result: QCEC != TDD" + '\033[m')
+                # Construct the plan from CoTenGra
+                print("Find contraction path...")
+                starting_time = time.time_ns()
+                path = tnu.get_contraction_path(stn, data)
+                data["path_construction_time"] = int((time.time_ns() - starting_time) / 1000000)
+
+                #tn_draw.draw_tn(tensor_network, color=['PSI0', 'H', 'CX', 'RZ', 'RX', 'CZ'], save_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
+                #tnu.draw_contraction_order(tensor_network, path, save_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
+
+                # Prepare gate TDDs
+                print("Preparing gate TDDs...")
+                starting_time = time.time_ns()
+                gate_tdds = tddu.get_tdds_from_quimb_tensor_network(stn)
+                data["gate_prep_time"] = int((time.time_ns() - starting_time) / 1000000)
+
+                #tddu.draw_all_tdds(gate_tdds, folder=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
+                
+
+                # Contract TDDs + equivalence checking
+                print(f"Contracting {len(path)} times...")
+                starting_time = time.time_ns()
+                #result_tdd = contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"], save_intermediate_results=True, comprehensive_saving=True, folder_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
+                result_tdd = fast_contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"])
+                data["contraction_time"] = int((time.time_ns() - starting_time) / 1000000)
+
+                data_containers[i] = data
+
+            data = combinate_data_containers(data_containers)
+
+            if (data["expect_equivalence"] != data["equivalence"]):
+                print('\033[31m' + "Erroneous result: Expected != TDD" + '\033[m')
 
             # Save data for circuit
             if not debug:
@@ -373,21 +386,22 @@ def combinate_data_containers(containers: list[dict]) -> list[dict]:
 
     """
     final_container = deepcopy(containers[0])
-
-    final_container["path_data"]["original_path"] = list(np.array([containers[i]["path_data"]["original_path"] for i in range(len(containers))]))
-    final_container["path_data"]["used_trials"] = list(np.array([containers[i]["path_data"]["used_trials"] for i in range(len(containers))]))
-    final_container["path_data"]["opt_times"] = [containers[i]["path_data"]["opt_times"] for i in range(len(containers))]
-    final_container["path_data"]["opt_sizes"] = [containers[i]["path_data"]["opt_sizes"] for i in range(len(containers))]
-    final_container["path_data"]["opt_flops"] = [containers[i]["path_data"]["opt_flops"] for i in range(len(containers))]
-    final_container["path_data"]["opt_writes"] = [containers[i]["path_data"]["opt_writes"] for i in range(len(containers))]
-    final_container["path_data"]["flops"] = sum([containers[i]["path_data"]["flops"] for i in range(len(containers))])
-    final_container["path_data"]["size"] = sum([containers[i]["path_data"]["size"] for i in range(len(containers))])
-    final_container["path_data"]["path"] = list(np.array([containers[i]["path_data"]["path"] for i in range(len(containers))]))
-    final_container["path_data"]["dot"] = tnu.get_dot_from_path(final_container["path_data"]["path"])
+    if final_container["path_settings"]["method"] == "cotengra":
+        final_container["path_data"]["original_path"] = [item for i in range(len(containers)) for item in containers[i]["path_data"]["original_path"]]
+        final_container["path_data"]["used_trials"] = [containers[i]["path_data"]["used_trials"] for i in range(len(containers))]
+        final_container["path_data"]["opt_times"] = [containers[i]["path_data"]["opt_times"] for i in range(len(containers))]
+        final_container["path_data"]["opt_sizes"] = [containers[i]["path_data"]["opt_sizes"] for i in range(len(containers))]
+        final_container["path_data"]["opt_flops"] = [containers[i]["path_data"]["opt_flops"] for i in range(len(containers))]
+        final_container["path_data"]["opt_writes"] = [containers[i]["path_data"]["opt_writes"] for i in range(len(containers))]
+        final_container["path_data"]["flops"] = sum([containers[i]["path_data"]["flops"] for i in range(len(containers))])
+        final_container["path_data"]["size"] = sum([containers[i]["path_data"]["size"] for i in range(len(containers))])
     
-    final_container["not_same_tensors"] = list(np.array([containers[i]["not_same_tensors"] for i in range(len(containers))]))
-    final_container["tdd_analysis"] = list(np.array([containers[i]["tdd_analysis"] for i in range(len(containers))]))
-    final_container["correct_example"] = list(np.array([containers[i]["correct_example"] for i in range(len(containers))]))
+    final_container["path"] = [item for i in range(len(containers)) for item in containers[i]["path"]]
+    final_container["path_data"]["dot"] = tnu.get_dot_from_path(final_container["path"])
+
+    final_container["not_same_tensors"] = [item for i in range(len(containers)) for item in containers[i]["not_same_tensors"]]
+    final_container["tdd_analysis"] = [containers[i]["tdd_analysis"] for i in range(len(containers))]
+    final_container["correct_example"] = [containers[i]["correct_example"] for i in range(len(containers))]
 
     final_container["path_construction_time"] = sum([containers[i]["path_construction_time"] for i in range(len(containers))])
     final_container["gate_prep_time"] = sum([containers[i]["gate_prep_time"] for i in range(len(containers))])
@@ -395,7 +409,7 @@ def combinate_data_containers(containers: list[dict]) -> list[dict]:
     
     final_container["equivalence"] = all([containers[i]["equivalence"] for i in range(len(containers))])
     final_container["conclusive"] = all([containers[i]["conclusive"] for i in range(len(containers))])
-    final_container["sizes"] = list(np.array([containers[i]["sizes"] for i in range(len(containers))]))
+    final_container["sizes"] = dict([item for i in range(len(containers)) for item in containers[i]["sizes"].items()])
 
     return final_container
 

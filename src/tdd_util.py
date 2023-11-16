@@ -7,6 +7,7 @@ import numpy as np
 import tddpure.TDD.ComplexTable as ct
 import tddpure.TDD.TDD as TDD
 from quimb.tensor import Tensor as QTensor
+from tqdm import tqdm
 
 def tn_to_tdd(tn: TensorNetwork):
     return tn.cont()
@@ -29,7 +30,7 @@ def get_tdds_from_quimb_tensor_network(tensor_network) -> dict[int,TDD.TDD]:
     
     tdds = {}
 
-    for i, tensor in tensor_network.tensor_map.items():
+    for i, tensor in tqdm(tensor_network.tensor_map.items()):
         #tensor_t = tensor.transpose(*(sorted(list(tensor.inds), key=reverse_lexicographic_key, reverse=False)))
         t = Tensor(tensor.data, [Index(s) for s in tensor.inds])
         tdds[i] = t.tdd()
@@ -109,6 +110,7 @@ def is_tdd_identitiy(node):
 
     return (node.out_weight[0] == ct.cn1 and 
             node.out_weight[1] == ct.cn1 and
+            left_node.out_weight is not None and right_node.out_weight is not None and
             left_node.out_weight[0] == ct.cn1 and
             left_node.out_weight[1] == ct.cn0 and
             right_node.out_weight[0] == ct.cn0 and
