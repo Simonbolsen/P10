@@ -80,7 +80,9 @@ def extract_data(folder, inclusion_condition = (lambda file, data:True)):
             file_data[Variables.MAX_SIZES] = ([max(s)])
             file_data[Variables.LOG_MAX_SIZES] = ([math.log10(max(s))])
             file_data[Variables.CONTRACTION_TIME] = ([file["contraction_time"]])
-            file_data[Variables.TENSOR_COUNT] = [len(s)+1]
+            file_data[Variables.TENSOR_COUNT] = [len(file["path"]) + (file["sub_networks"] if "sub_networks" in file else 1)]
+            file_data[Variables.GATE_DELETIONS] = [file['circuit_settings']["random_gate_deletions"]]
+            file_data[Variables.EQUIV_GROUP_COUNTS] = (1 if file["equivalence"] else 0) + 2 * (1 if file["conclusive"] else 0)
             if "sub_networks" in file:
                 file_data[Variables.SUB_NETWORK_COUNT] = [file["sub_networks"]]
             if "qcec_time" in file:
@@ -123,7 +125,9 @@ def extract_data(folder, inclusion_condition = (lambda file, data:True)):
                 for v in list(Variables):
                     if file_data[v] is not None:
                         data[v].append(file_data[v])
-
+                        
+    data[Variables.GROUP_NAMES] = {0: "Inequivalent+Inconclusive", 1: "Equivalent+Inconclusive", 2: "Inequivalent+Conclusive", 3: "Equivalent+Conclusive"}
+    data[Variables.EQUIV_GROUP_COUNTS] = {data[Variables.GROUP_NAMES][i]:data[Variables.EQUIV_GROUP_COUNTS].count(i) for i in data[Variables.GROUP_NAMES].keys()}
     return data
 
 def plot(folder, plots, save_path = "", inclusion_condition = (lambda file, data:True), show_3d = False):
@@ -153,6 +157,11 @@ def plot(folder, plots, save_path = "", inclusion_condition = (lambda file, data
                 pu.plotPoints(data[p[1]], data[p[2]], data[p[3]], [p[1].value, p[2].value, p[3].value], 
                               legend=False, series_labels=data[Variables.NAMES], marker="o", title=title, 
                               save_path="" if show_3d else full_path)
+        elif p[0] == "bar":
+            if is_non_empty(data[p[1]]) and is_non_empty(data[p[2]]):
+                values = [[[v]] for v in list(data[p[2]].values())]
+                groups = list(data[p[2]].keys())
+                pu.plot_nested_bars(values, groups, [""], x_label=p[1].value, y_label=p[2].value, title=p[3], save_path=full_path)
         else:
             print(f"{p[0]} is not a valid plot type!")
 
@@ -193,56 +202,70 @@ class Variables(Enum):
     GATE_PREP_TIME = "Gate TDD Construction Time t_gtc [ms]"
     SUB_NETWORK_COUNT = "Num of Sub Networks"
     TENSOR_COUNT = "Num of Tensors"
+    GATE_DELETIONS = "Num of Gates Deletions"
+    GROUP_NAMES = "Equivalence Cases"
+    EQUIV_GROUP_COUNTS = "Group Count"
 
 if __name__ == "__main__":
  
     plots = [("points", Variables.QUBITS, Variables.QCEC_TIME, "QCEC Time by Qubits"),
-             ("points", Variables.QUBITS, Variables.TN_CONSTRUNCTION_TIME, "Tensor Network Construction Time by Qubits"),
-             ("points", Variables.QUBITS, Variables.PATH_CONSTRUCTION_TIME, "Path Construction Time by Qubits"), 
-             ("points", Variables.QUBITS, Variables.GATE_PREP_TIME, "Gate TDD Construction Time by Qubits"),
-             ("points", Variables.QUBITS, Variables.CIRCUIT_SETUP_TIME, "Circuit Setup Time by Qubits"),
-             ("points", Variables.QUBITS, Variables.SUB_NETWORK_COUNT, "Num of Sub Networks by Qubits"),
-             ("points", Variables.QUBITS, Variables.TENSOR_COUNT, "Num of Tensors by Qubits"),
-             ("line", Variables.STEPS, Variables.SIZES, "Compulsory Sizes over Path"),
-             ("line", Variables.STEPS, Variables.LOG_SIZES, "Compulsory log10 Sizes over Path"),
-             ("points", Variables.QUBITS, Variables.MAX_SIZES, "Maximum Size by Qubits"),
-             ("points", Variables.QUBITS, Variables.LOG_MAX_SIZES, "Maximum log10 Size by Qubits"),
-             ("points", Variables.MAX_SIZES, Variables.CONTRACTION_TIME, "Time by Maximum Size"),
-             ("points", Variables.ESTIMATED_TIME, Variables.CONTRACTION_TIME, "Time by Estimated Time"),
-             ("points", Variables.QUBITS, Variables.ESTIMATED_TIME, "Estimated Time by Qubits"),
-             ("line", Variables.CONTRACTION_STEPS, Variables.NEW_SIZES, "New Sizes over Path"),
-             ("points", Variables.PATH_FLOPS, Variables.MAX_SIZES, "Max Sizes over Path Flops"),
-             ("points", Variables.PATH_SIZE, Variables.MAX_SIZES, "Max Sizes over Path Size"),
-             ("line", Variables.OPT_RUNS, Variables.OPT_FLOPS, "Optimisation Flops"),
-             ("line", Variables.OPT_RUNS, Variables.OPT_SIZES, "Optimisation Sizes"),
-             ("line", Variables.OPT_RUNS, Variables.OPT_WRITES, "Optimisation Writes"),
-             ("line", Variables.OPT_RUNS, Variables.OPT_TIMES, "Optimisation Times"),
-             ("points", Variables.QUBITS, Variables.CONTRACTION_TIME, "Contraction Time by Qubits"),
+            #  ("points", Variables.QUBITS, Variables.TN_CONSTRUNCTION_TIME, "Tensor Network Construction Time by Qubits"),
+            #  ("points", Variables.QUBITS, Variables.PATH_CONSTRUCTION_TIME, "Path Construction Time by Qubits"), 
+            #  ("points", Variables.QUBITS, Variables.GATE_PREP_TIME, "Gate TDD Construction Time by Qubits"),
+            #  ("points", Variables.QUBITS, Variables.CIRCUIT_SETUP_TIME, "Circuit Setup Time by Qubits"),
+            #  ("points", Variables.QUBITS, Variables.SUB_NETWORK_COUNT, "Num of Sub Networks by Qubits"),
+            #  ("points", Variables.QUBITS, Variables.TENSOR_COUNT, "Num of Tensors by Qubits"),
+            #  ("line", Variables.STEPS, Variables.SIZES, "Compulsory Sizes over Path"),
+            #  ("line", Variables.STEPS, Variables.LOG_SIZES, "Compulsory log10 Sizes over Path"),
+            #  ("points", Variables.QUBITS, Variables.MAX_SIZES, "Maximum Size by Qubits"),
+            #  ("points", Variables.QUBITS, Variables.LOG_MAX_SIZES, "Maximum log10 Size by Qubits"),
+            #  ("points", Variables.MAX_SIZES, Variables.CONTRACTION_TIME, "Time by Maximum Size"),
+            #  ("points", Variables.ESTIMATED_TIME, Variables.CONTRACTION_TIME, "Time by Estimated Time"),
+            #  ("points", Variables.QUBITS, Variables.ESTIMATED_TIME, "Estimated Time by Qubits"),
+            #  ("line", Variables.CONTRACTION_STEPS, Variables.NEW_SIZES, "New Sizes over Path"),
+            #  ("points", Variables.PATH_FLOPS, Variables.MAX_SIZES, "Max Sizes over Path Flops"),
+            #  ("points", Variables.PATH_SIZE, Variables.MAX_SIZES, "Max Sizes over Path Size"),
+            #  ("line", Variables.OPT_RUNS, Variables.OPT_FLOPS, "Optimisation Flops"),
+            #  ("line", Variables.OPT_RUNS, Variables.OPT_SIZES, "Optimisation Sizes"),
+            #  ("line", Variables.OPT_RUNS, Variables.OPT_WRITES, "Optimisation Writes"),
+            #  ("line", Variables.OPT_RUNS, Variables.OPT_TIMES, "Optimisation Times"),
+            #  ("points", Variables.QUBITS, Variables.CONTRACTION_TIME, "Contraction Time by Qubits"),
+            #  ("points", Variables.GATE_DELETIONS, Variables.MAX_SIZES, "Max size by Gate Deletion"),
+            #  ("points", Variables.GATE_DELETIONS, Variables.QCEC_TIME, "QCEC Time by Gate Deletion"),
+            #  ("points", Variables.GATE_DELETIONS, Variables.TN_CONSTRUNCTION_TIME, "Tensor Network Construction Time by Gate Deletion"),
+            #  ("points", Variables.GATE_DELETIONS, Variables.PATH_CONSTRUCTION_TIME, "Path Construction Time by Gate Deletion"),
+            #  ("points", Variables.GATE_DELETIONS, Variables.GATE_PREP_TIME, "Gate TDD Construction Time by Gate Deletion"),
+            #  ("points", Variables.GATE_DELETIONS, Variables.CIRCUIT_SETUP_TIME, "Circuit Setup Time by Gate Deletion"),
+            #  ("points", Variables.GATE_DELETIONS, Variables.SUB_NETWORK_COUNT, "Num of Sub Networks by Gate Deletion"),
+            #  ("points", Variables.GATE_DELETIONS, Variables.TENSOR_COUNT, "Num of Tensors by Gate Deletion"),
+            #  ("points", Variables.GATE_DELETIONS, Variables.LOG_MAX_SIZES, "Maximum log10 Size by Gate Deletion"),
+            #  ("points", Variables.GATE_DELETIONS, Variables.ESTIMATED_TIME, "Estimated Time by Gate Deletion"),
+            #  ("points", Variables.GATE_DELETIONS, Variables.CONTRACTION_TIME, "Contraction Time by Gate Deletion"),
+             ("bar", Variables.GROUP_NAMES, Variables.EQUIV_GROUP_COUNTS, "Count of Equivalence Cases"),
+
             #  ("3d_points", Variables.QUBITS, Variables.MAX_SIZES, 
             #     Variables.CONTRACTION_TIME, "Qubits, Maximum Size, and Contraction Time")
                 ]
 
-    folders = ["driver_greedy_compressed_2023-11-10_11-38",
-        "driver_kahypar_2023-11-10_13-51",
-        "driver_kahypar_agglom_2023-11-10_13-56",
-        "driver_kahypar_balanced_2023-11-10_13-55",
-        "driver_labelprop_2023-11-10_13-22",
-        "driver_labels_2023-11-13_14-39",
-        "driver_rgreedy_2023-11-10_10-06",
-        "driver_sliced_2023-11-10_08-36",
-        "driver_spinglass_2023-11-10_12-18",
-        "inequivalent_gate_del_1_2023-11-14_09-31",
-        "inequivalent_gate_del_3_2023-11-14_10-48",
-        "inequivalent_graph_del_1_2023-11-14_12-17",
-        "inequivalent_graph_del_3_2023-11-14_18-29",
-        "sub_network_effect_with_2023-11-13_18-05",
-        "sub_network_effect_with_btw_2023-11-13_20-52",
-        "sub_network_effect_without_2023-11-13_18-49"]
+    folders = ["gate_deletion_dj256_2023-11-16_11-05"]
     
-    # [ "sub_network_effect_without_2023-11-13_18-49",
-    #            "sub_network_effect_with_2023-11-13_18-05",
-    #            "sub_network_effect_with_btw_2023-11-13_20-52"]
-    #["driver_linear_ltr_2023-11-06_15-04"]
+    # ["driver_greedy_compressed_2023-11-10_11-38",
+    #     "driver_kahypar_2023-11-10_13-51",
+    #     "driver_kahypar_agglom_2023-11-10_13-56",
+    #     "driver_kahypar_balanced_2023-11-10_13-55",
+    #     "driver_labelprop_2023-11-10_13-22",
+    #     "driver_labels_2023-11-13_14-39",
+    #     "driver_rgreedy_2023-11-10_10-06",
+    #     "driver_sliced_2023-11-10_08-36",
+    #     "driver_spinglass_2023-11-10_12-18",
+    #     "inequivalent_gate_del_1_2023-11-14_09-31",
+    #     "inequivalent_gate_del_3_2023-11-14_10-48",
+    #     "inequivalent_graph_del_1_2023-11-14_12-17",
+    #     "inequivalent_graph_del_3_2023-11-14_18-29",
+    #     "sub_network_effect_with_2023-11-13_18-05",
+    #     "sub_network_effect_with_btw_2023-11-13_20-52",
+    #     "sub_network_effect_without_2023-11-13_18-49"]
+    
 
     #file is the raw loaded file, and data is the processed variables for that file
     inclusion_condition = lambda file, data : ("conclusive" not in file or file["conclusive"])

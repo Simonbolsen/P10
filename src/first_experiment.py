@@ -185,14 +185,15 @@ def get_all_configs(settings):
     for algorithm in settings["algorithms"]:
         for level in settings["levels"]:
             for qubit in settings["qubits"]:
-                all_configs.append({"algorithm": algorithm, "level": level, "qubits": qubit})
+                for dels in settings["random_gate_dels_range"]:
+                    all_configs.append({"algorithm": algorithm, "level": level, "qubits": qubit, "random_gate_deletions": dels})
 
     return all_configs
 
 debug=False
 def first_experiment():
     # Prepare save folder and file paths
-    experiment_name = f"inequivalent_graph_del_3_{datetime.today().strftime('%Y-%m-%d_%H-%M')}"
+    experiment_name = f"gate_deletion_dj256_{datetime.today().strftime('%Y-%m-%d_%H-%M')}"
     folder_path = os.path.join("experiments", experiment_name)
     if not os.path.exists(folder_path):
         os.makedirs(folder_path, exist_ok=True)
@@ -206,9 +207,10 @@ def first_experiment():
 
     settings = {
         "simulate": False,
-        "algorithms": ["graphstate"],#, "ghz", "graphstate", "qftentangled"],
+        "algorithms": ["dj"],#, "ghz", "graphstate", "qftentangled"],
         "levels": [(0, 2)],
-        "qubits": list(range(4,257)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
+        "qubits": [256],#list(range(64,65)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
+        "random_gate_dels_range": list(range(1,1406,4)),
         "sliced": False,
         "cnot_split": False,
         "use_subnets": True
@@ -221,13 +223,13 @@ def first_experiment():
 
     # For each circuit, run equivalence checking:
     for circ_conf in circuit_configs:
-        circ_conf["random_gate_deletions"] = 3
+        #circ_conf["random_gate_deletions"] = 3
         # Prepare data container
         data = {
             "version": 1,
             "experiment_name": experiment_name,
             "expect_equivalence": False,
-            "file_name": f"circuit_{circ_conf['algorithm']}_{circ_conf['level'][0]}{circ_conf['level'][1]}_{circ_conf['qubits']}",
+            "file_name": f"circuit_{circ_conf['algorithm']}_{circ_conf['level'][0]}{circ_conf['level'][1]}_{circ_conf['qubits']}_d{circ_conf['random_gate_deletions']}",
             "settings": settings,
             "contraction_settings": {
                 "max_time": 3600, # in seconds, -1 for inf

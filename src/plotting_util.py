@@ -267,7 +267,7 @@ def plotPoints2d(xs, ys, x_label, y_label, legend = True, series_labels=[], mark
         plt.savefig(save_path)
         plt.close()
 
-def plot_nested_bars(values, groups, labels, x_label = "", y_label = "", save_path = ""):
+def plot_nested_bars(values, groups, labels, x_label = "", y_label = "", legend = True, title = "", save_path = ""):
     # Set up the figure and axes
     fig, ax = plt.subplots()
     fig.set_figwidth(10)
@@ -279,7 +279,7 @@ def plot_nested_bars(values, groups, labels, x_label = "", y_label = "", save_pa
     x_ticks = []
     values = np.array(values)
     maximum = np.max(values)
-    minimum = round((np.where(values > 0, values, np.inf).min() - 0.05) * 100) / 100
+    minimum = 0#round((np.where(values > 0, values, np.inf).min() - 0.05) * 100) / 100
 
     # Loop over the groups and create the bar chart
     for i, group in enumerate(groups):
@@ -288,7 +288,7 @@ def plot_nested_bars(values, groups, labels, x_label = "", y_label = "", save_pa
         tick = 0
         n = 0
         for y in values[i][0]:
-            if y > 0:
+            if y >= 0:
                 n += 1
                 x += bar_width
                 tick += x
@@ -310,16 +310,18 @@ def plot_nested_bars(values, groups, labels, x_label = "", y_label = "", save_pa
     # Set the y-axis labels
     ax.set_ylabel(y_label)
 
+    ax.set_title(title)
     # Add a legend
-    handles, labels = plt.gca().get_legend_handles_labels()
-    by_label = dict(zip(labels, handles))
-    plt.legend(by_label.values(), by_label.keys(), loc='lower right')
-    plt.set_cmap("magma")
+    if legend:
+        handles, labels = plt.gca().get_legend_handles_labels()
+        by_label = dict(zip(labels, handles))
+        plt.legend(by_label.values(), by_label.keys(), loc='lower right')
+        plt.set_cmap("magma")
 
     if save_path == "":
         plt.show()
     else:
-        plt.savefig(os.path.dirname(__file__) + "/../../" + save_path)
+        plt.savefig(save_path)
         plt.close()
 
 
