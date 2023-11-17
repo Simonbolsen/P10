@@ -21,7 +21,7 @@ def tdd_contract(tdd1: TDD, tdd2: TDD):
     return cont(tdd1, tdd2)
 
 def reverse_lexicographic_key(s):
-        return (len(s), s[::-1])
+        return (len(s), s[1:], s[0])
 
 def get_tdds_from_quimb_tensor_network(tensor_network) -> dict[int,TDD.TDD]:
     variable_order = sorted(list(tensor_network.all_inds()), key=reverse_lexicographic_key, reverse=True)
