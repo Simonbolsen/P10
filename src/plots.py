@@ -126,9 +126,21 @@ def extract_data(folder, inclusion_condition = (lambda file, data:True)):
                     if file_data[v] is not None:
                         data[v].append(file_data[v])
 
+    equiv_cases = data[Variables.EQUIV_CASES]
     data[Variables.GROUP_NAMES] = {0: "Inequivalent+Inconclusive", 1: "Equivalent+Inconclusive", 2: "Inequivalent+Conclusive", 3: "Equivalent+Conclusive"}
-    data[Variables.EQUIV_GROUP_COUNTS] = {data[Variables.GROUP_NAMES][i]:data[Variables.EQUIV_CASES].count([i]) for i in data[Variables.GROUP_NAMES].keys()}
-    
+    data[Variables.EQUIV_GROUP_COUNTS] = {data[Variables.GROUP_NAMES][i]:equiv_cases.count([i]) for i in data[Variables.GROUP_NAMES].keys()}
+
+    def smooth(i, n):
+        within = 0
+        s = 0
+        for ii in range(i-n, i+n):
+            if ii >= 0 and ii < len(equiv_cases):
+                within += 1
+                s += equiv_cases[ii][0]
+        return s / within if within > 0 else 0
+
+    data[Variables.SMOOTH_EQUIV_CASES] = [[smooth(i, 3)] for i, c in enumerate(equiv_cases)]
+
     return data
 
 def plot(folder, plots, save_path = "", inclusion_condition = (lambda file, data:True), show_3d = False):
@@ -207,6 +219,7 @@ class Variables(Enum):
     GROUP_NAMES = "Names for Equivalence Cases"
     EQUIV_GROUP_COUNTS = "Group Count"
     EQUIV_CASES = "Equivalence Cases"
+    SMOOTH_EQUIV_CASES = "Smoothed Equivalence Cases"
 
 if __name__ == "__main__":
  
@@ -244,6 +257,7 @@ if __name__ == "__main__":
              ("points", Variables.GATE_DELETIONS, Variables.ESTIMATED_TIME, "Estimated Time by Gate Deletion"),
              ("points", Variables.GATE_DELETIONS, Variables.CONTRACTION_TIME, "Contraction Time by Gate Deletion"),
              ("points", Variables.QUBITS, Variables.EQUIV_CASES, "Equivalence Case by Qubits"),
+             ("points", Variables.QUBITS, Variables.SMOOTH_EQUIV_CASES, "Smooth Equivalence Case by Qubits"),
              ("bar", Variables.GROUP_NAMES, Variables.EQUIV_GROUP_COUNTS, "Count of Equivalence Cases"),
 
             #  ("3d_points", Variables.QUBITS, Variables.MAX_SIZES, 
