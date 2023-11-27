@@ -4,6 +4,7 @@ import os
 from enum import Enum
 import math
 from tqdm import tqdm
+import numpy as np
 
 def process_sizes(data):
     sizes = data["sizes"]
@@ -129,7 +130,7 @@ def extract_data(folder, inclusion_condition = (lambda file, data:True)):
 
     equiv_cases = data[Variables.EQUIV_CASES]
     data[Variables.GROUP_NAMES] = {0: "Inequivalent+Inconclusive", 1: "Equivalent+Inconclusive", 2: "Inequivalent+Conclusive", 3: "Equivalent+Conclusive"}
-    data[Variables.EQUIV_GROUP_COUNTS] = {data[Variables.GROUP_NAMES][i]:equiv_cases.count([i]) for i in data[Variables.GROUP_NAMES].keys()}
+    data[Variables.EQUIV_GROUP_COUNTS] = {data[Variables.GROUP_NAMES][i]:[[equiv_cases.count([i])]] for i in data[Variables.GROUP_NAMES].keys()}
 
     def smooth(i, n):
         within = 0
@@ -141,6 +142,28 @@ def extract_data(folder, inclusion_condition = (lambda file, data:True)):
         return s / within if within > 0 else 0
 
     data[Variables.SMOOTH_EQUIV_CASES] = [[smooth(i, 3)] for i, c in enumerate(equiv_cases)]
+    data[Variables.NO_LABELS] = [""]
+
+    qubit_cases = list(set(np.array(data[Variables.QUBITS]).flatten()))
+    if len(qubit_cases) < 6:
+        total_cases = {q:{e:[] for e in data[Variables.GROUP_NAMES].keys()} for q in qubit_cases}
+        for i in range(len(data[Variables.CONTRACTION_TIME])):
+            total_cases[data[Variables.QUBITS][i][0]][data[Variables.EQUIV_CASES][i][0]].append(data[Variables.CONTRACTION_TIME][i][0])
+
+        for ok, ov in total_cases.items():
+            for ik, iv in ov.items():
+                total_cases[ok][ik] = [-1 if len(iv) == 0 else np.mean(iv)]
+
+        time_data = {}
+        for ok in sorted(list(total_cases.keys())):
+            imd_array = np.zeros(len(data[Variables.GROUP_NAMES]))
+            for ik, iv in total_cases[ok].items():
+                imd_array[ik] = iv[0]
+            time_data[ok] = [imd_array]
+
+        data[Variables.CONTRACTION_TIME_BUCKETED] = time_data
+        data[Variables.QUBITS_BUCKETED] = sorted(list(total_cases.keys()))
+        data[Variables.GROUP_LABELS] = list(data[Variables.GROUP_NAMES].values())
 
     return data
 
@@ -173,13 +196,21 @@ def plot(folder, plots, save_path = "", inclusion_condition = (lambda file, data
                               save_path="" if show_3d else full_path)
         elif p[0] == "bar":
             if is_non_empty(data[p[1]]) and is_non_empty(data[p[2]]):
-                values = [[[v]] for v in list(data[p[2]].values())]
+                values = list(data[p[2]].values())
                 groups = list(data[p[2]].keys())
-                pu.plot_nested_bars(values, groups, [""], x_label=p[1].value, y_label=p[2].value, title=p[3], save_path=full_path)
+                pu.plot_nested_bars(values, groups, data[p[3]], x_label=p[1].value, y_label=p[2].value, title=p[4], save_path=full_path)
         else:
             print(f"{p[0]} is not a valid plot type!")
 
-def comparison_plots(folders, save_path = "", inclusion_condition = (lambda file, data:True)): 
+def comparison_plots(save_path = "", inclusion_condition = (lambda file, data:True)): 
+    folders =  [
+         "driver_rgreedy_2023-11-10_10-06",
+         "inequivalent_gate_del_1_2023-11-14_09-31",
+         "inequivalent_gate_del_3_2023-11-14_10-48",
+         "inequivalent_graph_del_1_2023-11-14_12-17",
+         "inequivalent_graph_del_3_2023-11-14_18-29",
+         "sub_network_effect_without_2023-11-13_18-49"]
+    
     data = [extract_data(folder, inclusion_condition) for folder in folders]
 
     variables = [Variables.CONTRACTION_TIME, Variables.QUBITS, Variables.MAX_SIZES]
@@ -249,6 +280,10 @@ class Variables(Enum):
     EQUIV_GROUP_COUNTS = "Group Count"
     EQUIV_CASES = "Equivalence Cases"
     SMOOTH_EQUIV_CASES = "Smoothed Equivalence Cases"
+    CONTRACTION_TIME_BUCKETED = "Contraction Time in Buckets t_c [ms]"
+    QUBITS_BUCKETED = "Qubits in Buckets n"
+    NO_LABELS = "No Labels"
+    GROUP_LABELS = "Group Names as Labels"
 
 if __name__ == "__main__":
  
@@ -287,13 +322,15 @@ if __name__ == "__main__":
              ("points", Variables.GATE_DELETIONS, Variables.CONTRACTION_TIME, "Contraction Time by Gate Deletion"),
              ("points", Variables.QUBITS, Variables.EQUIV_CASES, "Equivalence Case by Qubits"),
              ("points", Variables.QUBITS, Variables.SMOOTH_EQUIV_CASES, "Smooth Equivalence Case by Qubits"),
-             ("bar", Variables.GROUP_NAMES, Variables.EQUIV_GROUP_COUNTS, "Count of Equivalence Cases"),
+             ("bar", Variables.GROUP_NAMES, Variables.EQUIV_GROUP_COUNTS, Variables.NO_LABELS, "Count of Equivalence Cases"),
+             ("bar", Variables.QUBITS_BUCKETED, Variables.CONTRACTION_TIME_BUCKETED, Variables.GROUP_LABELS, "Contraction Time by Qubits and Equivalence Cases"),
 
             #  ("3d_points", Variables.QUBITS, Variables.MAX_SIZES, 
             #     Variables.CONTRACTION_TIME, "Qubits, Maximum Size, and Contraction Time")
                 ]
 
     # ["simulation_dj_gate_del_1_2023-11-17_11-21"]
+    folders = ["simulation_dj_2023-11-17_09-59", "simulation_dj_repeated_gate_del_1_2023-11-17_14-46", "simulation_dj_2023-11-17_09-59"]
     
     folders =  [
          #"driver_greedy_compressed_2023-11-10_11-38",
@@ -302,14 +339,14 @@ if __name__ == "__main__":
          #"driver_kahypar_balanced_2023-11-10_13-55",
          #"driver_labelprop_2023-11-10_13-22",
          #"driver_labels_2023-11-13_14-39",
-         "driver_rgreedy_2023-11-10_10-06",
+         #"driver_rgreedy_2023-11-10_10-06",
          #"driver_sliced_2023-11-10_08-36",
          #"driver_spinglass_2023-11-10_12-18",
-         "inequivalent_gate_del_1_2023-11-14_09-31",
-         "inequivalent_gate_del_3_2023-11-14_10-48",
-         "inequivalent_graph_del_1_2023-11-14_12-17",
-         "inequivalent_graph_del_3_2023-11-14_18-29",
-         "sub_network_effect_without_2023-11-13_18-49",
+         #"inequivalent_gate_del_1_2023-11-14_09-31",
+         #"inequivalent_gate_del_3_2023-11-14_10-48",
+         #"inequivalent_graph_del_1_2023-11-14_12-17",
+         #"inequivalent_graph_del_3_2023-11-14_18-29",
+         #"sub_network_effect_without_2023-11-13_18-49",
          #"sub_network_effect_with_2023-11-13_18-05",
          #"sub_network_effect_with_btw_2023-11-13_20-52",
          #"sub_network_effect_without_2023-11-13_18-49"
@@ -319,8 +356,8 @@ if __name__ == "__main__":
     #file is the raw loaded file, and data is the processed variables for that file
     inclusion_condition = lambda file, data : ("conclusive" not in file or file["conclusive"] or file["settings"]["simulate"])
 
-    comparison_plots(folders, os.path.join("plots", "comparison_plots"), inclusion_condition=inclusion_condition) 
+    #comparison_plots(os.path.join("plots", "comparison_plots"), inclusion_condition=inclusion_condition) 
 
-    #for i, folder in enumerate(folders):
-    #    plot(folder, plots, os.path.join("plots", folder), inclusion_condition=inclusion_condition, show_3d=True) 
-    #    print(f"Plotted: {int((i + 1) / len(folders) * 100)}%")
+    for i, folder in enumerate(folders):
+        plot(folder, plots, os.path.join("plots", folder), inclusion_condition=inclusion_condition, show_3d=True) 
+        print(f"Plotted: {int((i + 1) / len(folders) * 100)}%")
