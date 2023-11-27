@@ -3,6 +3,7 @@ import plotting_util as pu
 import os
 from enum import Enum
 import math
+from tqdm import tqdm
 
 def process_sizes(data):
     sizes = data["sizes"]
@@ -64,7 +65,7 @@ def extract_data(folder, inclusion_condition = (lambda file, data:True)):
     files = fu.load_all_json(os.path.join("experiments", folder))
     data = {v : [] for v in list(Variables)}
     file_data = {v : None for v in list(Variables)}
-    for file in files:
+    for file in tqdm(files):
         try:
             s, estimated_time, new_sizes = process_sizes(file)
             file_data[Variables.ALGORITHM] = [file["circuit_settings"]["algorithm"]]
@@ -152,7 +153,7 @@ def plot(folder, plots, save_path = "", inclusion_condition = (lambda file, data
         if not os.path.exists(save_path):
             os.makedirs(save_path)
 
-    for p in plots:
+    for p in tqdm(plots):
         full_path = ("" if save_path == "" else os.path.join(save_path, p[-1].replace(" ", "_")))
         title = p[-1] + " " + data[Variables.ALGORITHM][0][0]
         if p[0] == "line":
@@ -178,15 +179,43 @@ def plot(folder, plots, save_path = "", inclusion_condition = (lambda file, data
         else:
             print(f"{p[0]} is not a valid plot type!")
 
+def comparison_plots(folders, save_path = "", inclusion_condition = (lambda file, data:True)): 
+    data = [extract_data(folder, inclusion_condition) for folder in folders]
+
+    variables = [Variables.CONTRACTION_TIME, Variables.QUBITS, Variables.MAX_SIZES]
+    algorithms = ["dj", "graphstate"]
+
+    plot_data = {algorithm: {v:[[d[0] for d in experiment[v]] for experiment in data if experiment[Variables.ALGORITHM][0][0] == algorithm] for v in variables} for algorithm in algorithms}
+
+    names = {algorithm:[f"Gate Deletion: {experiment[Variables.GATE_DELETIONS][0][0]}" for experiment in data if experiment[Variables.ALGORITHM][0][0] == algorithm] for algorithm in algorithms}
+
+    if save_path != "":
+        save_path = os.path.normpath(os.path.join(os.path.realpath(__file__), "..", "..", "experiments", save_path))
+
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+
+    plots = [("comparison", Variables.QUBITS, Variables.CONTRACTION_TIME, "Contraction Time"),
+             ("comparison", Variables.QUBITS, Variables.MAX_SIZES, "Maximum TDD size")]
+    for algorithm in algorithms:
+        for p in plots:
+            title = p[3] + f" on the {algorithm} algorithm"
+            full_path = ("" if save_path == "" else os.path.join(save_path, (p[3] + f" {algorithm}").replace(" ", "_")))
+            pu.plotPoints2d(plot_data[algorithm][p[1]], plot_data[algorithm][p[2]], p[1].value, p[2].value, 
+                                        series_labels=names[algorithm], title= title,
+                                        marker="o", marker_size=10, save_path=full_path, legend=True)
+
+    ...
+
 class Variables(Enum):
     SIZES = "Nodes |N|"
     STEPS = "Path Steps s"
     CONTRACTION_STEPS = "Path Contraction Steps s_c"
     QUBITS = "Qubits n"
-    MAX_SIZES = "Max Nodes N_max"
+    MAX_SIZES = "Max Nodes $|N_{max}|$"
     NAMES = "Names"
     ALGORITHM = "Algorithm"
-    CONTRACTION_TIME = "Contraction Time t_c [ms]"
+    CONTRACTION_TIME = "Contraction Time $t_c$ [ms]"
     ESTIMATED_TIME = "Estimated Time t_e []"
     NEW_SIZES = "Newest TDD Size N_new"
     PATH_SIZE = "Path Size log2(ps)"
@@ -264,29 +293,34 @@ if __name__ == "__main__":
             #     Variables.CONTRACTION_TIME, "Qubits, Maximum Size, and Contraction Time")
                 ]
 
-    folders = ["simulation_dj_gate_del_1_2023-11-17_11-21"]
+    # ["simulation_dj_gate_del_1_2023-11-17_11-21"]
     
-    # ["driver_greedy_compressed_2023-11-10_11-38",
-    #     "driver_kahypar_2023-11-10_13-51",
-    #     "driver_kahypar_agglom_2023-11-10_13-56",
-    #     "driver_kahypar_balanced_2023-11-10_13-55",
-    #     "driver_labelprop_2023-11-10_13-22",
-    #     "driver_labels_2023-11-13_14-39",
-    #     "driver_rgreedy_2023-11-10_10-06",
-    #     "driver_sliced_2023-11-10_08-36",
-    #     "driver_spinglass_2023-11-10_12-18",
-    #     "inequivalent_gate_del_1_2023-11-14_09-31",
-    #     "inequivalent_gate_del_3_2023-11-14_10-48",
-    #     "inequivalent_graph_del_1_2023-11-14_12-17",
-    #     "inequivalent_graph_del_3_2023-11-14_18-29",
-    #     "sub_network_effect_with_2023-11-13_18-05",
-    #     "sub_network_effect_with_btw_2023-11-13_20-52",
-    #     "sub_network_effect_without_2023-11-13_18-49"]
+    folders =  [
+         #"driver_greedy_compressed_2023-11-10_11-38",
+         #"driver_kahypar_2023-11-10_13-51",
+         #"driver_kahypar_agglom_2023-11-10_13-56",
+         #"driver_kahypar_balanced_2023-11-10_13-55",
+         #"driver_labelprop_2023-11-10_13-22",
+         #"driver_labels_2023-11-13_14-39",
+         "driver_rgreedy_2023-11-10_10-06",
+         #"driver_sliced_2023-11-10_08-36",
+         #"driver_spinglass_2023-11-10_12-18",
+         "inequivalent_gate_del_1_2023-11-14_09-31",
+         "inequivalent_gate_del_3_2023-11-14_10-48",
+         "inequivalent_graph_del_1_2023-11-14_12-17",
+         "inequivalent_graph_del_3_2023-11-14_18-29",
+         "sub_network_effect_without_2023-11-13_18-49",
+         #"sub_network_effect_with_2023-11-13_18-05",
+         #"sub_network_effect_with_btw_2023-11-13_20-52",
+         #"sub_network_effect_without_2023-11-13_18-49"
+         ]
     
 
     #file is the raw loaded file, and data is the processed variables for that file
     inclusion_condition = lambda file, data : ("conclusive" not in file or file["conclusive"] or file["settings"]["simulate"])
 
-    for i, folder in enumerate(folders):
-        plot(folder, plots, os.path.join("plots", folder), inclusion_condition=inclusion_condition, show_3d=True) 
-        print(f"Plotted: {int((i + 1) / len(folders) * 100)}%")
+    comparison_plots(folders, os.path.join("plots", "comparison_plots"), inclusion_condition=inclusion_condition) 
+
+    #for i, folder in enumerate(folders):
+    #    plot(folder, plots, os.path.join("plots", folder), inclusion_condition=inclusion_condition, show_3d=True) 
+    #    print(f"Plotted: {int((i + 1) / len(folders) * 100)}%")
