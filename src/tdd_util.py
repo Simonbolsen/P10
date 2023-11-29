@@ -8,6 +8,7 @@ import tddpure.TDD.ComplexTable as ct
 import tddpure.TDD.TDD as TDD
 from quimb.tensor import Tensor as QTensor
 from tqdm import tqdm
+from copy import deepcopy
 
 def tn_to_tdd(tn: TensorNetwork):
     return tn.cont()
@@ -122,14 +123,116 @@ def is_node_identitiy(node, length_indifferent, expected_length):
             left_node.succ[0] == right_node.succ[1] and
             is_node_identitiy(left_node.succ[0], length_indifferent, -1 if length_indifferent else expected_length - 1))
 
-if __name__ == "__main__":
-    inds = [str(i) for i in range(4)]
-    Ini_TDD(inds)
 
-    I = get_identity_tdd([Index(i) for i in inds])
+def get_counter_example_trace(node, inds, expected_length):
+    if type(node) == TDD.TDD:
+        incomplete_trace = get_counter_example_trace_rec(node.node, inds, expected_length, [], False)
+        if incomplete_trace is None or incomplete_trace == []:
+            return []
+        trace_counter = 0
+        complete_trace = []
+        for i in range(incomplete_trace[0][0],-1,-1):
+            if (trace_counter < len(incomplete_trace) and incomplete_trace[trace_counter][0] == i):
+                complete_trace.append(incomplete_trace[trace_counter])
+                trace_counter += 1
+            else:
+                complete_trace.append((i, 0, inds[i]))
+        return complete_trace
+    return []
+
+def get_counter_example_trace_rec(node, inds, expected_length, current_trace, found_counter):
+    if node == TDD.terminal_node or expected_length < 0:
+        return current_trace if found_counter else []
+    left_node = node.succ[0]
+    right_node = node.succ[1]
+
+    partial_trace = []
+    next_node = None
+
+    if left_node.out_weight is None or right_node.out_weight is None:
+        print("Invalid TDD. Cannot find trace")
+        return None
+        
+
+    if node.out_weight[0] != ct.cn1:
+        partial_trace.append((node.key, 0, inds[node.key]))
+        next_node = left_node
+        if left_node.out_weight[0] != ct.cn0:
+            partial_trace.append((left_node.key, 0, inds[left_node.key]))
+            next_node = left_node.succ[0]
+        elif left_node.out_weight[1] != ct.cn0:
+            partial_trace.append((left_node.key, 1, inds[left_node.key]))
+            next_node = left_node.succ[1]
+        else:
+            partial_trace = []
+            next_node = None
+    elif node.out_weight[1] != ct.cn1:
+        partial_trace.append((node.key, 1, inds[node.key]))
+        next_node = right_node
+        if right_node.out_weight[0] != ct.cn0:
+            partial_trace.append((right_node.key, 0, inds[right_node.key]))
+            next_node = right_node.succ[0]
+        elif right_node.out_weight[1] != ct.cn0:
+            partial_trace.append((right_node.key, 1, inds[right_node.key]))
+            next_node = right_node.succ[1]
+        else:
+            partial_trace = []
+            next_node = None
+    
+    if len(partial_trace) == 0:
+        if left_node.out_weight[0] != ct.cn1:
+            partial_trace.append((node.key, 0, inds[node.key]))
+            partial_trace.append((left_node.key, 0, inds[left_node.key]))
+            next_node = left_node.succ[0]
+        elif left_node.out_weight[1] != ct.cn0:
+            partial_trace.append((node.key, 0, inds[node.key]))
+            partial_trace.append((left_node.key, 1, inds[left_node.key]))
+            next_node = left_node.succ[1]
+        elif right_node.out_weight[0] != ct.cn0:
+            partial_trace.append((node.key, 1, inds[node.key]))
+            partial_trace.append((right_node.key, 0, inds[right_node.key]))
+            next_node = right_node.succ[0]
+        elif right_node.out_weight[1] != ct.cn1:
+            partial_trace.append((node.key, 1, inds[node.key]))
+            partial_trace.append((right_node.key, 1, inds[right_node.key]))
+            next_node = right_node.succ[1]
+    
+    new_found_counter = found_counter or len(partial_trace) > 0
+    if len(partial_trace) == 0:
+        next_node = left_node.succ[0]
+        partial_trace.append((node.key, 0, inds[node.key]))
+        partial_trace.append((left_node.key, 0, inds[left_node.key]))
+
+    return get_counter_example_trace_rec(next_node, inds, expected_length - len(partial_trace), current_trace + partial_trace, new_found_counter)
+
+def convert_trace_to_state_vector(trace):
+    indices = [t[1] for t in trace if "b" in t[2]]
+    state_vector = [[1 + 0j, 0j] if i == 0 else [0j, 1 + 0j] for i in indices]
+    return state_vector
+
+def convert_trace_to_state_tensor(trace, inds):
+    state_vector = convert_trace_to_state_vector(trace)
+    state_tensor = QTensor(state_vector, inds[::-1][0::2])
+    state_tensor._set_data(state_tensor.data.transpose())
+    return state_tensor
+
+if __name__ == "__main__":
+    inds = list(np.array([[("k" if o == 0 else "b") + str(i) for o in range(2)] for i in range(2)]).flatten())
+    sorted_inds = sorted(inds, key=reverse_lexicographic_key, reverse=True)
+    Ini_TDD(sorted_inds)
+
+    I = get_identity_tdd([Index(i) for i in sorted_inds])
+    I.node.succ[0].out_weight[1] = ct.non_cn1_cn0
+    I.show(name="counter_example_test")
 
     m = tensor_of_tdd(I)
 
     print(is_tdd_identitiy(I))
+    counter_trace = get_counter_example_trace(I, sorted_inds, len(sorted_inds)-1)
+    print(counter_trace)
 
+    state_tensor = convert_trace_to_state_tensor(counter_trace, sorted_inds)
+
+    res = m @ state_tensor
+    assert (res.data != state_tensor.data).any()
     print("?")

@@ -20,6 +20,9 @@ from itertools import combinations
 from mqt.qcec import verify
 from copy import deepcopy
 
+import sys
+sys.setrecursionlimit(2000)
+
 import matplotlib as mpl
 mpl.use("TkAgg")
 
@@ -81,7 +84,7 @@ def fast_contract_tdds(tdds, data, max_time=-1, max_node_size=-1):
         data["equivalence"] = tddu.is_tdd_identitiy(resulting_tdd, data["circuit_settings"]["qubits"])
         data["conclusive"] = True
     else:
-        data["equivalence"] = tddu.is_tdd_equal(resulting_tdd, data["state"])
+        data["equivalence"] = tddu.is_tdd_equal(resulting_tdd, data["settings"]["state"])
         data["conclusive"] = not data["equivalence"]
     data["sizes"] = sizes
 
@@ -186,14 +189,15 @@ def get_all_configs(settings):
         for level in settings["levels"]:
             for qubit in settings["qubits"]:
                 for dels in settings["random_gate_dels_range"]:
-                    all_configs.append({"algorithm": algorithm, "level": level, "qubits": qubit, "random_gate_deletions": dels})
+                    for i in range(settings["repetitions"]):
+                        all_configs.append({"algorithm": algorithm, "level": level, "qubits": qubit, "random_gate_deletions": dels, "repetition": i})
 
     return all_configs
 
 debug=False
 def first_experiment():
     # Prepare save folder and file paths
-    experiment_name = f"gate_deletion_dj256_{datetime.today().strftime('%Y-%m-%d_%H-%M')}"
+    experiment_name = f"garbage_{datetime.today().strftime('%Y-%m-%d_%H-%M')}"
     folder_path = os.path.join("experiments", experiment_name)
     if not os.path.exists(folder_path):
         os.makedirs(folder_path, exist_ok=True)
@@ -209,11 +213,13 @@ def first_experiment():
         "simulate": False,
         "algorithms": ["dj"],#, "ghz", "graphstate", "qftentangled"],
         "levels": [(0, 2)],
-        "qubits": [256],#list(range(64,65)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
-        "random_gate_dels_range": list(range(1,1406,4)),
+        "qubits": list(range(4,5,1)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
+        "random_gate_dels_range": [1],
+        "repetitions": 1,
         "sliced": False,
         "cnot_split": False,
-        "use_subnets": True
+        "use_subnets": False,
+        "find_counter": True
     }
 
     print(f"Performing experiment with {settings['algorithms']} for levels: {settings['levels']}\n\tqubits: {settings['qubits']}")
@@ -228,11 +234,11 @@ def first_experiment():
         data = {
             "version": 1,
             "experiment_name": experiment_name,
-            "expect_equivalence": False,
-            "file_name": f"circuit_{circ_conf['algorithm']}_{circ_conf['level'][0]}{circ_conf['level'][1]}_{circ_conf['qubits']}_d{circ_conf['random_gate_deletions']}",
+            "expect_equivalence": circ_conf['random_gate_deletions'] == 0,
+            "file_name": f"circuit_{circ_conf['algorithm']}_{circ_conf['level'][0]}{circ_conf['level'][1]}_{circ_conf['qubits']}_d{circ_conf['random_gate_deletions']}_r{circ_conf['repetition']}",
             "settings": settings,
             "contraction_settings": {
-                "max_time": 3600, # in seconds, -1 for inf
+                "max_time": 300, # in seconds, -1 for inf
                 "max_replans": 1,
                 "max_intermediate_node_size": -1 #-1 for inf
             },
@@ -346,6 +352,16 @@ def first_experiment():
 
             if (data["expect_equivalence"] != data["equivalence"]):
                 print('\033[31m' + "Erroneous result: Expected != TDD" + '\033[m')
+                return
+
+            if not data["equivalence"] and settings["find_counter"]:
+                result_tdd.show(name="final_tdd")
+                inds = [v.name for v in result_tdd.index_set]
+                trace = tddu.get_counter_example_trace(result_tdd, inds, len(inds)-1)
+                counter_state = tddu.convert_trace_to_state_vector(trace)
+                simulation_using_counter(circuit, counter_state, deepcopy(data))
+
+
 
             # Save data for circuit
             if not debug:
@@ -359,6 +375,38 @@ def first_experiment():
                 succeeded = True
             else:
                 print(f"Retry #{attempts+1}")
+
+def simulation_using_counter(circuit, counter_example, data):
+    settings = data["settings"]
+    # Transform to tensor networks (without initial states and cnot decomp)
+    print("Constructing tensor network...")
+    tensor_network = tnu.get_tensor_network(circuit, split_cnot=settings["cnot_split"], 
+                                            state = counter_example)
+    if settings["sliced"]:
+        tnu.slice_tensor_network_vertically(tensor_network)
+
+    # Construct the plan from CoTenGra
+    print("Find contraction path...")
+    path = tnu.get_contraction_path(tensor_network, data)
+
+    #tn_draw.draw_tn(tensor_network, color=['PSI0', 'H', 'CX', 'RZ', 'RX', 'CZ'], save_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
+    #tnu.draw_contraction_order(tensor_network, path, save_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
+
+    # Prepare gate TDDs
+    print("Preparing gate TDDs...")
+    gate_tdds = tddu.get_tdds_from_quimb_tensor_network(tensor_network)
+
+    #tddu.draw_all_tdds(gate_tdds, folder=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
+    
+
+    # Contract TDDs + equivalence checking
+    print(f"Contracting {len(path)} times...")
+    #result_tdd = contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"], save_intermediate_results=True, comprehensive_saving=True, folder_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
+    result_tdd = fast_contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"])
+
+    print(f"Simulation finds that the two circuits are: {'equivalent' if data['equivalence'] else 'inequivalent'}")
+
+
 
 def combinate_data_containers(containers: list[dict]) -> list[dict]:
     """
@@ -412,6 +460,9 @@ def combinate_data_containers(containers: list[dict]) -> list[dict]:
     final_container["equivalence"] = all([containers[i]["equivalence"] for i in range(len(containers))])
     final_container["conclusive"] = all([containers[i]["conclusive"] for i in range(len(containers))])
     final_container["sizes"] = dict([item for i in range(len(containers)) for item in containers[i]["sizes"].items()])
+
+    if "state" in final_container["settings"]:
+        final_container["settings"]["state"] = str(final_container["settings"]["state"])
 
     return final_container
 

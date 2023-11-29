@@ -12,6 +12,19 @@ def load_all_json(folder):
     load_rec_json(os.path.normpath(os.path.join(os.path.dirname(__file__), '..', folder)), files)    
     return files
 
+def load_all_file_paths(folder):
+    files = []
+    load_rec_paths(os.path.normpath(os.path.join(os.path.dirname(__file__), '..', folder)), files)    
+    return files
+
+def load_rec_paths(file, files):
+    path = os.scandir(file)
+    for sf in path:
+        if sf.is_dir():
+            load_rec_json(sf, files)
+        elif is_qasm_file(sf):
+            files.append(sf)
+
 def load_rec_json(file, files):
     path = os.scandir(file)
     for sf in path:
@@ -22,6 +35,9 @@ def load_rec_json(file, files):
 
 def is_json(file):
     return os.path.splitext(file)[1] == ".json"
+
+def is_qasm_file(file):
+    return os.path.splitext(file)[1] == ".qasm"
 
 def load_single_json(file):
     with open(file, 'r') as json_file:

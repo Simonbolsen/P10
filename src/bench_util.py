@@ -7,7 +7,7 @@ from quimb.tensor import Circuit
 import tdd_util as tddu
 import circuit_util as cu
 import tensor_network_util as tnu
-from qiskit import QuantumCircuit
+from qiskit import QuantumCircuit, qasm3
 from qiskit.quantum_info import Operator
 from qiskit.compiler import transpile
 from qiskit.transpiler import PassManager, passes
@@ -77,6 +77,7 @@ def get_dual_circuit_setup(c1: QuantumCircuit, c2: QuantumCircuit, data, draw: b
     bench_circ1_copy = bench_circ1.copy()
     # Find start of second circuit:
     unrolled_first_circ_gate_count = sum(pm.run(bench_circ1_copy).count_ops().values())
+    print(f"Second circuit is of size: {sum(pm.run(bench_circ2.copy()).count_ops().values())}")
     if data["path_settings"]["use_proportional"]:
         data["path_settings"]["linear_fraction"] = unrolled_first_circ_gate_count / data["circuit_data"]["unrolled_qiskit_gate_count"]
 
@@ -131,6 +132,24 @@ def get_dual_circuit_setup_quimb(data, draw: bool = False) -> Circuit:
 
     # c1 = get_benchmark(circ_conf["algorithm"], circ_conf["level"][0], circ_conf["qubits"])
     # c2 = get_benchmark(circ_conf["algorithm"], circ_conf["level"][1], circ_conf["qubits"])
+    return get_dual_circuit_setup_quimb_from_circuits(c1, c2, data, draw)
+
+def get_circuit_from_file(file):
+    return QuantumCircuit.from_qasm_file(file)
+
+def get_dual_circuit_setup_from_practical_circuits(data, draw: bool = False) -> Circuit:
+    assert data["circuit_settings"] is not None
+    circ_conf = data["circuit_settings"]
+
+    file = circ_conf["algorithm_file_path"]
+    base_circ = get_rounded_circuit(get_circuit_from_file(file), decimal_places=-1)
+    
+    c1 = level_mapping[circ_conf["level"][0]](base_circ)
+    c2 = level_mapping[circ_conf["level"][1]](base_circ)
+    
+    data["circuit_data"]["circuit_1_qasm"] = c1
+    data["circuit_data"]["circuit_2_qasm"] = c2
+
     return get_dual_circuit_setup_quimb_from_circuits(c1, c2, data, draw)
 
 def get_dual_circuit_setup_quimb_from_circuits(c1: QuantumCircuit, c2: QuantumCircuit, data, draw: bool = False) -> Circuit:
