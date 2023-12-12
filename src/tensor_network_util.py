@@ -526,12 +526,13 @@ def draw_contraction_order(tensor_network, usable_path, width = 1.0, save_path =
 
     for ind, step in ind_contraction_order.items():
         a = step / (len(usable_path))
-        edge_colors[ind] = (a, 1 - a, 4 * a * (1 - a))
+        b = 1-a
+        edge_colors[ind] = (0.29 * a + 0.1 * b, b, 0.56 * a + 0.1*b)
 
     tensor_pos |= {ind : (min_depth - 1 if ind[0] == "b" else 1, -int(ind[1:])) for ind in tensor_network.outer_inds()}
 
     tn_draw.draw_tn(tensor_network, fix = tensor_pos, iterations=0, 
-                    node_color=node_colors, edge_colors=edge_colors, edge_scale=5, node_scale=10, save_path = save_path)
+                    edge_colors=edge_colors, edge_scale=5, node_scale=1.5, margin=0.5, save_path = save_path, arrow_length = 0.0)
 
 def draw_depth_order(tensor_network):
     tensor_depths = get_tensor_pos(tensor_network)
@@ -591,24 +592,29 @@ def find_and_split_subgraphs_in_tn(tn: TensorNetwork, draw=False) -> ig.Graph:
 
 if __name__ == "__main__":
 
-    n = 8
+    n = 5
     # options = [[1 + 0j, 0j], [0j, 1 + 0j]]
     # state = [random.choice(options) for _ in range(n)]
 
-    # tensor_network = get_tensor_network(get_circuit(n), split_cnot=True, state = None)
+    tensor_network = get_tensor_network(get_circuit(n), split_cnot=True, state = None)
 
-    tensor_network = get_tensor_network(get_subgraph_containing_circuit(n), split_cnot=False, state = None)
+    #tensor_network = get_tensor_network(get_subgraph_containing_circuit(n), split_cnot=False, state = None)
     #tensor_network.draw()
-    find_and_split_subgraphs_in_tn(tensor_network)
+    #find_and_split_subgraphs_in_tn(tensor_network)
     #draw_depth_order(tensor_network)
 
-    #usable_path = get_linear_path(tensor_network, fraction=0.8, gridded=True)
+    naive = get_linear_path(tensor_network, fraction=0.0, gridded=True)
+    prop = get_linear_path(tensor_network, fraction=0.5, gridded=True)
     #print(verify_path(usable_path))
 
-    # #usable_path = get_usable_path(tensor_network, tensor_network.contraction_path(ctg.HyperOptimizer(methods = "greedy", minimize="flops", max_repeats=1, max_time=60, progbar=True, parallel=False)))
+    rgreedy = get_usable_path(tensor_network, tensor_network.contraction_path(ctg.HyperOptimizer(methods = "rgreedy", minimize="flops", max_repeats=1, max_time=60, progbar=True, parallel=False)))
+    betweennes = get_usable_path(tensor_network, tensor_network.contraction_path(ctg.HyperOptimizer(methods = "betweenness", minimize="flops", max_repeats=1, max_time=60, progbar=True, parallel=False)))
 
-    # draw_contraction_order(tensor_network, usable_path, width = 0.5) #save_path=os.path.join(os.path.realpath(__file__), "..", "..", "experiments", "plots", "contraction_order"))
-    
+    draw_contraction_order(tensor_network, naive, width = 0.5) #save_path=os.path.join(os.path.realpath(__file__), "..", "..", "experiments", "plots", "contraction_order"))
+    draw_contraction_order(tensor_network, prop, width = 0.5)
+    draw_contraction_order(tensor_network, rgreedy, width = 0.5)
+    draw_contraction_order(tensor_network, betweennes, width = 0.5)
+
     # slice_tensor_network_vertically(tensor_network)
     # usable_path = get_linear_path(tensor_network, fraction=0.8)
     # draw_contraction_order(tensor_network, usable_path, width = 0.5)

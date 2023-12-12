@@ -108,7 +108,7 @@ def plot_big_points(xs, ys, x_title, y_title, labels, marker = "o", size = 5, sa
         plt.close()
 
 def get_colors(num):
-    return cm.rainbow(np.linspace(0, 1, num))
+    return cm.tab10(np.linspace(0, 1, num))
 
 def get_list_colors(values:list[int], min_value:int, max_value:int):
     return [cm.rainbow(np.linspace(min_value, max_value, val)) for val in values] 
@@ -223,31 +223,27 @@ def plotPoints(xs, ys, zs, axis_names = ["", "", ""], legend = True, series_labe
         plt.savefig(save_path)
         plt.close()
 
-def plotPoints2d(xs, ys, x_label, y_label, legend = True, series_labels=[], marker = "o", marker_size = 20, title = "", save_path = ""):
+def plotPoints2d(xs, ys, x_label, y_label, trends = None, legend = True, series_labels=[], marker = "o", marker_size = 20, title = "", save_path = ""):
     if series_labels == []: 
         series_labels = [y_label for _ in range(len(ys))]
-
-    #x_min, x_max = get_min_max(xs)
-    #y_min, y_max = get_min_max(ys)
 
     COLOR = get_colors(len(ys))
     fig = plt.figure()
     axe = plt.axes()
 
     for i, y in enumerate(ys):
-        # axe.plot(xs.data[series], ys.data[series], marker=marker, color=COLOR[series], label=series_labels[series])
         axe.scatter(xs[i], y, marker=marker, label=series_labels[i], sizes = [marker_size for _ in range(len(y))])
+        
+        if trends is not None:
+            x = np.array(sorted(xs[i]))
+            y = trends[i][0]
+            for c in trends[i][1:]:
+                y = y * x + c
+            plt.plot(x, y)
 
     axe.set_xlabel(x_label)
     axe.set_ylabel(y_label)
     axe.set_title(title)
-
-    #axe.set_xbound(x_min, x_max)
-    #axe.set_ybound(y_min, y_max)
-    # axe.w_zaxis.set_major_formatter(plt.FuncFormatter(lambda x, pos: f"{function(x):.3f}"))
-
-    #axe.set_xscale(xs.scale)
-    #axe.set_yscale(ys.scale)
 
     if legend:
         legend = axe.legend()

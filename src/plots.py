@@ -5,6 +5,7 @@ from enum import Enum
 import math
 from tqdm import tqdm
 import numpy as np
+from sklearn.linear_model import LinearRegression
 
 def process_sizes(data):
     sizes = data["sizes"]
@@ -202,29 +203,131 @@ def plot(folder, plots, save_path = "", inclusion_condition = (lambda file, data
         else:
             print(f"{p[0]} is not a valid plot type!")
 
-def comparison_plots(save_path = "", inclusion_condition = (lambda file, data:True)): 
-    folders =  [
-         "driver_rgreedy_2023-11-10_10-06",
-         "inequivalent_gate_del_1_2023-11-14_09-31",
-         "inequivalent_gate_del_3_2023-11-14_10-48",
-         "inequivalent_graph_del_1_2023-11-14_12-17",
-         "inequivalent_graph_del_3_2023-11-14_18-29",
-         "sub_network_effect_without_2023-11-13_18-49"]
+def gate_del_comparison_plots(save_path = "", inclusion_condition = (lambda file, data:True)): 
+    folders =  [ 
+        "gate_deletion_mapping_ghz_256_2023-12-08_10-25",
+        "gate_deletion_mapping_dj_256_2023-12-08_10-59"]
     
     data = [extract_data(folder, inclusion_condition) for folder in folders]
+    variables = [Variables.CONTRACTION_TIME, Variables.GATE_DELETIONS, Variables.MAX_SIZES]
+    plot_data = {v:[[d[0] for d in experiment[v]] for experiment in data] for v in variables}
+    names = [experiment[Variables.ALGORITHM][0][0] for experiment in data]
 
-    variables = [Variables.CONTRACTION_TIME, Variables.QUBITS, Variables.MAX_SIZES]
-    algorithms = ["dj", "graphstate"]
-
-    plot_data = {algorithm: {v:[[d[0] for d in experiment[v]] for experiment in data if experiment[Variables.ALGORITHM][0][0] == algorithm] for v in variables} for algorithm in algorithms}
-
-    names = {algorithm:[f"Gate Deletion: {experiment[Variables.GATE_DELETIONS][0][0]}" for experiment in data if experiment[Variables.ALGORITHM][0][0] == algorithm] for algorithm in algorithms}
+    variables = {Variables.CONTRACTION_TIME_SLOPE : Variables.CONTRACTION_TIME, Variables.MAX_SIZE_SLOPE : Variables.MAX_SIZES}
+    plot_data |= {k:[[d[0]/(1 + experiment[Variables.GATE_DELETIONS][i][0]) for i, d in enumerate(experiment[v])]for experiment in data]  for k, v in variables.items()}
 
     if save_path != "":
         save_path = os.path.normpath(os.path.join(os.path.realpath(__file__), "..", "..", "experiments", save_path))
 
         if not os.path.exists(save_path):
             os.makedirs(save_path)
+
+    #gate_del_linear_analysis(plot_data, save_path, names)
+    
+    plots = [("comparison", Variables.GATE_DELETIONS, Variables.CONTRACTION_TIME_SLOPE, "Contraction Time Slope"),
+             ("comparison", Variables.GATE_DELETIONS, Variables.MAX_SIZE_SLOPE, "Maximum TDD size Slope")]
+    
+    plots = [("comparison", Variables.GATE_DELETIONS, Variables.CONTRACTION_TIME, "Contraction Time"),
+             ("comparison", Variables.GATE_DELETIONS, Variables.MAX_SIZES, "Maximum TDD size")]
+    for p in plots:
+        title = p[3] + f" by Gate Deletion"
+        full_path = ("" if save_path == "" else os.path.join(save_path, (p[3] + f" GD").replace(" ", "_")))
+        pu.plotPoints2d(plot_data[p[1]], plot_data[p[2]], p[1].value, p[2].value, 
+                                    series_labels=names, title= title,
+                                        marker="o", marker_size=10, save_path=full_path, legend=True)
+
+def gate_del_linear_analysis(plot_data, save_path, names) :
+    dj_linear_points = []
+    dj_linear_qubits = []
+    dj_quadratic_points = []
+    dj_quadratic_qubits = []
+
+    for s, series in enumerate(plot_data[Variables.CONTRACTION_TIME]):
+
+        dj_linear_points.append([])
+        dj_linear_qubits.append([])
+        dj_quadratic_points.append([])
+        dj_quadratic_qubits.append([])
+
+        for p, point in enumerate(series):
+            n = plot_data[Variables.GATE_DELETIONS][s][p]
+            algorithm = names[s]
+            if algorithm == "ghz":
+                split = 900 + 30 * n
+            else:
+                raise Exception(f"Unkown algorithm: {algorithm}")
+
+            if point > split:
+                dj_quadratic_points[s].append(plot_data[Variables.CONTRACTION_TIME][s][p])
+                dj_quadratic_qubits[s].append(n)
+            else:
+                dj_linear_points[s].append(plot_data[Variables.CONTRACTION_TIME][s][p])
+                dj_linear_qubits[s].append(n)
+    
+    labels = [f"{n}, {t}" for t in ["low", "high"] for n in names]
+    q = dj_linear_qubits + dj_quadratic_qubits
+    v = dj_linear_points + dj_quadratic_points
+    trends = []
+
+    for i, n in enumerate(q):
+        x = np.array(n)
+        y = np.array(v[i])
+        coefficients = np.polyfit(x, y, 1)
+        trend_line = np.poly1d(coefficients)
+        predicted_y = trend_line(x)
+        residuals = y - predicted_y
+        ss_residual = np.sum(residuals**2)
+        ss_total = np.sum((y - np.mean(y))**2)
+        r_squared = 1 - (ss_residual / ss_total)
+
+        print(f"{labels[i]}: {print_polynomial(coefficients, 2)}, r^2: {round_sig(r_squared, 2)}")
+        trends.append(coefficients)
+
+    title = f"Contraction Time by Gate Deletion"
+    full_path = ("" if save_path == "" else os.path.join(save_path, (f"Contraction Time Clustered GD").replace(" ", "_")))
+    pu.plotPoints2d(q, v, Variables.QUBITS.value, Variables.CONTRACTION_TIME.value, trends = trends,
+                                        series_labels=labels , title= title,
+                                        marker="o", marker_size=10, save_path=full_path, legend=True)
+
+def qubit_comparison_plots(save_path = "", inclusion_condition = (lambda file, data:True)): 
+    folders =  [ 
+        "equivalent_ghz_rgreedy_2023-12-07_08-18",
+        "inequivalent_ghz_del_1_2023-12-06_20-56",
+        "inequivalent_ghz_del_3_2023-12-06_21-12",
+
+        "driver_rgreedy_2023-11-10_10-06",
+        "inequivalent_gate_del_1_2023-11-14_09-31",
+        "inequivalent_gate_del_3_2023-11-14_10-48",
+
+        "sub_network_effect_without_2023-11-13_18-49",
+        "inequivalent_graph_del_1_2023-11-14_12-17",
+        "inequivalent_graph_del_3_2023-11-14_18-29",]
+    
+    data = [extract_data(folder, inclusion_condition) for folder in folders]
+
+    variables = [Variables.CONTRACTION_TIME, Variables.QUBITS, Variables.MAX_SIZES]
+    algorithms = ["ghz", "dj", "graphstate"]
+
+    plot_data = {algorithm: {v:[[d[0] for d in experiment[v]] for experiment in data if experiment[Variables.ALGORITHM][0][0] == algorithm] for v in variables} for algorithm in algorithms}
+
+    names = {algorithm:[f"Gate Deletion: {experiment[Variables.GATE_DELETIONS][0][0]}" for experiment in data if experiment[Variables.ALGORITHM][0][0] == algorithm] for algorithm in algorithms}
+
+    variables = {Variables.CONTRACTION_TIME_SLOPE : Variables.CONTRACTION_TIME, Variables.MAX_SIZE_SLOPE : Variables.MAX_SIZES}
+    for algorithm in algorithms:
+        plot_data[algorithm] |= {k:[[d[0]/experiment[Variables.QUBITS][i][0] for i, d in enumerate(experiment[v])] 
+                                for experiment in data if experiment[Variables.ALGORITHM][0][0] == algorithm] for k, v in variables.items()}
+
+    if save_path != "":
+        save_path = os.path.normpath(os.path.join(os.path.realpath(__file__), "..", "..", "experiments", save_path))
+
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+
+    for algorithm in algorithms:
+        linear_analysis(plot_data, save_path, names, algorithm)
+    
+    plots = [("comparison", Variables.QUBITS, Variables.CONTRACTION_TIME_SLOPE, "Contraction Time Slope"),
+             ("comparison", Variables.QUBITS, Variables.MAX_SIZE_SLOPE, "Maximum TDD size Slope")]
 
     plots = [("comparison", Variables.QUBITS, Variables.CONTRACTION_TIME, "Contraction Time"),
              ("comparison", Variables.QUBITS, Variables.MAX_SIZES, "Maximum TDD size")]
@@ -236,7 +339,89 @@ def comparison_plots(save_path = "", inclusion_condition = (lambda file, data:Tr
                                         series_labels=names[algorithm], title= title,
                                         marker="o", marker_size=10, save_path=full_path, legend=True)
 
-    ...
+def round_sig(number, fig):
+    if number == 0:
+        return 0  # Handling special case for 0
+
+    return round(number, -int(math.floor(math.log10(abs(number)))) + fig - 1)
+
+def print_polynomial(coefficients, sig_fig):
+    degree = len(coefficients) - 1
+    poly_string = ""
+
+    for i, coeff in enumerate(coefficients):
+        power = degree - i
+
+        if coeff != 0:
+            c = round_sig(coeff, sig_fig)
+            if power == 0:
+                poly_string += f"{c}"
+            elif power == 1:
+                poly_string += f"{c}*x"
+            else:
+                poly_string += f"{c}*x^{power}"
+
+            if i < len(coefficients) - 1:
+                poly_string += " + "
+
+    return poly_string
+
+def linear_analysis(plot_data, save_path, names, algorithm = "dj") :
+    dj_linear_points = []
+    dj_linear_qubits = []
+    dj_quadratic_points = []
+    dj_quadratic_qubits = []
+
+    for s, series in enumerate(plot_data[algorithm][Variables.CONTRACTION_TIME_SLOPE]):
+
+        dj_linear_points.append([])
+        dj_linear_qubits.append([])
+        dj_quadratic_points.append([])
+        dj_quadratic_qubits.append([])
+
+        for p, point in enumerate(series):
+            n = plot_data[algorithm][Variables.QUBITS][s][p]
+
+            if algorithm == "dj":
+                split = 10
+            elif algorithm == "graphstate":
+                split = 10 + 15 / 225.0 * n
+            elif algorithm == "ghz":
+                split = 6.5
+            else:
+                raise Exception(f"Unkown algorithm: {algorithm}")
+
+            if point > split:
+                dj_quadratic_points[s].append(plot_data[algorithm][Variables.CONTRACTION_TIME][s][p])
+                dj_quadratic_qubits[s].append(n)
+            else:
+                dj_linear_points[s].append(plot_data[algorithm][Variables.CONTRACTION_TIME][s][p])
+                dj_linear_qubits[s].append(n)
+    
+    labels = [f"{n}, {t}" for t in ["linear", "quadratic"] for n in names[algorithm]]
+    q = dj_linear_qubits + dj_quadratic_qubits
+    v = dj_linear_points + dj_quadratic_points
+    trends = []
+
+    for i, n in enumerate(q):
+        x = np.array(n)
+        y = np.array(v[i])
+        coefficients = np.polyfit(x, y, 1 if "linear" in labels[i] else 2)
+        trend_line = np.poly1d(coefficients)
+        predicted_y = trend_line(x)
+        residuals = y - predicted_y
+        ss_residual = np.sum(residuals**2)
+        ss_total = np.sum((y - np.mean(y))**2)
+        r_squared = 1 - (ss_residual / ss_total)
+
+        print(f"{labels[i]}: {print_polynomial(coefficients, 2)}, r^2: {round_sig(r_squared, 2)}")
+        trends.append(coefficients)
+
+    title = f"Contraction Time on the {algorithm} algorithm"
+    full_path = ("" if save_path == "" else os.path.join(save_path, (f"Contraction Time Clustered {algorithm}").replace(" ", "_")))
+    pu.plotPoints2d(q, v, Variables.QUBITS.value, Variables.CONTRACTION_TIME.value, trends = trends,
+                                        series_labels=labels , title= title,
+                                        marker="o", marker_size=10, save_path=full_path, legend=True)
 
 class Variables(Enum):
     SIZES = "Nodes |N|"
@@ -284,6 +469,8 @@ class Variables(Enum):
     QUBITS_BUCKETED = "Qubits in Buckets n"
     NO_LABELS = "No Labels"
     GROUP_LABELS = "Group Names as Labels"
+    CONTRACTION_TIME_SLOPE = "Contraction time slope"
+    MAX_SIZE_SLOPE = "Max size slope"
 
 if __name__ == "__main__":
  
@@ -356,8 +543,8 @@ if __name__ == "__main__":
     #file is the raw loaded file, and data is the processed variables for that file
     inclusion_condition = lambda file, data : ("conclusive" not in file or file["conclusive"] or file["settings"]["simulate"])
 
-    #comparison_plots(os.path.join("plots", "comparison_plots"), inclusion_condition=inclusion_condition) 
+    gate_del_comparison_plots(os.path.join("plots", "comparison_plots"), inclusion_condition=inclusion_condition) 
 
-    for i, folder in enumerate(folders):
-        plot(folder, plots, os.path.join("plots", folder), inclusion_condition=inclusion_condition, show_3d=True) 
-        print(f"Plotted: {int((i + 1) / len(folders) * 100)}%")
+    #for i, folder in enumerate(folders):
+    #    plot(folder, plots, os.path.join("plots", folder), inclusion_condition=inclusion_condition, show_3d=True) 
+    #    print(f"Plotted: {int((i + 1) / len(folders) * 100)}%")
