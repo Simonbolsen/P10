@@ -66,6 +66,7 @@ def fast_contract_tdds(tdds, data, max_time=-1, max_node_size=-1):
 
     for left_index, right_index in tqdm(usable_path):
         if max_time > 0 and int(time.time() - start_time) > max_time:
+            data["failed"] = True
             data["conclusive"] = False
             print("Time limit for contraction reached. Aborting check")
             return None
@@ -75,13 +76,14 @@ def fast_contract_tdds(tdds, data, max_time=-1, max_node_size=-1):
         intermediate_tdd_size = tdds[right_index].node_number()
         sizes[right_index].append(intermediate_tdd_size)
         if max_node_size > 0 and intermediate_tdd_size > max_node_size:
+            data["failed"] = True
             data["conclusive"] = False
             print("Node size limit reached. Aborting check")
             return None
 
     resulting_tdd = tdds[right_index]
     if "simulate" not in data["settings"] or not data["settings"]["simulate"]:
-        data["equivalence"] = tddu.is_tdd_identitiy(resulting_tdd, data["circuit_settings"]["qubits"])
+        data["equivalence"] = tddu.is_tdd_identitiy(resulting_tdd, data["circuit_settings"]["qubits"] if "sub_networks" not in data or data["sub_networks"] == 1 else -1)
         data["conclusive"] = True
     else:
         data["equivalence"] = tddu.is_tdd_equal(resulting_tdd, data["settings"]["state"])
@@ -197,7 +199,7 @@ def get_all_configs(settings):
 debug=False
 def first_experiment():
     # Prepare save folder and file paths
-    experiment_name = f"garbage_{datetime.today().strftime('%Y-%m-%d_%H-%M')}"
+    experiment_name = f"time_vanilla_naive_gs_dj_ghz_64_128_256_{datetime.today().strftime('%Y-%m-%d_%H-%M')}"
     folder_path = os.path.join("experiments", experiment_name)
     if not os.path.exists(folder_path):
         os.makedirs(folder_path, exist_ok=True)
@@ -211,15 +213,15 @@ def first_experiment():
 
     settings = {
         "simulate": False,
-        "algorithms": ["dj"],#, "ghz", "graphstate", "qftentangled"],
+        "algorithms": ["graphstate"],#, "dj", "graphstate"],#, "ghz", "graphstate", "qftentangled"],
         "levels": [(0, 2)],
-        "qubits": list(range(4,5,1)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
-        "random_gate_dels_range": [1],
-        "repetitions": 1,
+        "qubits": [64],#list(range(256,257,1)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
+        "random_gate_dels_range": [0],
+        "repetitions": 10,
         "sliced": False,
         "cnot_split": False,
-        "use_subnets": False,
-        "find_counter": True
+        "use_subnets": True,
+        "find_counter": False
     }
 
     print(f"Performing experiment with {settings['algorithms']} for levels: {settings['levels']}\n\tqubits: {settings['qubits']}")
@@ -245,19 +247,20 @@ def first_experiment():
             "circuit_settings": circ_conf,
             "circuit_data": {},
             "path_settings": {
-                "method": "cotengra",
-                "opt_method": "rgreedy", #  kahypar-balanced, kahypar-agglom, labels, labels-agglom
+                "method": "linear",
+                "opt_method": "betweenness", #  kahypar-balanced, kahypar-agglom, labels, labels-agglom
                 "minimize": "flops",
-                "max_repeats": 50,
+                "max_repeats": 1,
                 "max_time": 60,
-                "use_proportional": True,
+                "use_proportional": False,
                 "gridded": False,
                 "linear_fraction": 0
             },
             "path_data": {},
             "not_same_tensors": [],
             "tdd_analysis": None,
-            "correct_example": None
+            "correct_example": None,
+            "failed": False
         }
 
         if "simulate" in settings and settings["simulate"]:
@@ -286,6 +289,10 @@ def first_experiment():
         
         #tensor_network.draw(color=['PSI0', 'H', 'CX', 'RZ', 'RX', 'CZ'])
         print(f"Number of tensors: {len(tensor_network.tensor_map)}")
+
+        variable_order = sorted(list(tensor_network.all_inds()), key=reverse_lexicographic_key, reverse=True)
+        Ini_TDD(variable_order, max_rank=len(variable_order)+1)
+        print(f"Using rank {len(variable_order)+1} for TDDs")
 
         if data["settings"]["use_subnets"]:
             print(f"Attemping tensor network split...")
@@ -317,6 +324,7 @@ def first_experiment():
             # print(f"Quimb says: {data['quimb_equivalence']}")
             # np.array([v.real if abs(v) > 0.01 else 0 for v in (quimb_result.data*(-1j)).flatten()]).reshape((32,32))
 
+            resulting_sub_tdds = []
             data_containers = [deepcopy(data) for _ in sub_tensor_networks]
             for i, stn in enumerate(sub_tensor_networks):
                 data = data_containers[i]
@@ -347,6 +355,23 @@ def first_experiment():
                 data["contraction_time"] = int((time.time_ns() - starting_time) / 1000000)
 
                 data_containers[i] = data
+
+                if len(sub_tensor_networks) > 1:
+                    resulting_sub_tdds.append(result_tdd)
+
+            if data["failed"]:
+                break
+
+
+            if len(sub_tensor_networks) > 1 and settings["simulate"]:
+                for sub_tdd in resulting_sub_tdds[1:]:
+                    resulting_sub_tdds[0] = cont(resulting_sub_tdds[0], sub_tdd)
+
+                are_equal = tddu.is_tdd_equal(resulting_sub_tdds[0], data["settings"]["state"])
+                for data in data_containers:
+                    data["equivalence"] = are_equal
+                    data["conclusive"] = not are_equal
+
 
             data = combinate_data_containers(data_containers)
 
