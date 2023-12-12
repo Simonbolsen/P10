@@ -488,8 +488,9 @@ def get_tensor_pos(tensor_network, width = 1.0):
         values = list(tensor_network.ind_map[ind])
         return values[0] if len(values) == 1 else (values[0] if values[0] != i else values[1])
 
-    for s in tensor_network.sites:
-        i = follow(f"k{s}", -1)
+    sites_present = tensor_network.site_inds_present if type(tensor_network) == TensorNetworkGenVector else tensor_network.upper_inds_present
+    for s in sites_present:
+        i = follow(s, -1)
         precurser_depths[i].append(0)
         check_tensor.append(i)
 
