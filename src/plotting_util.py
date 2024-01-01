@@ -108,7 +108,7 @@ def plot_big_points(xs, ys, x_title, y_title, labels, marker = "o", size = 5, sa
         plt.close()
 
 def get_colors(num):
-    return cm.tab10(np.linspace(0, 1, num))
+    return cm.rainbow(np.linspace(0, 1, num))
 
 def get_list_colors(values:list[int], min_value:int, max_value:int):
     return [cm.rainbow(np.linspace(min_value, max_value, val)) for val in values] 
@@ -311,7 +311,7 @@ def plot_nested_bars(values, groups, labels, x_label = "", y_label = "", legend 
     if legend:
         handles, labels = plt.gca().get_legend_handles_labels()
         by_label = dict(zip(labels, handles))
-        plt.legend(by_label.values(), by_label.keys(), loc='lower right')
+        plt.legend(by_label.values(), by_label.keys(), loc='lower left')
         plt.set_cmap("magma")
 
     if save_path == "":

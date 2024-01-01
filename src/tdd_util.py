@@ -25,10 +25,6 @@ def reverse_lexicographic_key(s):
         return (len(s), s[1:], s[0])
 
 def get_tdds_from_quimb_tensor_network(tensor_network) -> dict[int,TDD.TDD]:
-    variable_order = sorted(list(tensor_network.all_inds()), key=reverse_lexicographic_key, reverse=True)
-    Ini_TDD(variable_order, max_rank=len(variable_order)+1)
-    print(f"Using rank {len(variable_order)+1} for TDDs")
-    
     tdds = {}
 
     for i, tensor in tqdm(tensor_network.tensor_map.items()):
@@ -222,7 +218,7 @@ if __name__ == "__main__":
     Ini_TDD(sorted_inds)
 
     I = get_identity_tdd([Index(i) for i in sorted_inds])
-    I.node.succ[0].out_weight[1] = ct.non_cn1_cn0
+    I.node.succ[0].out_weight[0] = ct.non_cn1_cn0
     I.show(name="counter_example_test")
 
     m = tensor_of_tdd(I)
