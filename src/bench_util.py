@@ -116,7 +116,7 @@ def get_rounded_circuit(circuit: QuantumCircuit, decimal_places=4) -> QuantumCir
     rounded_qasm_circuit = re.sub(rounder, mround, circuit.qasm())
     return QuantumCircuit.from_qasm_str(rounded_qasm_circuit)
 
-def get_dual_circuit_setup_quimb(data, draw: bool = False) -> Circuit:
+def get_dual_circuit_setup_quimb(data, draw: bool = False, as_qiskit: bool= False) -> Circuit:
     assert data["circuit_settings"] is not None
     circ_conf = data["circuit_settings"]
 
@@ -132,12 +132,12 @@ def get_dual_circuit_setup_quimb(data, draw: bool = False) -> Circuit:
 
     # c1 = get_benchmark(circ_conf["algorithm"], circ_conf["level"][0], circ_conf["qubits"])
     # c2 = get_benchmark(circ_conf["algorithm"], circ_conf["level"][1], circ_conf["qubits"])
-    return get_dual_circuit_setup_quimb_from_circuits(c1, c2, data, draw)
+    return get_dual_circuit_setup_quimb_from_circuits(c1, c2, data, draw, as_qiskit)
 
 def get_circuit_from_file(file):
     return QuantumCircuit.from_qasm_file(file)
 
-def get_dual_circuit_setup_from_practical_circuits(data, draw: bool = False) -> Circuit:
+def get_dual_circuit_setup_from_practical_circuits(data, draw: bool = False, as_qiskit: bool = False) -> Circuit:
     assert data["circuit_settings"] is not None
     circ_conf = data["circuit_settings"]
 
@@ -150,11 +150,11 @@ def get_dual_circuit_setup_from_practical_circuits(data, draw: bool = False) -> 
     data["circuit_data"]["circuit_1_qasm"] = c1
     data["circuit_data"]["circuit_2_qasm"] = c2
 
-    return get_dual_circuit_setup_quimb_from_circuits(c1, c2, data, draw)
+    return get_dual_circuit_setup_quimb_from_circuits(c1, c2, data, draw, as_qiskit)
 
-def get_dual_circuit_setup_quimb_from_circuits(c1: QuantumCircuit, c2: QuantumCircuit, data, draw: bool = False) -> Circuit:
+def get_dual_circuit_setup_quimb_from_circuits(c1: QuantumCircuit, c2: QuantumCircuit, data, draw: bool = False, as_qiskit: bool = False) -> Circuit:
     qiskit_circuit = get_dual_circuit_setup(c1, c2, data, draw=draw)
-    return cu.qiskit_to_quimb_circuit(qiskit_circuit)
+    return qiskit_circuit if as_qiskit else cu.qiskit_to_quimb_circuit(qiskit_circuit)
 
 def prepare_circuit(circuit: QuantumCircuit) -> QuantumCircuit:
     return circuit.remove_final_measurements(inplace=False)
@@ -165,9 +165,9 @@ def get_combined_inverse_circuit(circuit: QuantumCircuit) -> QuantumCircuit:
 
 def get_unroll_manager() -> PassManager:
     all_quimb_gates = ['h', 'x', 'y', 'z', 's', 't', 'cx', 'cnot', 'cy', 'cz', 'rz', 'rx', 'ry' 'sdg', 'tdg', 
-                       'x_1_2', 'y_1_2', 'z_1_2', 'w_1_2', 'hz_1_2', 'iswap', 'swap', 'iden', 'u3', 'u2', 'u1',
+                       'x_1_2', 'y_1_2', 'z_1_2', 'w_1_2', 'hz_1_2', 'iden', 'u3', 'u2', 'u1', #'iswap', 'swap', 'cswap', 
                        'cu3', 'cu2', 'cu1', 'fsim', 'fsimg', 'givens', 'rxx', 'ryy', 'rzz', 'crx', 'cry', 'crz',
-                       'su4', 'ccx', 'ccnot', 'toffoli', 'ccy', 'ccz', 'cswap', 'fredkin', 'u']
+                       'su4', 'ccx', 'ccnot', 'toffoli', 'ccy', 'ccz', 'fredkin', 'u']
     custom_gate_pass_ = Unroller(all_quimb_gates)
     qft_remover = Decompose(gates_to_decompose="QFT")
     qftdg_remover = Decompose(gates_to_decompose="QFT_dg")

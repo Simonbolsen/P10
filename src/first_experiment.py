@@ -199,7 +199,7 @@ def get_all_configs(settings):
 debug=False
 def first_experiment():
     # Prepare save folder and file paths
-    experiment_name = f"time_vanilla_naive_gs_dj_ghz_64_128_256_{datetime.today().strftime('%Y-%m-%d_%H-%M')}"
+    experiment_name = f"time_vanilla_prop_remaining_circs"#_{datetime.today().strftime('%Y-%m-%d_%H-%M')}"
     folder_path = os.path.join("experiments", experiment_name)
     if not os.path.exists(folder_path):
         os.makedirs(folder_path, exist_ok=True)
@@ -213,16 +213,18 @@ def first_experiment():
 
     settings = {
         "simulate": False,
-        "algorithms": ["graphstate"],#, "dj", "graphstate"],#, "ghz", "graphstate", "qftentangled"],
+        "algorithms": ["qftentangled", "qpeexact"],#, "dj", "graphstate"],#, "ghz", "graphstate", "qftentangled"],
         "levels": [(0, 2)],
-        "qubits": [64],#list(range(256,257,1)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
+        "qubits": [6, 8, 10],#list(range(4,100,1)),#[64, 128, 256],#list(range(256,257,1)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
         "random_gate_dels_range": [0],
         "repetitions": 10,
         "sliced": False,
         "cnot_split": False,
         "use_subnets": True,
-        "find_counter": False
+        "find_counter": False,
+        "use_qcec_only": False
     }
+    prev_rep = 0
 
     print(f"Performing experiment with {settings['algorithms']} for levels: {settings['levels']}\n\tqubits: {settings['qubits']}")
 
@@ -237,7 +239,7 @@ def first_experiment():
             "version": 1,
             "experiment_name": experiment_name,
             "expect_equivalence": circ_conf['random_gate_deletions'] == 0,
-            "file_name": f"circuit_{circ_conf['algorithm']}_{circ_conf['level'][0]}{circ_conf['level'][1]}_{circ_conf['qubits']}_d{circ_conf['random_gate_deletions']}_r{circ_conf['repetition']}",
+            "file_name": f"circuit_{circ_conf['algorithm']}_{circ_conf['level'][0]}{circ_conf['level'][1]}_{circ_conf['qubits']}_d{circ_conf['random_gate_deletions']}_r{circ_conf['repetition']+prev_rep}",
             "settings": settings,
             "contraction_settings": {
                 "max_time": 300, # in seconds, -1 for inf
@@ -252,7 +254,7 @@ def first_experiment():
                 "minimize": "flops",
                 "max_repeats": 1,
                 "max_time": 60,
-                "use_proportional": False,
+                "use_proportional": True,
                 "gridded": False,
                 "linear_fraction": 0
             },
@@ -277,6 +279,22 @@ def first_experiment():
         starting_time = time.time_ns()
         circuit = bu.get_dual_circuit_setup_quimb(data, draw=False)
         data["circuit_setup_time"] = int((time.time_ns() - starting_time) / 1000000)
+
+        if data["settings"]["use_qcec_only"]:
+            print("Starting QCEC sanity check")
+            starting_time = time.time_ns()
+            data["equivalence"] = verify(data["circuit_data"]["circuit_1_qasm"], data["circuit_data"]["circuit_2_qasm"]).equivalence.value in [1,4,5]  # see https://mqt.readthedocs.io/projects/qcec/en/latest/library/EquivalenceCriterion.html
+            data["qcec_time"] = int((time.time_ns() - starting_time) / 1000000)
+            print(f"QCEC says: {data['equivalence']}")
+
+            data["circuit_data"]["circuit_1_qasm"] = data["circuit_data"]["circuit_1_qasm"].qasm()
+            data["circuit_data"]["circuit_2_qasm"] = data["circuit_data"]["circuit_2_qasm"].qasm()
+
+            print("Saving data...")
+            file_path = os.path.join(working_path, data["file_name"] + ".json")
+            with open(file_path, "w") as file:
+                json.dump(data, file, indent=4)
+            continue
 
         # Transform to tensor networks (without initial states and cnot decomp)
         print("Constructing tensor network...")
@@ -359,8 +377,8 @@ def first_experiment():
                 if len(sub_tensor_networks) > 1:
                     resulting_sub_tdds.append(result_tdd)
 
-            if data["failed"]:
-                break
+            if any([data_containers[i]["failed"] for i in range(len(data_containers))]):
+                continue
 
 
             if len(sub_tensor_networks) > 1 and settings["simulate"]:
@@ -377,7 +395,7 @@ def first_experiment():
 
             if (data["expect_equivalence"] != data["equivalence"]):
                 print('\033[31m' + "Erroneous result: Expected != TDD" + '\033[m')
-                return
+                continue
 
             if not data["equivalence"] and settings["find_counter"]:
                 result_tdd.show(name="final_tdd")

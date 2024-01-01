@@ -11,6 +11,7 @@ from quimb.tensor.tensor_arbgeom import TensorNetworkGenVector
 from quimb.tensor import Tensor, TensorNetwork, oset
 import igraph as ig
 import matplotlib.pyplot as plt
+import bench_util as bu
 
 def get_circuit(n):
     circ = Circuit(n)
@@ -252,7 +253,7 @@ def get_grid(tensor_network):
             follow_all(l[1])
 
     for tag, tensor_set in tensor_network.tag_map.items():
-        if len(tensor_set) == 2:
+        if "GATE" in tag and len(tensor_set) == 2:
             l = list(tensor_set)
             tensor_pair_tags[l[0]] = tag
             tensor_pair_tags[l[1]] = tag
@@ -592,12 +593,33 @@ def find_and_split_subgraphs_in_tn(tn: TensorNetwork, draw=False) -> ig.Graph:
 
 if __name__ == "__main__":
 
+    settings = {
+        "simulate": False,
+        "algorithm": "qpeexact",
+        "level": (0, 2),
+        "qubits": 4,
+        "random_gate_deletions": 0
+    }
+    data = {
+        "circuit_settings": settings,
+        "path_settings": {
+            "use_proportional": True
+        },
+        "circuit_data": {
+
+        }
+    }
+
     n = 5
     # options = [[1 + 0j, 0j], [0j, 1 + 0j]]
     # state = [random.choice(options) for _ in range(n)]
+    circuit = bu.get_dual_circuit_setup_quimb(data, draw=True)
+    
+    options = [[1 + 0j, 0j], [0j, 1 + 0j]]
+    settings["state"] = [random.choice(options) for _ in range(n)]
 
-    tensor_network = get_tensor_network(get_circuit(n), split_cnot=True, state = None)
-
+    tensor_network = get_tensor_network(circuit, split_cnot=True, state = None)#settings["state"])
+    tensor_network.draw()
     #tensor_network = get_tensor_network(get_subgraph_containing_circuit(n), split_cnot=False, state = None)
     #tensor_network.draw()
     #find_and_split_subgraphs_in_tn(tensor_network)
