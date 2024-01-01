@@ -20,7 +20,19 @@ from itertools import combinations
 from mqt.qcec import verify
 import argparse
 from tabulate import tabulate
-from bcolors import bcolors, printlc
+from first_experiment import first_experiment
+
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
 
 import matplotlib as mpl
 mpl.use("TkAgg")
@@ -34,10 +46,7 @@ experiment_types = {
 
 setup_types = {
     "standard": 0,
-    "remove1": 1,
-    "remove3": 2,
-    "unrelated": 3,
-    "mirrored": 4
+    "pure_qcec": 1
 }
 
 methods = {
@@ -49,7 +58,8 @@ path_methods = {
     "greedy": 0,
     "betweenness": 1,
     "walktrap": 2,
-    "linear": 3
+    "linear": 3,
+    "proportional": 4
 }
 
 minimize_methods = {
@@ -61,13 +71,22 @@ minimize_methods = {
 argparser.add_argument('--exp_name', dest='exp_name', type=str)
 argparser.add_argument('--exp_type', dest="exp_type", type=str, default="formal", choices=experiment_types.keys())
 argparser.add_argument('-debug', dest="debug", action="store_true")
+argparser.add_argument('-counter', dest="find_counter", action="store_true")
+argparser.add_argument('-ts', dest="use_time_stamp", action="store_true")
 
 # --------------- Circuit Settings ---------------
 argparser.add_argument('--setup', dest='setup', type=str, default="standard", choices=setup_types.keys())
-argparser.add_argument('--algorithms', dest='algorithms', type=[str], default=["dj", "ghz"])
-argparser.add_argument('--levels', dest='levels', type=[(int, int)], default=[(0,2)])
-argparser.add_argument('--qubits', dest='qubits', type=[(int, int, int)], default=[(2,256,1)], help="Takes tuples of (start, stop, step)")
+argparser.add_argument('--algorithms', dest='algorithms', nargs='+', type=str, default=["dj", "ghz"])
+argparser.add_argument('--levels', dest='levels', nargs='+', type=lambda a: tuple(map(int, a.split(','))), default=[(0,2)])
+argparser.add_argument('--qubit_range', dest='qubit_range', type=lambda a: tuple(map(int, a.split(','))), default=None, help="Takes tuples of (start, stop, step)")
+argparser.add_argument('--qubits', dest='qubits', nargs='+', type=int, default=[4,6,8], help="Takes tuples of (start, stop, step)")
 argparser.add_argument('--gate_deletions', dest='num_of_gate_deletions', type=int, default=0)
+argparser.add_argument('--reps', dest='repetition', type=int, default=1)
+argparser.add_argument('-sliced', dest="sliced", action="store_true")
+argparser.add_argument('-split', dest="cnot_split", action="store_true")
+argparser.add_argument('-subnets', dest="use_subnets", action="store_true")
+
+
 
 # --------------- Contraction Settings ---------------
 argparser.add_argument('--max_cont_time', dest='max_cont_time', type=int, default=-1)
@@ -76,7 +95,7 @@ argparser.add_argument('--max_int_node_size', dest='max_int_node_size', type=int
 
 # --------------- Path Settings ---------------
 argparser.add_argument('--method', dest='method', type=str, default="cotengra", choices=methods.keys())
-argparser.add_argument('--path_method', dest='path_method', type=str, default="greedy", choices=path_methods.keys())
+argparser.add_argument('--path_method', dest='path_method', type=str, default="rgreedy", choices=path_methods.keys())
 argparser.add_argument('--minimize', dest='minimize', type=str, default='flops', choices=minimize_methods.keys())
 argparser.add_argument('--max_repeats', dest='max_repeats', type=int, default=50)
 argparser.add_argument('--max_plan_time', dest='max_plan_time', type=int, default=60)
@@ -91,284 +110,18 @@ argparser.add_argument('-print', dest="should_print", action="store_true")
 supported_algorithms = [
     "ghz",
     "graphstate",
-    #"twolocalrandom",  # No good
-    #"qftentangled", # Not working
+    "twolocalrandom", 
+    "qftentangled",
     "dj",
-    #"qpeexact", # Not working
-    #"su2random",
-    #"wstate",
-    #"realamprandom"
+    "qpeexact", 
+    "su2random",
+    "wstate",
+    "realamprandom"
 ]
-
-
-# ---------------------- SUPPORT FUNCTIONS ------------------------------
-
-def map_complex(data):
-    if isinstance(data, list):
-        return [map_complex(item) for item in data]
-    else:
-        return (data.real, data.imag)
-
-def fast_contract_tdds(tdds, data, max_time=-1, max_node_size=-1):
-    start_time = time.time()
-    usable_path = data["path"]
-    sizes = {i: [0, tdd.node_number()] for i, tdd in tdds.items()}
-
-    for left_index, right_index in tqdm(usable_path):
-        if max_time > 0 and int(time.time() - start_time) > max_time:
-            data["conclusive"] = False
-            print("Time limit for contraction reached. Aborting check")
-            return None
-        
-        tdds[right_index] = cont(tdds[left_index], tdds[right_index])
-
-        intermediate_tdd_size = tdds[right_index].node_number()
-        sizes[right_index].append(intermediate_tdd_size)
-        if max_node_size > 0 and intermediate_tdd_size > max_node_size:
-            data["conclusive"] = False
-            print("Node size limit reached. Aborting check")
-            return None
-
-    resulting_tdd = tdds[right_index]
-    if not data["simulate"]:
-        data["equivalence"] = tddu.is_tdd_identitiy(resulting_tdd)
-        data["conclusive"] = True
-    else:
-        data["equivalence"] = tddu.is_tdd_equal(resulting_tdd, data["state"])
-        data["conclusive"] = not data["equivalence"]
-    data["sizes"] = sizes
-
-    return resulting_tdd
-
-def contract_tdds(tdds, data, max_time=-1, max_node_size=-1, save_intermediate_results=False, comprehensive_saving=False, folder_path=""):
-    start_time = time.time()
-    usable_path = data["path"]
-    sizes = {i: [0, tdd.node_number()] for i, tdd in tdds.items()}
-    folder = os.path.join(folder_path, "intermediate_results")
-    if not os.path.exists(folder):
-        os.makedirs(folder, exist_ok=True)
-
-    working_layer = ""
-    it = 0 
-    for left_index, right_index in tqdm(usable_path):
-        if max_time > 0 and int(time.time() - start_time) > max_time:
-            data["conclusive"] = False
-            print("Time limit for contraction reached. Aborting check")
-            return None
-        if save_intermediate_results:
-            if comprehensive_saving:
-                working_layer = f"Contraction_{it}__{left_index}_{right_index}"
-                if not os.path.exists(folder):
-                    os.makedirs(folder, exist_ok=True)
-                tdds[left_index].show(name=os.path.join(folder, working_layer, "tdd_" + str(left_index)))
-                tdds[right_index].show(name=os.path.join(folder, working_layer, "tdd_" + str(right_index)))
-                it += 1
-        left_tensor = tddu.tensor_of_tdd(tdds[left_index])
-        right_tensor = tddu.tensor_of_tdd(tdds[right_index])
-        presumed_result_tensor = left_tensor.contract(right_tensor)
-
-        tdds[right_index] = cont(tdds[left_index], tdds[right_index])
-
-        result_tensor = tddu.tensor_of_tdd(tdds[right_index])
-        presumed_result_tensor = presumed_result_tensor.transpose(*result_tensor.inds)
-        # Check tdd and tensor are same
-        same = presumed_result_tensor.inds == result_tensor.inds
-        same = same and np.allclose(presumed_result_tensor.data, result_tensor.data)
-        wrong_nodes = []
-        if not same:
-            if False and data["tdd_analysis"] is None:
-                
-                data["tdd_analysis"] = {
-                    "left_tensor": map_complex(left_tensor.data.tolist()),
-                    "right_tensor": map_complex(right_tensor.data.tolist()),
-                    "result_tensor": map_complex(presumed_result_tensor.data.tolist()),
-                    "actual_result_tensor": map_complex(result_tensor.data.tolist()),
-                    "left_tensor_inds": left_tensor.inds,
-                    "right_tensor_inds": right_tensor.inds,
-                    "result_tensor_inds": presumed_result_tensor.inds,
-                    "actual_result_tensor_inds": result_tensor.inds,
-                    "tdds_in": os.path.join(folder, working_layer, "tdd_" + str(left_index)),
-                    "left_tdd_name": left_index,
-                    "right_tdd_name": right_index
-                }
-
-            data["not_same_tensors"].append((left_index, right_index))
-            wrong_nodes.append(right_index)
-        if False and same and len(left_tensor.inds) == 6 and len(right_tensor.inds) == 4:
-            if data["correct_example"] is None:
-                
-                data["correct_example"] = {
-                    "left_tensor": map_complex(left_tensor.data.tolist()),
-                    "right_tensor": map_complex(right_tensor.data.tolist()),
-                    "result_tensor": map_complex(presumed_result_tensor.data.tolist()),
-                    "actual_result_tensor": map_complex(result_tensor.data.tolist()),
-                    "left_tensor_inds": left_tensor.inds,
-                    "right_tensor_inds": right_tensor.inds,
-                    "result_tensor_inds": presumed_result_tensor.inds,
-                    "actual_result_tensor_inds": result_tensor.inds,
-                    "tdds_in": os.path.join(folder, working_layer, "tdd_" + str(left_index)),
-                    "left_tdd_name": left_index,
-                    "right_tdd_name": right_index
-                }
-        data["path_data"]["dot"] = tnu.get_dot_from_path(usable_path, wrong_nodes)
-
-        intermediate_tdd_size = tdds[right_index].node_number()
-        sizes[right_index].append(intermediate_tdd_size)
-        if save_intermediate_results:
-            file_path = os.path.join(folder, working_layer, "tdd_" + str(left_index) + "_" + str(right_index))
-            tdds[right_index].show(name=file_path)
-        if max_node_size > 0 and intermediate_tdd_size > max_node_size:
-            data["conclusive"] = False
-            print("Node size limit reached. Aborting check")
-            return None
-
-    resulting_tdd = tdds[right_index]
-    if "simulate" not in data or not data["simulate"]:
-        data["equivalence"] = tddu.is_tdd_identitiy(resulting_tdd)
-        data["conclusive"] = True
-    else:
-        data["equivalence"] = tddu.is_tdd_equal(resulting_tdd, data["state"])
-        data["conclusive"] = not data["equivalence"]
-    data["sizes"] = sizes
-
-    return resulting_tdd
-
-def get_all_configs(args: argparse.Namespace):
-    all_configs = []
-    for algorithm in args.algorithms:
-        for level in args.levels:
-            (start, stop, step) = args.qubits
-            for qubit in range(start, stop, step):
-                all_configs.append({"algorithm": algorithm, "level": level, "qubits": qubit})
-
-    return all_configs
-
-def prepare_folder(folder):
-    if not os.path.exists(folder):
-        os.makedirs(folder, exist_ok=True)
-
-def prepare_data_container(args, exp_name, circuit_config):
-    options = [[1 + 0j, 0j], [0j, 1 + 0j]]
-
-    data = {
-            #"max_rank": circuit_difficulty[circ_conf["algorithm"]] * circ_conf["qubits"],
-            "experiment_name": exp_name,
-            "experiment_type": args.exp_type,
-
-            "file_name": f"circuit_{circuit_config['algorithm']}_{circuit_config['level'][0]}{circuit_config['level'][1]}_{circuit_config['qubits']}",
-            "contraction_settings": {
-                "max_time": args.max_cont_time, # in seconds, -1 for inf
-                "max_replans": args.max_attempts,
-                "max_intermediate_node_size": args.max_int_node_size #-1 for inf
-            },
-            "circuit_settings": circuit_config,
-            "circuit_data": {},
-            "state": [random.choice(options) for _ in range(circuit_config["qubits"])] if args.exp_type == "simulation" else None,
-            "path_settings": {
-                "method": args.method,
-                "opt_method": args.path_method, # greedy, betweenness, walktrap
-                "minimize": args.minimize,
-                "max_repeats": args.max_repeats,
-                "max_time": args.max_plan_time,
-                "linear_fraction": args.linear_fraction
-            },
-            "path_data": {},
-            "not_same_tensors": [],
-            "tdd_analysis": None,
-            "correct_example": None
-        }
-
-    return data
 
 def cprint(text: str):
     if should_print:
         print(text)
-
-##debug=False
-def first_experiment(args: argparse.Namespace):
-    # Prepare save folder and file paths
-    experiment_name = f"{args.exp_name}_{datetime.today().strftime('%Y-%m-%d_%H-%M')}"
-    folder_path = os.path.join("experiments", experiment_name)
-    prepare_folder(folder_path)
-    print(f"Performing experiment with {args.algorithms} for levels: {args.levels}\n\tqubits: {args.qubits}")
-
-    # Prepare benchmark circuits:
-    circuit_configs = get_all_configs(args)
-
-    # For each circuit, run equivalence checking:
-    for circ_conf in circuit_configs:
-        circ_conf["random_gate_deletions"] = 0
-        circ_conf["setup"] = args.setup
-        # Prepare data container
-        data = prepare_data_container(args, experiment_name, circ_conf)
-
-        working_path = os.path.join(folder_path, data["file_name"])
-        prepare_folder(working_path)
-
-        # Prepare circuit
-        print("Preparing circuits...")
-        starting_time = time.time_ns()
-        circuit = bu.get_dual_circuit_setup_quimb(data, draw=False)
-        data["circuit_setup_time"] = int((time.time_ns() - starting_time) / 1000000)
-
-        # Transform to tensor networks (without initial states and cnot decomp)
-        print("Constructing tensor network...")
-        starting_time = time.time_ns()
-        tensor_network = tnu.get_tensor_network(circuit, split_cnot=False, state = data["state"])
-        data["tn_construnction_time"] = int((time.time_ns() - starting_time) / 1000000)
-        
-        print(f"Number of tensors: {len(tensor_network.tensor_map)}")
-        
-        attempts = 0
-        succeeded = False
-        while (attempts < data["contraction_settings"]["max_replans"] and not succeeded):
-            attempts += 1
-
-            # Construct the plan from CoTenGra
-            print("Find contraction path...")
-            starting_time = time.time_ns()
-            path = tnu.get_contraction_path(tensor_network, data)
-            data["path_construction_time"] = int((time.time_ns() - starting_time) / 1000000)
-
-            #tn_draw.draw_tn(tensor_network, color=['PSI0', 'H', 'CX', 'RZ', 'RX', 'CZ'], save_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
-            #tnu.draw_contraction_order(tensor_network, path, save_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
-
-            # Prepare gate TDDs
-            print("Preparing gate TDDs...")
-            starting_time = time.time_ns()
-            gate_tdds = tddu.get_tdds_from_quimb_tensor_network(tensor_network)
-            data["gate_prep_time"] = int((time.time_ns() - starting_time) / 1000000)
-
-            #tddu.draw_all_tdds(gate_tdds, folder=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
-            starting_time = time.time_ns()
-            data["qcec_equivalence"] = verify(data["circuit_data"]["circuit_1_qasm"], data["circuit_data"]["circuit_2_qasm"]).equivalence.value in [1,4,5]  # see https://mqt.readthedocs.io/projects/qcec/en/latest/library/EquivalenceCriterion.html
-            data["qcec_time"] = int((time.time_ns() - starting_time) / 1000000)
-            print(f"QCEC says: {data['qcec_equivalence']}")
-            data["circuit_data"]["circuit_1_qasm"] = data["circuit_data"]["circuit_1_qasm"].qasm()
-            data["circuit_data"]["circuit_2_qasm"] = data["circuit_data"]["circuit_2_qasm"].qasm()
-
-            # Contract TDDs + equivalence checking
-            print(f"Contracting {len(path)} times...")
-            starting_time = time.time_ns()
-            #result_tdd = contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"], save_intermediate_results=False, comprehensive_saving=False, folder_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
-            result_tdd = fast_contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"])
-            data["contraction_time"] = int((time.time_ns() - starting_time) / 1000000)
-
-            if (data["qcec_equivalence"] != data["equivalence"]):
-                print('\033[31m' + "Erroneous result: QCEC != TDD" + '\033[m')
-
-            # Save data for circuit
-            if not args.debug:
-                print("Saving data...")
-                file_path = os.path.join(working_path, data["file_name"] + f"_R{attempts}" + ".json")
-                with open(file_path, "w") as file:
-                    json.dump(data, file, indent=4)
-
-            #result_tdd.show(name=os.path.join(working_path, data["file_name"] + f"_R{attempts}" + "_TDD"))
-            if result_tdd is not None:
-                succeeded = True
-            else:
-                print(f"Retry #{attempts+1}")
 
 def legal_args(args):
     for algorithm in args.algorithms:
@@ -381,10 +134,11 @@ def legal_args(args):
             print(f"Level ({left}, {right}) is not valid.")
             return False
 
-    for (start, stop, step) in args.qubits:
-        if start < 2 or start >= stop:
-            print(f"Qubits must be <=2 and stop must be greater than start")
-            return False
+    if args.qubit_range is not None:
+        for (start, stop, step) in [args.qubit_range]:
+            if start < 2 or start >= stop:
+                print(f"Qubits must be <=2 and stop must be greater than start")
+                return False
         
     if args.num_of_gate_deletions < 0:
         print(f"Gate deletions cannot be negative")
@@ -393,9 +147,6 @@ def legal_args(args):
     if args.linear_fraction < 0.0 or args.linear_fraction > 1.0:
         print(f"Linear fraction must be in [0.0, 1.0]")
         return False
-    
-    
-
 
     return True
 
@@ -412,6 +163,44 @@ def run_experiment(args):
     global should_print
     should_print = args.should_print
 
+
+    contraction_settings = {
+                "max_time": args.max_cont_time, # in seconds, -1 for inf
+                "max_replans": args.max_attemps,
+                "max_intermediate_node_size": args.max_int_node_size #-1 for inf
+            }
+
+    path_settings = {
+                "method": args.method,
+                "opt_method": args.path_method, 
+                "minimize": args.minimize,
+                "max_repeats": args.max_repeats,
+                "max_time": args.max_plan_time,
+                "use_proportional": args.method == "linear" and args.path_method == "proportional",
+                "gridded": False,
+                "linear_fraction": args.linear_fraction
+            }
+
+    iter_settings = {
+        "algorithms": args.algorithms,
+        "levels": args.levels,
+        "qubits": list(range(*args.qubit_range)) if args.qubit_range is not None else args.qubits, # NOT CORRECT
+        "random_gate_dels_range": [0],
+        "repetitions": args.repetition
+    }
+
+    settings = {
+        "simulate": args.exp_type == "simulation",
+        "sliced": args.sliced,
+        "cnot_split": args.cnot_split,
+        "use_subnets": args.use_subnets,
+        "find_counter": args.find_counter,
+        "use_qcec_only": args.exp_type == "pure_qcec"
+    }
+
+    first_experiment(iter_settings=iter_settings, settings=settings, 
+                     contraction_settings=contraction_settings, path_settings=path_settings,
+                     folder_name=args.exp_name, folder_with_time=args.use_time_stamp)
 
 
 if __name__ == "__main__":

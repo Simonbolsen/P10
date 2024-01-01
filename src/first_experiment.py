@@ -197,43 +197,20 @@ def get_all_configs(settings):
     return all_configs
 
 debug=False
-def first_experiment():
+def first_experiment(iter_settings, settings, contraction_settings, path_settings, folder_name="garbage", folder_with_time=True):
     # Prepare save folder and file paths
-    experiment_name = f"time_vanilla_prop_remaining_circs"#_{datetime.today().strftime('%Y-%m-%d_%H-%M')}"
+    experiment_name = f"{folder_name}_{datetime.today().strftime('%Y-%m-%d_%H-%M') if folder_with_time else ''}"
     folder_path = os.path.join("experiments", experiment_name)
     if not os.path.exists(folder_path):
         os.makedirs(folder_path, exist_ok=True)
-    # Experiment settings
-    settings = {
-        "simulate": False,
-        "algorithms": selected_algorithms,
-        "levels": [(0, 2)], #[i for i in combinations(range(4), 2)],
-        "qubits": [i for i in range(2, 257, 2)]
-    }
-
-    settings = {
-        "simulate": False,
-        "algorithms": ["qftentangled", "qpeexact"],#, "dj", "graphstate"],#, "ghz", "graphstate", "qftentangled"],
-        "levels": [(0, 2)],
-        "qubits": [6, 8, 10],#list(range(4,100,1)),#[64, 128, 256],#list(range(256,257,1)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
-        "random_gate_dels_range": [0],
-        "repetitions": 10,
-        "sliced": False,
-        "cnot_split": False,
-        "use_subnets": True,
-        "find_counter": False,
-        "use_qcec_only": False
-    }
+    
+    # Experiment settings     
     prev_rep = 0
-
-    print(f"Performing experiment with {settings['algorithms']} for levels: {settings['levels']}\n\tqubits: {settings['qubits']}")
-
-    # Prepare benchmark circuits:
-    circuit_configs = get_all_configs(settings)
+    circuit_configs = get_all_configs(iter_settings)
+    settings = settings | iter_settings
 
     # For each circuit, run equivalence checking:
     for circ_conf in circuit_configs:
-        #circ_conf["random_gate_deletions"] = 3
         # Prepare data container
         data = {
             "version": 1,
@@ -241,23 +218,10 @@ def first_experiment():
             "expect_equivalence": circ_conf['random_gate_deletions'] == 0,
             "file_name": f"circuit_{circ_conf['algorithm']}_{circ_conf['level'][0]}{circ_conf['level'][1]}_{circ_conf['qubits']}_d{circ_conf['random_gate_deletions']}_r{circ_conf['repetition']+prev_rep}",
             "settings": settings,
-            "contraction_settings": {
-                "max_time": 300, # in seconds, -1 for inf
-                "max_replans": 1,
-                "max_intermediate_node_size": -1 #-1 for inf
-            },
+            "contraction_settings": contraction_settings,
             "circuit_settings": circ_conf,
             "circuit_data": {},
-            "path_settings": {
-                "method": "linear",
-                "opt_method": "betweenness", #  kahypar-balanced, kahypar-agglom, labels, labels-agglom
-                "minimize": "flops",
-                "max_repeats": 1,
-                "max_time": 60,
-                "use_proportional": True,
-                "gridded": False,
-                "linear_fraction": 0
-            },
+            "path_settings": path_settings,
             "path_data": {},
             "not_same_tensors": [],
             "tdd_analysis": None,
@@ -512,4 +476,38 @@ def combinate_data_containers(containers: list[dict]) -> list[dict]:
 
 
 if __name__ == "__main__":
-    first_experiment()
+    contraction_settings = {
+                "max_time": 300, # in seconds, -1 for inf
+                "max_replans": 1,
+                "max_intermediate_node_size": -1 #-1 for inf
+            }
+
+    path_settings = {
+                "method": "linear",
+                "opt_method": "betweenness", #  kahypar-balanced, kahypar-agglom, labels, labels-agglom
+                "minimize": "flops",
+                "max_repeats": 1,
+                "max_time": 60,
+                "use_proportional": True,
+                "gridded": False,
+                "linear_fraction": 0
+            }
+
+    iter_settings = {
+        "algorithms": ["qftentangled", "qpeexact"],#, "dj", "graphstate"],#, "ghz", "graphstate", "qftentangled"],
+        "levels": [(0, 2)],
+        "qubits": [6, 8, 10],#list(range(4,100,1)),#[64, 128, 256],#list(range(256,257,1)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
+        "random_gate_dels_range": [0],
+        "repetitions": 10
+    }
+
+    settings = {
+        "simulate": False,
+        "sliced": False,
+        "cnot_split": False,
+        "use_subnets": True,
+        "find_counter": False,
+        "use_qcec_only": False
+    }
+
+    first_experiment(iter_settings=iter_settings, settings=settings, contraction_settings=contraction_settings, path_settings=path_settings)
