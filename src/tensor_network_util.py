@@ -523,17 +523,20 @@ def draw_contraction_order(tensor_network, usable_path, width = 1.0, save_path =
 
     for tid, pos in tensor_pos.items():
         a = 1 - pos[0] / min_depth
-        node_colors[tid] = (a, 1 - a, 4 * a * (1 - a))
+        node_colors[tid] = (1,1,1)#(a, 1 - a, 4 * a * (1 - a))
 
     for ind, step in ind_contraction_order.items():
         a = step / (len(usable_path))
         b = 1-a
         edge_colors[ind] = (0.29 * a + 0.1 * b, b, 0.56 * a + 0.1*b)
 
+    for k in tensor_network.outer_inds():
+        edge_colors[k] = (0.2,0.2,0.2)
+
     tensor_pos |= {ind : (min_depth - 1 if ind[0] == "b" else 1, -int(ind[1:])) for ind in tensor_network.outer_inds()}
 
     tn_draw.draw_tn(tensor_network, fix = tensor_pos, iterations=0, 
-                    edge_colors=edge_colors, edge_scale=5, node_scale=1.5, margin=0.5, save_path = save_path, arrow_length = 0.0)
+                    node_color=node_colors, edge_colors=edge_colors, edge_scale=5, node_scale=1.5, margin=0.5, save_path = save_path, arrow_length = 0.0)
 
 def draw_depth_order(tensor_network):
     tensor_depths = get_tensor_pos(tensor_network)
@@ -629,8 +632,10 @@ if __name__ == "__main__":
     prop = get_linear_path(tensor_network, fraction=0.5, gridded=True)
     #print(verify_path(usable_path))
 
-    rgreedy = get_usable_path(tensor_network, tensor_network.contraction_path(ctg.HyperOptimizer(methods = "rgreedy", minimize="flops", max_repeats=1, max_time=60, progbar=True, parallel=False)))
-    betweennes = get_usable_path(tensor_network, tensor_network.contraction_path(ctg.HyperOptimizer(methods = "betweenness", minimize="flops", max_repeats=1, max_time=60, progbar=True, parallel=False)))
+    rgreedy = get_usable_path(tensor_network, tensor_network.contraction_path(
+        ctg.HyperOptimizer(methods = "rgreedy", minimize="flops", max_repeats=1, max_time=60, progbar=False, parallel=False)))
+    betweennes = get_usable_path(tensor_network, tensor_network.contraction_path(
+        ctg.HyperOptimizer(methods = "betweenness", minimize="flops", max_repeats=1, max_time=60, progbar=False, parallel=False)))
 
     draw_contraction_order(tensor_network, naive, width = 0.5) #save_path=os.path.join(os.path.realpath(__file__), "..", "..", "experiments", "plots", "contraction_order"))
     draw_contraction_order(tensor_network, prop, width = 0.5)
