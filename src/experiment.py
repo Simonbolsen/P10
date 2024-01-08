@@ -55,7 +55,7 @@ methods = {
 }
 
 path_methods = {
-    "greedy": 0,
+    "rgreedy": 0,
     "betweenness": 1,
     "walktrap": 2,
     "linear": 3,
