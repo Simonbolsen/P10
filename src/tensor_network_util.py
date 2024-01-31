@@ -11,8 +11,7 @@ from quimb.tensor.tensor_arbgeom import TensorNetworkGenVector
 from quimb.tensor import Tensor, TensorNetwork, oset
 import igraph as ig
 import matplotlib.pyplot as plt
-import bench_util as bu
-
+#import bench_util as bu
 import networkx as nx
 
 def get_circuit(n):
@@ -31,7 +30,7 @@ def get_circuit(n):
                 circ.apply_gate('H', regs[i])
 
     # apply multi-controlled NOT
-    circ.apply_gate('X', regs[-1], controls=regs[:-1])
+    #circ.apply_gate('X', regs[-1], controls=regs[:-1])
 
     return circ
 
@@ -134,8 +133,6 @@ def slice_tensor_network_vertically(tensor_network):
         for c, cell in enumerate(column):
             if c < len(column) - 1:
                 tensor_network._contract_between_tids(cell, column[c+1])
-
-
 
 def fill_identity(tensor_network):
     grid = get_grid(tensor_network)
@@ -624,14 +621,6 @@ def to_nx_graph(tn: TensorNetwork, draw=False):
     
     return graph
 
-def save_nx_graph(graph: nx.Graph, path: str, file_name: str):
-    final_path = file_name + ".gml" if path == "" else os.path.join(path, file_name + ".gml")
-    nx.write_gml(graph, final_path)
-
-def load_nx_graph(path: str):
-    graph = nx.read_gml(path)
-    return graph
-
 algorithms = [
     "ghz",
     "graphstate",
@@ -646,47 +635,50 @@ algorithms = [
 
 if __name__ == "__main__":
     folder_path = "graphs"
-    if not os.path.exists(folder_path):
-        os.makedirs(folder_path, exist_ok=True)
-
-    for algorithm in algorithms:
-        
-        settings = {
-            "simulate": False,
-            "algorithm": algorithm,
-            "level": (0, 2),
-            "qubits": 5,
-            "random_gate_deletions": 0
-        }
-        data = {
-            "circuit_settings": settings,
-            "path_settings": {
-                "use_proportional": True
-            },
-            "circuit_data": {
-
-            }
-        }
-        name = f"graph_{settings['algorithm']}_q{settings['qubits']}"
-
-        # n = 5
-        # options = [[1 + 0j, 0j], [0j, 1 + 0j]]
-        # state = [random.choice(options) for _ in range(n)]
-        circuit = bu.get_dual_circuit_setup_quimb(data, draw=False)
-        
-        # options = [[1 + 0j, 0j], [0j, 1 + 0j]]
-        # settings["state"] = [random.choice(options) for _ in range(n)]
-
-        #circuit = get_circuit(5)
-
-        tensor_network = get_tensor_network(circuit, split_cnot=True, state = None)#settings["state"])
-        
-        G = to_nx_graph(tensor_network)
-
-        save_nx_graph(G, folder_path, name)
-        #graph = load_nx_graph("graph_test.gml")
+ #   if not os.path.exists(folder_path):
+ #       os.makedirs(folder_path, exist_ok=True)
+#
+    #for algorithm in algorithms:
+    #    
+    #    settings = {
+    #        "simulate": False,
+    #        "algorithm": algorithm,
+    #        "level": (0, 2),
+    #        "qubits": 5,
+    #        "random_gate_deletions": 0
+    #    }
+    #    data = {
+    #        "circuit_settings": settings,
+    #        "path_settings": {
+    #            "use_proportional": True
+    #        },
+    #        "circuit_data": {
+#
+    #        }
+    #    }
+    #    name = f"graph_{settings['algorithm']}_q{settings['qubits']}"
+#
+    #    # n = 5
+    #    # options = [[1 + 0j, 0j], [0j, 1 + 0j]]
+    #    # state = [random.choice(options) for _ in range(n)]
+    #    circuit = bu.get_dual_circuit_setup_quimb(data, draw=False)
+    #    
+    #    # options = [[1 + 0j, 0j], [0j, 1 + 0j]]
+    #    # settings["state"] = [random.choice(options) for _ in range(n)]
+#
+    #    #circuit = get_circuit(5)
+#
+    #    tensor_network = get_tensor_network(circuit, split_cnot=True, state = None)#settings["state"])
+    #    
+    #    G = to_nx_graph(tensor_network)
+#
+    #    save_nx_graph(G, folder_path, name)
+    #    #graph = load_nx_graph("graph_test.gml")
         
     
+    circuit = get_circuit(5)
+
+    tensor_network = get_tensor_network(circuit, split_cnot=True, state = None)#settings["state"])
     tensor_network.draw()
     #tensor_network = get_tensor_network(get_subgraph_containing_circuit(n), split_cnot=False, state = None)
     #tensor_network.draw()
@@ -697,8 +689,8 @@ if __name__ == "__main__":
     prop = get_linear_path(tensor_network, fraction=0.5, gridded=True)
     #print(verify_path(usable_path))
 
-    rgreedy = get_usable_path(tensor_network, tensor_network.contraction_path(
-        ctg.HyperOptimizer(methods = "rgreedy", minimize="flops", max_repeats=1, max_time=60, progbar=False, parallel=False)))
+    rg = ctg.HyperOptimizer(methods = "random_greedy", minimize="flops", max_repeats=1, max_time=60, progbar=False, parallel=False)
+    rgreedy = get_usable_path(tensor_network, tensor_network.contraction_path(rg))
     betweennes = get_usable_path(tensor_network, tensor_network.contraction_path(
         ctg.HyperOptimizer(methods = "betweenness", minimize="flops", max_repeats=1, max_time=60, progbar=False, parallel=False)))
 
