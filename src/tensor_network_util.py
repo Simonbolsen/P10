@@ -1,6 +1,6 @@
 import cotengra as ctg
 import random
-from quimb.tensor import Circuit
+from quimb.tensor import Circuit, drawing
 import tn_draw
 import random
 import os
@@ -11,6 +11,9 @@ from quimb.tensor.tensor_arbgeom import TensorNetworkGenVector
 from quimb.tensor import Tensor, TensorNetwork, oset
 import igraph as ig
 import matplotlib.pyplot as plt
+import bench_util as bu
+
+import networkx as nx
 
 def get_circuit(n):
     circ = Circuit(n)
@@ -24,11 +27,12 @@ def get_circuit(n):
             if random.random() > 0.3:
                 circ.apply_gate('H', regs[i])
             circ.apply_gate('CNOT', regs[i], regs[i + 1])
-            circ.apply_gate('CNOT', regs[i + 1], regs[i])
             if random.random() > 0.3:
                 circ.apply_gate('H', regs[i])
 
-   
+    # apply multi-controlled NOT
+    circ.apply_gate('X', regs[-1], controls=regs[:-1])
+
     return circ
 
 def get_nontriv_identity_circuit(n):
@@ -592,38 +596,98 @@ def find_and_split_subgraphs_in_tn(tn: TensorNetwork, draw=False) -> ig.Graph:
 
     return sub_tns
 
+def draw_nx_graph(G: nx.Graph):
+    fig, ax0 = plt.subplots(nrows=1, ncols=1, figsize=(12, 6))
+    ax0.set_title("Plot with NetworkX draw")
+    nx.draw_kamada_kawai(G, node_size=50, ax=ax0)
+    plt.axis("off")
+    plt.show()
+
+
+def extract_gate_tag_from_tn_tags(tags: oset([str])):
+    tag_list = list(tags)
+    filtered_tags = [tag for tag in tag_list if tag.lower() in bu.all_quimb_gates]
+    assert len(filtered_tags) == 1
+    return filtered_tags[0]
+
+def to_nx_graph(tn: TensorNetwork, draw=False):
+    edges = [tuple(e) for e in tn.ind_map.values() if len(e) > 1]
+    graph = nx.Graph(edges)
+
+    node_tags_dict = {node_id: extract_gate_tag_from_tn_tags(tn.tensor_map[node_id].tags) for node_id in graph.nodes}
+    shape_dict = {node_id: tn.tensor_map[node_id].shape for node_id in graph.nodes}
+    nx.set_node_attributes(graph, node_tags_dict, "gate")
+    nx.set_node_attributes(graph, shape_dict, "shape")
+
+    if draw:
+        draw_nx_graph(graph)
+    
+    return graph
+
+def save_nx_graph(graph: nx.Graph, path: str, file_name: str):
+    final_path = file_name + ".gml" if path == "" else os.path.join(path, file_name + ".gml")
+    nx.write_gml(graph, final_path)
+
+def load_nx_graph(path: str):
+    graph = nx.read_gml(path)
+    return graph
+
+algorithms = [
+    "ghz",
+    "graphstate",
+    "twolocalrandom",  # No good
+    "qftentangled", # Not working
+    "dj",
+    "qpeexact", # Not working
+    "su2random",
+    "wstate",
+    "realamprandom"
+]
+
 if __name__ == "__main__":
+    folder_path = "graphs"
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path, exist_ok=True)
 
-    settings = {
-        "simulate": False,
-        "algorithm": "qpeexact",
-        "level": (0, 2),
-        "qubits": 4,
-        "random_gate_deletions": 0
-    }
-    data = {
-        "circuit_settings": settings,
-        "path_settings": {
-            "use_proportional": True
-        },
-        "circuit_data": {
-
+    for algorithm in algorithms:
+        
+        settings = {
+            "simulate": False,
+            "algorithm": algorithm,
+            "level": (0, 2),
+            "qubits": 5,
+            "random_gate_deletions": 0
         }
-    }
+        data = {
+            "circuit_settings": settings,
+            "path_settings": {
+                "use_proportional": True
+            },
+            "circuit_data": {
 
-    n = 5
-    # options = [[1 + 0j, 0j], [0j, 1 + 0j]]
-    # state = [random.choice(options) for _ in range(n)]
-    #circuit = bu.get_dual_circuit_setup_quimb(data, draw=True)
+            }
+        }
+        name = f"graph_{settings['algorithm']}_q{settings['qubits']}"
+
+        # n = 5
+        # options = [[1 + 0j, 0j], [0j, 1 + 0j]]
+        # state = [random.choice(options) for _ in range(n)]
+        circuit = bu.get_dual_circuit_setup_quimb(data, draw=False)
+        
+        # options = [[1 + 0j, 0j], [0j, 1 + 0j]]
+        # settings["state"] = [random.choice(options) for _ in range(n)]
+
+        #circuit = get_circuit(5)
+
+        tensor_network = get_tensor_network(circuit, split_cnot=True, state = None)#settings["state"])
+        
+        G = to_nx_graph(tensor_network)
+
+        save_nx_graph(G, folder_path, name)
+        #graph = load_nx_graph("graph_test.gml")
+        
     
-    #options = [[1 + 0j, 0j], [0j, 1 + 0j]]
-    #settings["state"] = [random.choice(options) for _ in range(n)]
-
-    circuit = get_circuit(n)
-
-    tensor_network = get_tensor_network(circuit, split_cnot=True, state = None)#settings["state"])
-    
-    #tensor_network.draw()
+    tensor_network.draw()
     #tensor_network = get_tensor_network(get_subgraph_containing_circuit(n), split_cnot=False, state = None)
     #tensor_network.draw()
     #find_and_split_subgraphs_in_tn(tensor_network)
@@ -633,15 +697,15 @@ if __name__ == "__main__":
     prop = get_linear_path(tensor_network, fraction=0.5, gridded=True)
     #print(verify_path(usable_path))
 
-    #rgreedy = get_usable_path(tensor_network, tensor_network.contraction_path(
-    #    ctg.HyperOptimizer(methods = "rgreedy", minimize="flops", max_repeats=1, max_time=60, progbar=False, parallel=False)))
-    #betweennes = get_usable_path(tensor_network, tensor_network.contraction_path(
-    #    ctg.HyperOptimizer(methods = "betweenness", minimize="flops", max_repeats=1, max_time=60, progbar=False, parallel=False)))
-    #optuna`, `baytune (btb)`, `chocolate`, `nevergrad` or `skopt`
+    rgreedy = get_usable_path(tensor_network, tensor_network.contraction_path(
+        ctg.HyperOptimizer(methods = "rgreedy", minimize="flops", max_repeats=1, max_time=60, progbar=False, parallel=False)))
+    betweennes = get_usable_path(tensor_network, tensor_network.contraction_path(
+        ctg.HyperOptimizer(methods = "betweenness", minimize="flops", max_repeats=1, max_time=60, progbar=False, parallel=False)))
+
     draw_contraction_order(tensor_network, naive, width = 0.5) #save_path=os.path.join(os.path.realpath(__file__), "..", "..", "experiments", "plots", "contraction_order"))
     draw_contraction_order(tensor_network, prop, width = 0.5)
-    #draw_contraction_order(tensor_network, rgreedy, width = 0.5)
-    #draw_contraction_order(tensor_network, betweennes, width = 0.5)
+    draw_contraction_order(tensor_network, rgreedy, width = 0.5)
+    draw_contraction_order(tensor_network, betweennes, width = 0.5)
 
     # slice_tensor_network_vertically(tensor_network)
     # usable_path = get_linear_path(tensor_network, fraction=0.8)
