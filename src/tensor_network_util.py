@@ -11,7 +11,6 @@ from quimb.tensor.tensor_arbgeom import TensorNetworkGenVector
 from quimb.tensor import Tensor, TensorNetwork, oset
 import igraph as ig
 import matplotlib.pyplot as plt
-import bench_util as bu
 
 def get_circuit(n):
     circ = Circuit(n)
@@ -25,12 +24,11 @@ def get_circuit(n):
             if random.random() > 0.3:
                 circ.apply_gate('H', regs[i])
             circ.apply_gate('CNOT', regs[i], regs[i + 1])
+            circ.apply_gate('CNOT', regs[i + 1], regs[i])
             if random.random() > 0.3:
                 circ.apply_gate('H', regs[i])
 
-    # apply multi-controlled NOT
-    circ.apply_gate('X', regs[-1], controls=regs[:-1])
-
+   
     return circ
 
 def get_nontriv_identity_circuit(n):
@@ -616,13 +614,16 @@ if __name__ == "__main__":
     n = 5
     # options = [[1 + 0j, 0j], [0j, 1 + 0j]]
     # state = [random.choice(options) for _ in range(n)]
-    circuit = bu.get_dual_circuit_setup_quimb(data, draw=True)
+    #circuit = bu.get_dual_circuit_setup_quimb(data, draw=True)
     
-    options = [[1 + 0j, 0j], [0j, 1 + 0j]]
-    settings["state"] = [random.choice(options) for _ in range(n)]
+    #options = [[1 + 0j, 0j], [0j, 1 + 0j]]
+    #settings["state"] = [random.choice(options) for _ in range(n)]
+
+    circuit = get_circuit(n)
 
     tensor_network = get_tensor_network(circuit, split_cnot=True, state = None)#settings["state"])
-    tensor_network.draw()
+    
+    #tensor_network.draw()
     #tensor_network = get_tensor_network(get_subgraph_containing_circuit(n), split_cnot=False, state = None)
     #tensor_network.draw()
     #find_and_split_subgraphs_in_tn(tensor_network)
@@ -632,15 +633,15 @@ if __name__ == "__main__":
     prop = get_linear_path(tensor_network, fraction=0.5, gridded=True)
     #print(verify_path(usable_path))
 
-    rgreedy = get_usable_path(tensor_network, tensor_network.contraction_path(
-        ctg.HyperOptimizer(methods = "rgreedy", minimize="flops", max_repeats=1, max_time=60, progbar=False, parallel=False)))
-    betweennes = get_usable_path(tensor_network, tensor_network.contraction_path(
-        ctg.HyperOptimizer(methods = "betweenness", minimize="flops", max_repeats=1, max_time=60, progbar=False, parallel=False)))
-
+    #rgreedy = get_usable_path(tensor_network, tensor_network.contraction_path(
+    #    ctg.HyperOptimizer(methods = "rgreedy", minimize="flops", max_repeats=1, max_time=60, progbar=False, parallel=False)))
+    #betweennes = get_usable_path(tensor_network, tensor_network.contraction_path(
+    #    ctg.HyperOptimizer(methods = "betweenness", minimize="flops", max_repeats=1, max_time=60, progbar=False, parallel=False)))
+    #optuna`, `baytune (btb)`, `chocolate`, `nevergrad` or `skopt`
     draw_contraction_order(tensor_network, naive, width = 0.5) #save_path=os.path.join(os.path.realpath(__file__), "..", "..", "experiments", "plots", "contraction_order"))
     draw_contraction_order(tensor_network, prop, width = 0.5)
-    draw_contraction_order(tensor_network, rgreedy, width = 0.5)
-    draw_contraction_order(tensor_network, betweennes, width = 0.5)
+    #draw_contraction_order(tensor_network, rgreedy, width = 0.5)
+    #draw_contraction_order(tensor_network, betweennes, width = 0.5)
 
     # slice_tensor_network_vertically(tensor_network)
     # usable_path = get_linear_path(tensor_network, fraction=0.8)
