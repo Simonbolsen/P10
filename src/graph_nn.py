@@ -63,7 +63,7 @@ def get_path_from_values(edge_index, edge_values):
     return path
 
 if __name__ == "__main__":
-    graph = fu.load_nx_graph("C:\\Users\\simon\\Documents\\GitHub\\P10\\graphs\\graph_dj_q5.gml")
+    graph = fu.load_nx_graph("C:\\Users\\simon\\Documents\\GitHub\\P10\\graphs\\random_greedy\\graph_dj_q5.gml")
     data = from_networkx(graph)
 
     hidden_size = 32

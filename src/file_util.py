@@ -2,6 +2,9 @@ import json
 import os
 import networkx as nx
 
+def get_path(folder) :
+    return os.path.normpath(os.path.join(os.path.dirname(__file__), '..', folder))
+
 def load_json(file_path):
     os_path = os.path.join(os.path.realpath(__file__), '..', file_path)
     with open(os_path, 'r') as json_file:
@@ -9,36 +12,27 @@ def load_json(file_path):
     return json.loads(data)
 
 def load_all_json(folder):
-    files = []
-    load_rec_json(os.path.normpath(os.path.join(os.path.dirname(__file__), '..', folder)), files)    
-    return files
+    return load_rec(get_path(folder), is_file_type(".json"), load_single_json)  
 
 def load_all_file_paths(folder):
+    return load_rec(get_path(folder), is_file_type(".qasm"), lambda x:x)   
+
+def load_all_nx_graphs(folder):
+    return load_rec(get_path(folder), is_file_type(".gml"), lambda x:load_nx_graph(x))  
+
+def load_rec(file, func, load):
     files = []
-    load_rec_paths(os.path.normpath(os.path.join(os.path.dirname(__file__), '..', folder)), files)    
+    path = os.scandir(file)
+    for sf in path:
+        if sf.is_dir():
+            files += load_rec(sf, files, func, load)
+        elif func(sf):
+            files.append(load(sf))
+
     return files
 
-def load_rec_paths(file, files):
-    path = os.scandir(file)
-    for sf in path:
-        if sf.is_dir():
-            load_rec_json(sf, files)
-        elif is_qasm_file(sf):
-            files.append(sf)
-
-def load_rec_json(file, files):
-    path = os.scandir(file)
-    for sf in path:
-        if sf.is_dir():
-            load_rec_json(sf, files)
-        elif is_json(sf):
-            files.append(load_single_json(sf))
-
-def is_json(file):
-    return os.path.splitext(file)[1] == ".json"
-
-def is_qasm_file(file):
-    return os.path.splitext(file)[1] == ".qasm"
+def is_file_type(ftype):
+    return lambda file: os.path.splitext(file)[1] == ftype
 
 def load_single_json(file):
     with open(file, 'r') as json_file:
@@ -51,4 +45,3 @@ def save_nx_graph(graph: nx.Graph, path: str, file_name: str):
 def load_nx_graph(path: str):
     graph = nx.read_gml(path)
     return graph
-
