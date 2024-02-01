@@ -11,8 +11,7 @@ from quimb.tensor.tensor_arbgeom import TensorNetworkGenVector
 from quimb.tensor import Tensor, TensorNetwork, oset
 import igraph as ig
 import matplotlib.pyplot as plt
-import bench_util as bu
-
+#import bench_util as bu
 import networkx as nx
 
 def get_circuit(n):
@@ -31,7 +30,7 @@ def get_circuit(n):
                 circ.apply_gate('H', regs[i])
 
     # apply multi-controlled NOT
-    circ.apply_gate('X', regs[-1], controls=regs[:-1])
+    #circ.apply_gate('X', regs[-1], controls=regs[:-1])
 
     return circ
 
@@ -134,8 +133,6 @@ def slice_tensor_network_vertically(tensor_network):
         for c, cell in enumerate(column):
             if c < len(column) - 1:
                 tensor_network._contract_between_tids(cell, column[c+1])
-
-
 
 def fill_identity(tensor_network):
     grid = get_grid(tensor_network)

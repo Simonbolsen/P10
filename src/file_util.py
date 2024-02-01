@@ -1,5 +1,6 @@
 import json
 import os
+import networkx as nx
 
 def load_json(file_path):
     os_path = os.path.join(os.path.realpath(__file__), '..', file_path)
@@ -43,34 +44,11 @@ def load_single_json(file):
     with open(file, 'r') as json_file:
         return json.loads(json_file.read())
 
-"""Data that needs to be collected:
+def save_nx_graph(graph: nx.Graph, path: str, file_name: str):
+    final_path = file_name + ".gml" if path == "" else os.path.join(path, file_name + ".gml")
+    nx.write_gml(graph, final_path)
 
-From circuits:
- - Number of gates
- - Number of qubits
- - Dimensionality of gates (or ordering of gates by dimensionality)
- - Number of unique gates used
- - Number of custom gates initially
-
-From tensor networks:
- - Number pf edges between tensors (shared indices)
- - Number of tensors (and dimensionalities)
-
-
-From TDDs:
-
-From contraction plan:
-- The plan
-
-From each performed contraction:
-
-
-
-Other:
-
-
-
-
-"""
-
+def load_nx_graph(path: str):
+    graph = nx.read_gml(path)
+    return graph
 
