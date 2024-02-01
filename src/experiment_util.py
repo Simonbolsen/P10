@@ -87,6 +87,58 @@ def run_qcec(data):
         json.dump(data, file, indent=4)
         
 
+def run_using_tdds(tn: TensorNetwork, data, ):
+    print("Find contraction path...")
+    starting_time = time.time_ns()
+    path = tnu.get_contraction_path(tn, data)
+    data["path_construction_time"] = int((time.time_ns() - starting_time) / 1000000)
+
+    # Prepare gate TDDs
+    print("Preparing gate TDDs...")
+    starting_time = time.time_ns()
+    gate_tdds = tddu.get_tdds_from_quimb_tensor_network(tn)
+    data["gate_prep_time"] = int((time.time_ns() - starting_time) / 1000000)
+
+    # Contract TDDs + equivalence checking
+    print(f"Contracting {len(path)} times...")
+    starting_time = time.time_ns()
+    result_tdd = fast_contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"])
+    data["contraction_time"] = int((time.time_ns() - starting_time) / 1000000)
+
+    return result_tdd
+
+def check_simulation_equality(res_tdds, data_containers):
+    for sub_tdd in res_tdds[1:]:
+        res_tdds[0] = cont(res_tdds[0], sub_tdd)
+
+    are_equal = tddu.is_tdd_equal(res_tdds[0], data["settings"]["state"])
+    for data in data_containers:
+        data["equivalence"] = are_equal
+        data["conclusive"] = not are_equal
+
+
+def prepare_tensor_network(circuit, data):
+    # Transform to tensor networks (without initial states and cnot decomp)
+    print("Constructing tensor network...")
+    starting_time = time.time_ns()
+    tensor_network = tnu.get_tensor_network(circuit, split_cnot=settings["cnot_split"], 
+                                            state = settings["state"] if "state" in settings else None)
+    if settings["sliced"]:
+        tnu.slice_tensor_network_vertically(tensor_network)
+    data["tn_construnction_time"] = int((time.time_ns() - starting_time) / 1000000)
+    print(f"Number of tensors: {len(tensor_network.tensor_map)}")
+
+
+def process_and_split_tensor_network(tn: TensorNetwork, data):
+    if data["settings"]["use_subnets"]:
+        print(f"Attemping tensor network split...")
+        sub_tensor_networks = tnu.find_and_split_subgraphs_in_tn(tn)
+        print(f"Split tensor network into {len(sub_tensor_networks)}")
+        data["sub_networks"] = len(sub_tensor_networks)
+    else:
+        sub_tensor_networks = [tn]
+
+    return sub_tensor_networks
 
 debug=False
 def first_experiment(iter_settings, settings, contraction_settings, path_settings, folder_name="garbage", folder_with_time=True):
@@ -140,29 +192,13 @@ def first_experiment(iter_settings, settings, contraction_settings, path_setting
             run_qcec(data)
             continue
 
-        # Transform to tensor networks (without initial states and cnot decomp)
-        print("Constructing tensor network...")
-        starting_time = time.time_ns()
-        tensor_network = tnu.get_tensor_network(circuit, split_cnot=settings["cnot_split"], 
-                                                state = settings["state"] if "state" in settings else None)
-        if settings["sliced"]:
-            tnu.slice_tensor_network_vertically(tensor_network)
-        data["tn_construnction_time"] = int((time.time_ns() - starting_time) / 1000000)
-        
-        #tensor_network.draw(color=['PSI0', 'H', 'CX', 'RZ', 'RX', 'CZ'])
-        print(f"Number of tensors: {len(tensor_network.tensor_map)}")
+        tensor_network = prepare_tensor_network(circuit, data)
 
         variable_order = sorted(list(tensor_network.all_inds()), key=reverse_lexicographic_key, reverse=True)
         Ini_TDD(variable_order, max_rank=len(variable_order)+1)
         print(f"Using rank {len(variable_order)+1} for TDDs")
 
-        if data["settings"]["use_subnets"]:
-            print(f"Attemping tensor network split...")
-            sub_tensor_networks = tnu.find_and_split_subgraphs_in_tn(tensor_network)
-            print(f"Split tensor network into {len(sub_tensor_networks)}")
-            data["sub_networks"] = len(sub_tensor_networks)
-        else:
-            sub_tensor_networks = [tensor_network]
+        sub_tensor_networks = process_and_split_tensor_network(tensor_network, data)
 
         attempts = 0
         succeeded = False
@@ -176,27 +212,7 @@ def first_experiment(iter_settings, settings, contraction_settings, path_setting
             resulting_sub_tdds = []
             data_containers = [deepcopy(data) for _ in sub_tensor_networks]
             for i, stn in enumerate(sub_tensor_networks):
-                data = data_containers[i]
-
-                # Construct the plan from CoTenGra
-                print("Find contraction path...")
-                starting_time = time.time_ns()
-                path = tnu.get_contraction_path(stn, data)
-                data["path_construction_time"] = int((time.time_ns() - starting_time) / 1000000)
-
-                # Prepare gate TDDs
-                print("Preparing gate TDDs...")
-                starting_time = time.time_ns()
-                gate_tdds = tddu.get_tdds_from_quimb_tensor_network(stn)
-                data["gate_prep_time"] = int((time.time_ns() - starting_time) / 1000000)
-
-                # Contract TDDs + equivalence checking
-                print(f"Contracting {len(path)} times...")
-                starting_time = time.time_ns()
-                result_tdd = fast_contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"])
-                data["contraction_time"] = int((time.time_ns() - starting_time) / 1000000)
-
-                data_containers[i] = data
+                result_tdd = run_using_tdds(stn, data_containers[i])
 
                 if len(sub_tensor_networks) > 1:
                     resulting_sub_tdds.append(result_tdd)
@@ -204,16 +220,8 @@ def first_experiment(iter_settings, settings, contraction_settings, path_setting
             if any([data_containers[i]["failed"] for i in range(len(data_containers))]):
                 continue
 
-
             if len(sub_tensor_networks) > 1 and settings["simulate"]:
-                for sub_tdd in resulting_sub_tdds[1:]:
-                    resulting_sub_tdds[0] = cont(resulting_sub_tdds[0], sub_tdd)
-
-                are_equal = tddu.is_tdd_equal(resulting_sub_tdds[0], data["settings"]["state"])
-                for data in data_containers:
-                    data["equivalence"] = are_equal
-                    data["conclusive"] = not are_equal
-
+                check_simulation_equality(resulting_sub_tdds, data_containers)
 
             data = combinate_data_containers(data_containers)
 
