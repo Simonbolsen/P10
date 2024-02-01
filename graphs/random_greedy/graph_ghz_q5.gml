@@ -172,126 +172,126 @@ graph [
   edge [
     source 0
     target 1
-    rgreedy 5
+    random_greedy 5
   ]
   edge [
     source 1
     target 2
-    rgreedy 9
+    random_greedy 7
   ]
   edge [
     source 1
     target 15
-    rgreedy 6
+    random_greedy 6
   ]
   edge [
     source 2
     target 3
-    rgreedy 8
+    random_greedy 10
   ]
   edge [
     source 3
     target 4
-    rgreedy 7
+    random_greedy 11
   ]
   edge [
     source 3
     target 13
-    rgreedy 12
+    random_greedy 8
   ]
   edge [
     source 4
     target 5
-    rgreedy 20
+    random_greedy 20
   ]
   edge [
     source 5
     target 6
-    rgreedy 17
+    random_greedy 17
   ]
   edge [
     source 5
     target 11
-    rgreedy 14
+    random_greedy 16
   ]
   edge [
     source 6
     target 7
-    rgreedy 16
+    random_greedy 18
   ]
   edge [
     source 7
     target 8
-    rgreedy 19
+    random_greedy 14
   ]
   edge [
     source 7
     target 9
-    rgreedy 17
+    random_greedy 13
   ]
   edge [
     source 8
     target 10
-    rgreedy 18
+    random_greedy 12
   ]
   edge [
     source 9
     target 10
-    rgreedy 19
+    random_greedy 14
   ]
   edge [
     source 9
     target 12
-    rgreedy 13
+    random_greedy 15
   ]
   edge [
     source 11
     target 12
-    rgreedy 15
+    random_greedy 18
   ]
   edge [
     source 11
     target 14
-    rgreedy 20
+    random_greedy 19
   ]
   edge [
     source 13
     target 14
-    rgreedy 10
+    random_greedy 20
   ]
   edge [
     source 13
     target 16
-    rgreedy 11
+    random_greedy 9
   ]
   edge [
     source 15
     target 16
-    rgreedy 12
+    random_greedy 10
   ]
   edge [
     source 15
     target 17
-    rgreedy 2
+    random_greedy 3
   ]
   edge [
     source 17
     target 18
-    rgreedy 3
+    random_greedy 1
   ]
   edge [
     source 18
     target 19
-    rgreedy 1
+    random_greedy 0
   ]
   edge [
     source 19
     target 20
-    rgreedy 0
+    random_greedy 2
   ]
   edge [
     source 20
     target 21
-    rgreedy 4
+    random_greedy 4
   ]
 ]
