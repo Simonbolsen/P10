@@ -11,8 +11,9 @@ from quimb.tensor.tensor_arbgeom import TensorNetworkGenVector
 from quimb.tensor import Tensor, TensorNetwork, oset
 import igraph as ig
 import matplotlib.pyplot as plt
-#import bench_util as bu
+import bench_util as bu
 import networkx as nx
+from tqdm import tqdm
 
 def get_circuit(n):
     circ = Circuit(n)
@@ -658,7 +659,7 @@ def generate_graph_files(algorithms, qubits, folder_path="graphs"):
 
     for algorithm in algorithms:
         settings["algorithm"] = algorithm
-        for qubit in qubits:
+        for qubit in tqdm(qubits):
             settings["qubits"] = qubit
             data = {
                 "circuit_settings": settings,
@@ -674,11 +675,11 @@ def generate_graph_files(algorithms, qubits, folder_path="graphs"):
             tensor_network = get_tensor_network(circuit, split_cnot=True, state = None)
             add_multigate_order_tags(tensor_network, circuit)
 
-            G = to_nx_graph(tensor_network, True)
+            G = to_nx_graph(tensor_network, draw=False)
 
             rgreedy = get_usable_path(tensor_network, tensor_network.contraction_path(
-                ctg.HyperOptimizer(methods = "random-greedy", minimize="flops", max_repeats=1, max_time=60, progbar=False, parallel=False)))   
-            add_usable_path_to_graph(G, tensor_network, rgreedy, "rgreedy")
+                ctg.HyperOptimizer(methods = "random-greedy", minimize="flops", max_repeats=1000000, max_time=60, progbar=False, parallel=False)))   
+            add_usable_path_to_graph(G, tensor_network, rgreedy, "random_greedy")
 
             save_nx_graph(G, folder_path, name)
 
@@ -723,7 +724,7 @@ if __name__ == "__main__":
     }
     name = f"graph_{settings['algorithm']}_q{settings['qubits']}"
 
-    generate_graph_files(algorithms, [5], os.path.join("graphs", "random_greedy"))
+    generate_graph_files(algorithms, list(range(5,51,5)), os.path.join("graphs", "random_greedy"))
     # circuit = bu.get_dual_circuit_setup_quimb(data, draw=False)
     # #circuit = get_circuit(5)
 
