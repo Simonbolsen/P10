@@ -19,7 +19,8 @@ class EdgePredictionGNN(nn.Module):
         return x[src] + x[dst]
 
     def forward(self, data):
-        x, edge_index = data.x, data.edge_index
+        edge_index = data.edge_index
+        x = torch.tensor([[len(s) for s in data.shape]], dtype=torch.float).transpose(0,1)
 
         x = self.node_layer(x)
         x = self.conv1(x, edge_index)
@@ -64,7 +65,6 @@ def get_path_from_values(edge_index, edge_values):
 if __name__ == "__main__":
     graph = fu.load_nx_graph("C:\\Users\\simon\\Documents\\GitHub\\P10\\graphs\\graph_dj_q5.gml")
     data = from_networkx(graph)
-    data.x = torch.tensor([[len(s) for s in data.shape]], dtype=torch.float).transpose(0,1)
 
     hidden_size = 32
 
