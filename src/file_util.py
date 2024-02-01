@@ -5,6 +5,17 @@ import networkx as nx
 def get_path(folder) :
     return os.path.normpath(os.path.join(os.path.dirname(__file__), '..', folder))
 
+def save_to_json(folder, file_name, object):
+    folder_path = get_path
+
+    if not os.path.exists(folder_path):
+        print("==> folder to save embedding does not exist... creating folder...")
+        print("   ==> folder path: ", folder_path)
+        os.mkdir(folder_path)
+    
+    with open(os.path.join(folder_path, file_name), 'w+') as outfile:
+        json.dump(json.dumps(object), outfile)
+
 def load_json(file_path):
     os_path = os.path.join(os.path.realpath(__file__), '..', file_path)
     with open(os_path, 'r') as json_file:
@@ -18,7 +29,7 @@ def load_all_file_paths(folder):
     return load_rec(get_path(folder), is_file_type(".qasm"), lambda x:x)   
 
 def load_all_nx_graphs(folder):
-    return load_rec(get_path(folder), is_file_type(".gml"), lambda x:load_nx_graph(x))  
+    return load_rec(get_path(folder), is_file_type(".gml"), lambda x:load_nx_graph(x.path))  
 
 def load_rec(file, func, load):
     files = []

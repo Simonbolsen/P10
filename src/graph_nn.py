@@ -62,17 +62,30 @@ def get_path_from_values(edge_index, edge_values):
 
     return path
 
-if __name__ == "__main__":
-    graph = fu.load_nx_graph("C:\\Users\\simon\\Documents\\GitHub\\P10\\graphs\\random_greedy\\graph_dj_q5.gml")
-    data = from_networkx(graph)
+def get_path(model, data) :
+    return get_path_from_values(data.edge_index, model(data))
 
+if __name__ == "__main__":
+    graphs = fu.load_all_nx_graphs("graphs\\random_greedy")
+    graphs = [from_networkx(graph) for graph in graphs]
+
+    max_epoch = 100
     hidden_size = 32
 
     model = EdgePredictionGNN(hidden_size)
+    model.train()
 
-    edge_values = model(data)
+    loss = nn.MSELoss()
 
-    path = get_path_from_values(data.edge_index, edge_values)
-    print(f"{path} \n\n {tnu.verify_path(path)} \n\n {tnu.get_dot_from_path(path)}")
+    for i in range(max_epoch):
+
+        for graph in graphs:        
+
+            edge_values = model(graph)
+
+            
+            
 
     print("DONE")
+    #print(f"{path} \n\n {tnu.verify_path(path)} \n\n {tnu.get_dot_from_path(path)}")
+    
