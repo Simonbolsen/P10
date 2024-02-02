@@ -52,6 +52,7 @@ setup_types = {
 methods = {
     "cotengra": 0,
     "linear": 1,
+    "nn_model": 2
 }
 
 path_methods = {
@@ -100,6 +101,7 @@ argparser.add_argument('--minimize', dest='minimize', type=str, default='flops',
 argparser.add_argument('--max_repeats', dest='max_repeats', type=int, default=50)
 argparser.add_argument('--max_plan_time', dest='max_plan_time', type=int, default=60)
 argparser.add_argument('--linear_frac', dest='linear_fraction', type=float, default=0.0)
+argparser.add_argument('--model_name', dest='model_name', type=str, default='')
 
 # --------------- Saving Settings ---------------
 argparser.add_argument('-int_res', dest="save_intermediate_results", action="store_true")
