@@ -46,6 +46,7 @@ class EdgePredictionGNN(nn.Module):
 
         return x
 
+
 class GraphDataset(Dataset):
     def __init__(self, data_list):
         self.data_list = data_list
@@ -55,6 +56,15 @@ class GraphDataset(Dataset):
 
     def __getitem__(self, index):
         return self.data_list[index]
+
+
+def save_model(model, path):
+    torch.save(model, path)
+
+def load_model(path):
+    model = torch.load(path)
+    model.eval()
+    return model
 
 def get_path_from_values(edge_index, edge_values):
     ei = edge_index.transpose(0,1)
