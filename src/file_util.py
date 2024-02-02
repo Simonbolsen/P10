@@ -1,12 +1,13 @@
 import json
 import os
 import networkx as nx
+from tqdm import tqdm
 
 def get_path(folder) :
     return os.path.normpath(os.path.join(os.path.dirname(__file__), '..', folder))
 
 def save_to_json(folder, file_name, object):
-    folder_path = get_path
+    folder_path = get_path(folder)
 
     if not os.path.exists(folder_path):
         print("==> folder to save embedding does not exist... creating folder...")
@@ -34,7 +35,7 @@ def load_all_nx_graphs(folder):
 def load_rec(file, func, load):
     files = []
     path = os.scandir(file)
-    for sf in path:
+    for sf in tqdm(path):
         if sf.is_dir():
             files += load_rec(sf, files, func, load)
         elif func(sf):
