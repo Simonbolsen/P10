@@ -29,7 +29,15 @@ class EdgePredictionGNN(nn.Module):
         x = self.edge_layer(x)
 
         return x
-    
+
+def save_model(model, path):
+    torch.save(model, path)
+
+def load_model(path):
+    model = torch.load(path)
+    model.eval()
+    return model
+
 def get_path_from_values(edge_index, edge_values):
     ei = edge_index.transpose(0,1)
 
