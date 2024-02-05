@@ -677,9 +677,16 @@ def generate_graph_files(algorithms, qubits, folder_path="graphs"):
 
             G = to_nx_graph(tensor_network, draw=False)
 
-            rgreedy = get_usable_path(tensor_network, tensor_network.contraction_path(
-                ctg.HyperOptimizer(methods = "random-greedy", minimize="flops", max_repeats=1000000, max_time=60, progbar=False, parallel=False)))   
-            add_usable_path_to_graph(G, tensor_network, rgreedy, "random_greedy")
+            # rgreedy = get_usable_path(tensor_network, tensor_network.contraction_path(
+            #     ctg.HyperOptimizer(methods = "random-greedy", minimize="flops", max_repeats=1000000, max_time=60, progbar=False, parallel=False)))
+
+            sub_tensor_networks = find_and_split_subgraphs_in_tn(tensor_network)
+            data["sub_networks"] = len(sub_tensor_networks)
+
+            for stn in sub_tensor_networks:
+                betweennes = get_usable_path(stn, stn.contraction_path(
+                    ctg.HyperOptimizer(methods = "betweenness", minimize="flops", max_repeats=1, max_time=600, progbar=False, parallel=False)))  
+                add_usable_path_to_graph(G, stn, betweennes, "betweenness")
 
             save_nx_graph(G, folder_path, name)
 
@@ -695,13 +702,13 @@ def load_nx_graph(path: str):
 algorithms = [
     "ghz",
     "graphstate",
-    "twolocalrandom",  # No good
-    "qftentangled", # Not working
+    #"twolocalrandom",  
+    #"qftentangled", 
     "dj",
-    "qpeexact", # Not working
-    "su2random",
+    #"qpeexact", 
+    #"su2random",
     "wstate",
-    "realamprandom"
+    #"realamprandom"
 ]
 
 if __name__ == "__main__":
@@ -724,7 +731,7 @@ if __name__ == "__main__":
     }
     name = f"graph_{settings['algorithm']}_q{settings['qubits']}"
 
-    generate_graph_files(algorithms, list(range(5,51,5)), os.path.join("graphs", "random_greedy"))
+    generate_graph_files(algorithms, list(range(5,51,5)), os.path.join("graphs", "betweenness"))
     # circuit = bu.get_dual_circuit_setup_quimb(data, draw=False)
     # #circuit = get_circuit(5)
 
