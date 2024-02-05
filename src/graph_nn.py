@@ -111,16 +111,16 @@ def prepare_graphs(graphs, target):
 
 if __name__ == "__main__":
     print("Loading")
-    graphs = fu.load_all_nx_graphs("graphs\\random_greedy") #"graphs\\random_greedy"
+    graphs = fu.load_all_nx_graphs("graphs\\tiny_set") #"graphs\\random_greedy"
     #graphs = [fu.load_nx_graph("C:\\Users\\simon\\Documents\\GitHub\\P10\\graphs\\random_greedy\\graph_dj_q5.gml")]
     
     print("Building Model")
 
     num_epochs = 10000
     batch_size = 10
-    hidden_size = 128
-    node_layers = 20
-    edge_layers = 5
+    hidden_size = 32
+    node_layers = 5
+    edge_layers = 3
     target = "random_greedy"
 
     graphs = prepare_graphs(graphs, target)
@@ -129,7 +129,7 @@ if __name__ == "__main__":
     model = EdgePredictionGNN(hidden_size, node_layers, edge_layers)
     
     loss_function = nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
     print("Training")
 
@@ -156,12 +156,12 @@ if __name__ == "__main__":
             losses.append(l)
 
         model.eval()
-        verification_loss = loss_function(model(verification_graph), verification_graph[target].float().unsqueeze(1)).item() * 1000
+        verification_loss = loss_function(model(verification_graph), verification_graph[target]).item() * 1000
 
         # Print the average loss for the epoch
         average_loss = running_loss / len(graphs) * 1000
         print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {average_loss:.2f}, Verification Loss: {verification_loss:.2f}')
-        if epoch % 100 == 99:
+        if epoch % 10 == 9:
             print(losses)
 
     #print(f"{path} \n\n {tnu.verify_path(path)} \n\n {tnu.get_dot_from_path(path)}")

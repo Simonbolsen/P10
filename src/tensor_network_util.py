@@ -14,6 +14,9 @@ import matplotlib.pyplot as plt
 import bench_util as bu
 import networkx as nx
 from tqdm import tqdm
+import graph_nn as gnn
+from torch_geometric.utils.convert import from_networkx
+
 
 def get_circuit(n):
     circ = Circuit(n)
@@ -390,6 +393,19 @@ def get_linear_path(tensor_network, fraction = 0.0, gridded = False):
 
     return path
 
+def get_nn_path(tn: TensorNetwork, settings):
+    model_path = os.path.join("models", settings["model_name"] + ".pt")
+    if (not os.path.isfile(model_path)):
+        print(f"Could not find model: {model_path}")
+
+    model = gnn.load_model(model_path)
+
+    graph = from_networkx(to_nx_graph(tn))
+
+    pred_path = gnn.get_path(model, graph)
+
+    return pred_path
+
 def get_contraction_path(tensor_network, data):
     path = None
     settings = data["path_settings"]
@@ -414,6 +430,10 @@ def get_contraction_path(tensor_network, data):
     elif settings["method"] == "linear":
         print(f"Linear fraction: {settings['linear_fraction']}")
         usable_path = get_linear_path(tensor_network, settings["linear_fraction"] if "linear_fraction" in settings else 0.0, gridded=settings["gridded"])
+    elif settings["method"] == "nn_model":
+        print(f"Using NN-model {settings['model_name']}. Loading")
+        usable_path = get_nn_path(tensor_network, settings['model_name'])
+
     else:
         raise NotImplementedError(f"Method {settings['method']} is not supported")
 
