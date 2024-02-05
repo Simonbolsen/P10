@@ -140,8 +140,11 @@ def process_and_split_tensor_network(tn: TensorNetwork, data):
 
     return sub_tensor_networks
 
-debug=False
-def first_experiment(iter_settings, settings, contraction_settings, path_settings, folder_name="garbage", folder_with_time=True):
+def prepare_data_object(iter_settings, settings, contraction_settings, path_settings, folder_name="garbage", folder_with_time=True):
+    pass
+
+
+def run_experiment(iter_settings, settings, contraction_settings, path_settings, folder_name="garbage", folder_with_time=True):
     # Prepare save folder and file paths
     experiment_name = f"{folder_name}_{datetime.today().strftime('%Y-%m-%d_%H-%M') if folder_with_time else ''}"
     folder_path = os.path.join("experiments", experiment_name)
@@ -195,7 +198,7 @@ def first_experiment(iter_settings, settings, contraction_settings, path_setting
         tensor_network = prepare_tensor_network(circuit, data)
 
         variable_order = sorted(list(tensor_network.all_inds()), key=reverse_lexicographic_key, reverse=True)
-        Ini_TDD(variable_order, max_rank=len(variable_order)+1)
+        Ini_TDD(variable_order, max_rank=len(variable_order) + 1)
         print(f"Using rank {len(variable_order)+1} for TDDs")
 
         sub_tensor_networks = process_and_split_tensor_network(tensor_network, data)
@@ -239,7 +242,7 @@ def first_experiment(iter_settings, settings, contraction_settings, path_setting
 
 
             # Save data for circuit
-            if not debug:
+            if not settings["debug"]:
                 print("Saving data...")
                 file_path = os.path.join(data["working_path"], data["file_name"] + f"_R{attempts}" + ".json")
                 with open(file_path, "w") as file:
@@ -264,19 +267,12 @@ def simulation_using_counter(circuit, counter_example, data):
     print("Find contraction path...")
     path = tnu.get_contraction_path(tensor_network, data)
 
-    #tn_draw.draw_tn(tensor_network, color=['PSI0', 'H', 'CX', 'RZ', 'RX', 'CZ'], save_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
-    #tnu.draw_contraction_order(tensor_network, path, save_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
-
     # Prepare gate TDDs
     print("Preparing gate TDDs...")
     gate_tdds = tddu.get_tdds_from_quimb_tensor_network(tensor_network)
 
-    #tddu.draw_all_tdds(gate_tdds, folder=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
-    
-
     # Contract TDDs + equivalence checking
     print(f"Contracting {len(path)} times...")
-    #result_tdd = contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"], save_intermediate_results=True, comprehensive_saving=True, folder_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
     result_tdd = fast_contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"])
 
     print(f"Simulation finds that the two circuits are: {'equivalent' if data['equivalence'] else 'inequivalent'}")
@@ -315,42 +311,3 @@ def combinate_data_containers(containers: list[dict]) -> list[dict]:
 
     return final_container
 
-
-
-if __name__ == "__main__":
-    contraction_settings = {
-                "max_time": 300, # in seconds, -1 for inf
-                "max_replans": 1,
-                "max_intermediate_node_size": -1 #-1 for inf
-            }
-
-    path_settings = {
-                "method": "cotengra",
-                "opt_method": "greedy", #  kahypar-balanced, kahypar-agglom, labels, labels-agglom
-                "minimize": "flops",
-                "max_repeats": 1000000000,
-                "max_time": 600,
-                "use_proportional": True,
-                "gridded": False,
-                "linear_fraction": 0
-            }
-
-    iter_settings = {
-        "algorithms": ["qftentangled", "qpeexact"],#, "dj", "graphstate"],#, "ghz", "graphstate", "qftentangled"],
-        "levels": [(0, 2)],
-        "qubits": [8],#list(range(4,100,1)),#[64, 128, 256],#list(range(256,257,1)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
-        "random_gate_dels_range": [0],
-        "repetitions": 1
-    }
-
-    settings = {
-        "simulate": False,
-        "sliced": False,
-        "cnot_split": False,
-        "use_subnets": True,
-        "find_counter": False,
-        "use_qcec_only": False
-    }
-
-    first_experiment(iter_settings=iter_settings, settings=settings, contraction_settings=contraction_settings, path_settings=path_settings,
-                     folder_name="retesting_old_heuristics")
