@@ -81,6 +81,7 @@ def get_dual_circuit_setup(c1: QuantumCircuit, c2: QuantumCircuit, data, draw: b
     bench_circ1_copy = bench_circ1.copy()
     # Find start of second circuit:
     unrolled_first_circ_gate_count = sum(pm.run(bench_circ1_copy).count_ops().values())
+    data["circuit_data"]["unrolled_first_circ_gate_count"] = unrolled_first_circ_gate_count
     if draw:
         print(f"Second circuit is of size: {sum(pm.run(bench_circ2.copy()).count_ops().values())}")
     if data["path_settings"]["use_proportional"]:
