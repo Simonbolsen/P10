@@ -48,7 +48,7 @@ def is_file_type(ftype):
 
 def load_single_json(file):
     with open(file, 'r') as json_file:
-        return json.loads(json_file.read())
+        return json.loads(json.loads(json_file.read()))
 
 def save_nx_graph(graph: nx.Graph, path: str, file_name: str):
     final_path = file_name + ".gml" if path == "" else os.path.join(path, file_name + ".gml")

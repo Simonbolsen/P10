@@ -1,4 +1,6 @@
 import numpy as np
+import math
+import random
 import file_util as fu
 import torch
 import torch.nn as nn
@@ -17,7 +19,8 @@ class EdgePredictionGNN(nn.Module):
 
         self.dim_layer = nn.Linear(1, int(hidden_size / 2))
         self.emb_layer = nn.Embedding(len(self.gate_index), int(hidden_size / 2))
-        self.node_layers = nn.ModuleList([gnn.SAGEConv(hidden_size, hidden_size) for _ in range(node_layers)])
+        self.node_layers = nn.ModuleList([gnn.GATConv(hidden_size, hidden_size) if i % 4 == 3 else gnn.SAGEConv(hidden_size, hidden_size)  
+                                          for i in range(node_layers)])
         self.edge_layers = nn.ModuleList([nn.Linear(hidden_size, hidden_size) for _ in range(edge_layer)])
         self.edge_layer = nn.Linear(hidden_size, 1)
 
@@ -109,34 +112,23 @@ def prepare_graph(graph, target):
 def prepare_graphs(graphs, target):
     return [prepare_graph(graph, target) for graph in graphs]
 
-if __name__ == "__main__":
-    print("Loading")
-    graphs = fu.load_all_nx_graphs("graphs\\tiny_set") #"graphs\\random_greedy"
-    #graphs = [fu.load_nx_graph("C:\\Users\\simon\\Documents\\GitHub\\P10\\graphs\\random_greedy\\graph_dj_q5.gml")]
+def training(data, data_loader, validation_graphs): 
     
     print("Building Model")
 
-    num_epochs = 10000
-    batch_size = 10
-    hidden_size = 32
-    node_layers = 5
-    edge_layers = 3
-    target = "random_greedy"
-
-    graphs = prepare_graphs(graphs, target)
-    verification_graph = graphs.pop(7)  
-    data_loader = DataLoader(GraphDataset(graphs), batch_size=batch_size, shuffle=True, collate_fn= lambda batch: Batch.from_data_list(batch))
-    model = EdgePredictionGNN(hidden_size, node_layers, edge_layers)
+    model = EdgePredictionGNN(data["hidden_size"], data["node_layers"], data["edge_layers"])
     
     loss_function = nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    optimizer = torch.optim.Adam(model.parameters(), lr=data["lr"])
+
+    data["loss"] = []
+    data["val_loss"] = []
 
     print("Training")
 
-    for epoch in range(num_epochs):
+    for epoch in range(data["num_epochs"]):
         model.train()
         running_loss = 0.0
-        losses = []
 
         for batch in data_loader:        
             optimizer.zero_grad()
@@ -145,7 +137,7 @@ if __name__ == "__main__":
 
             for graph in batch.to_data_list():
                 outputs = model(graph)
-                loss += loss_function(outputs, graph[target])
+                loss += loss_function(outputs, graph[data["target"]])
 
             loss.backward()
             optimizer.step()
@@ -153,16 +145,46 @@ if __name__ == "__main__":
             # Update running loss
             l = loss.item()
             running_loss += l
-            losses.append(l)
 
         model.eval()
-        verification_loss = loss_function(model(verification_graph), verification_graph[target]).item() * 1000
+        validation_loss = torch.Tensor([0.0])
+        for validation_graph in validation_graphs:
+            validation_loss += loss_function(model(validation_graph), validation_graph[data["target"]]).item() * 1000
 
-        # Print the average loss for the epoch
+        validation_loss = validation_loss.item() / len(validation_graphs)
         average_loss = running_loss / len(graphs) * 1000
-        print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {average_loss:.2f}, Verification Loss: {verification_loss:.2f}')
-        if epoch % 10 == 9:
-            print(losses)
 
-    #print(f"{path} \n\n {tnu.verify_path(path)} \n\n {tnu.get_dot_from_path(path)}")
+        data["loss"].append(average_loss)
+        data["val_loss"].append(validation_loss)
+
+        print(f'Epoch [{epoch + 1}/{data["num_epochs"]}], Loss: {average_loss:.2f}, validation Loss: {validation_loss:.2f}')
+
+
+if __name__ == "__main__":
+    print("Loading")
+    graphs = fu.load_all_nx_graphs("graphs\\betweenness") #"graphs\\random_greedy"
+    #graphs = [fu.load_nx_graph("C:\\Users\\simon\\Documents\\GitHub\\P10\\graphs\\random_greedy\\graph_dj_q5.gml")]
+
     
+    data = [{
+        "experiment":"lr3",
+        "num_epochs": 200,
+        "batch_size": 60,
+        "hidden_size": 64,
+        "node_layers": 10,
+        "edge_layers": 3,
+        "lr":10**(-2.925),
+        "target": "betweenness" #"random_greedy"
+    } for lr in range(20)]
+
+    graphs = prepare_graphs(graphs, data[0]["target"])
+    
+
+    for i, d in enumerate(data):
+        d["run"] = i
+        validation_graphs = [graphs.pop(random.randint(0, len(graphs) - 1))  for _ in range(int(len(graphs) * 0.1))]
+        data_loader = DataLoader(GraphDataset(graphs), batch_size=data[0]["batch_size"], shuffle=True, collate_fn= lambda batch: Batch.from_data_list(batch))
+
+        training(d, data_loader, validation_graphs)
+        fu.save_to_json(f"experiment_data\\{d['experiment']}", f"experiment_{i}.json", d)
+        print("Saved")
