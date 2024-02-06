@@ -172,82 +172,82 @@ graph [
   edge [
     source 0
     target 1
-    betweenness 0
+    betweenness 8
   ]
   edge [
     source 1
     target 2
-    betweenness 5
+    betweenness 10
   ]
   edge [
     source 1
     target 15
-    betweenness 2
+    betweenness 14
   ]
   edge [
     source 2
     target 3
-    betweenness 4
+    betweenness 9
   ]
   edge [
     source 3
     target 4
-    betweenness 20
+    betweenness 15
   ]
   edge [
     source 3
     target 13
-    betweenness 3
+    betweenness 14
   ]
   edge [
     source 4
     target 5
-    betweenness 18
+    betweenness 6
   ]
   edge [
     source 5
     target 6
-    betweenness 17
+    betweenness 5
   ]
   edge [
     source 5
     target 11
-    betweenness 19
+    betweenness 7
   ]
   edge [
     source 6
     target 7
-    betweenness 19
+    betweenness 7
   ]
   edge [
     source 7
     target 8
-    betweenness 13
+    betweenness 2
   ]
   edge [
     source 7
     target 9
-    betweenness 12
+    betweenness 1
   ]
   edge [
     source 8
     target 10
-    betweenness 11
+    betweenness 0
   ]
   edge [
     source 9
     target 10
-    betweenness 13
+    betweenness 2
   ]
   edge [
     source 9
     target 12
-    betweenness 16
+    betweenness 4
   ]
   edge [
     source 11
     target 12
-    betweenness 14
+    betweenness 3
   ]
   edge [
     source 11
@@ -257,41 +257,41 @@ graph [
   edge [
     source 13
     target 14
-    betweenness 20
+    betweenness 11
   ]
   edge [
     source 13
     target 16
-    betweenness 5
+    betweenness 13
   ]
   edge [
     source 15
     target 16
-    betweenness 1
+    betweenness 12
   ]
   edge [
     source 15
     target 17
-    betweenness 10
+    betweenness 20
   ]
   edge [
     source 17
     target 18
-    betweenness 8
+    betweenness 18
   ]
   edge [
     source 18
     target 19
-    betweenness 9
+    betweenness 19
   ]
   edge [
     source 19
     target 20
-    betweenness 7
+    betweenness 17
   ]
   edge [
     source 20
     target 21
-    betweenness 6
+    betweenness 16
   ]
 ]

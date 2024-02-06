@@ -577,12 +577,12 @@ graph [
   edge [
     source 4
     target 5
-    betweenness 59
+    betweenness 48
   ]
   edge [
     source 5
     target 35
-    betweenness 61
+    betweenness 49
   ]
   edge [
     source 6
@@ -697,17 +697,17 @@ graph [
   edge [
     source 26
     target 27
-    betweenness 46
+    betweenness 44
   ]
   edge [
     source 27
     target 28
-    betweenness 45
+    betweenness 50
   ]
   edge [
     source 27
     target 29
-    betweenness 53
+    betweenness 45
   ]
   edge [
     source 28
@@ -717,107 +717,107 @@ graph [
   edge [
     source 29
     target 30
-    betweenness 49
+    betweenness 43
   ]
   edge [
     source 30
     target 31
-    betweenness 48
+    betweenness 42
   ]
   edge [
     source 31
     target 32
-    betweenness 52
+    betweenness 74
   ]
   edge [
     source 32
     target 33
-    betweenness 51
+    betweenness 63
   ]
   edge [
     source 33
     target 34
-    betweenness 50
+    betweenness 64
   ]
   edge [
     source 34
     target 46
-    betweenness 53
+    betweenness 62
   ]
   edge [
     source 35
     target 36
-    betweenness 74
+    betweenness 46
   ]
   edge [
     source 35
     target 37
-    betweenness 60
+    betweenness 57
   ]
   edge [
     source 36
     target 45
-    betweenness 42
+    betweenness 74
   ]
   edge [
     source 37
     target 38
-    betweenness 65
+    betweenness 55
   ]
   edge [
     source 38
     target 39
-    betweenness 62
+    betweenness 54
   ]
   edge [
     source 39
     target 40
-    betweenness 64
+    betweenness 56
   ]
   edge [
     source 40
     target 41
-    betweenness 63
+    betweenness 52
   ]
   edge [
     source 41
     target 42
-    betweenness 73
+    betweenness 53
   ]
   edge [
     source 42
     target 43
-    betweenness 66
+    betweenness 51
   ]
   edge [
     source 43
     target 44
-    betweenness 68
-  ]
-  edge [
-    source 44
-    target 45
     betweenness 74
   ]
   edge [
     source 44
+    target 45
+    betweenness 71
+  ]
+  edge [
+    source 44
     target 67
-    betweenness 67
+    betweenness 70
   ]
   edge [
     source 45
     target 47
-    betweenness 44
+    betweenness 69
   ]
   edge [
     source 46
     target 47
-    betweenness 43
+    betweenness 73
   ]
   edge [
     source 46
     target 62
-    betweenness 58
+    betweenness 65
   ]
   edge [
     source 47
@@ -897,22 +897,22 @@ graph [
   edge [
     source 62
     target 63
-    betweenness 56
+    betweenness 60
   ]
   edge [
     source 63
     target 64
-    betweenness 57
+    betweenness 61
   ]
   edge [
     source 64
     target 65
-    betweenness 55
+    betweenness 59
   ]
   edge [
     source 65
     target 66
-    betweenness 54
+    betweenness 58
   ]
   edge [
     source 67
@@ -922,17 +922,17 @@ graph [
   edge [
     source 68
     target 69
-    betweenness 70
+    betweenness 67
   ]
   edge [
     source 69
     target 70
-    betweenness 71
+    betweenness 68
   ]
   edge [
     source 70
     target 71
-    betweenness 69
+    betweenness 66
   ]
   edge [
     source 72

@@ -372,32 +372,32 @@ graph [
   edge [
     source 0
     target 1
-    betweenness 12
+    betweenness 9
   ]
   edge [
     source 1
     target 3
-    betweenness 13
+    betweenness 10
   ]
   edge [
     source 1
     target 4
-    betweenness 16
+    betweenness 13
   ]
   edge [
     source 2
     target 3
-    betweenness 11
+    betweenness 8
   ]
   edge [
     source 3
     target 10
-    betweenness 17
+    betweenness 29
   ]
   edge [
     source 4
     target 6
-    betweenness 14
+    betweenness 11
   ]
   edge [
     source 4
@@ -407,112 +407,112 @@ graph [
   edge [
     source 5
     target 6
-    betweenness 15
+    betweenness 12
   ]
   edge [
     source 6
     target 7
-    betweenness 29
+    betweenness 14
   ]
   edge [
     source 7
     target 9
-    betweenness 28
+    betweenness 0
   ]
   edge [
     source 7
     target 34
-    betweenness 24
+    betweenness 3
   ]
   edge [
     source 8
     target 9
-    betweenness 19
+    betweenness 1
   ]
   edge [
     source 9
     target 13
+    betweenness 29
+  ]
+  edge [
+    source 10
+    target 12
     betweenness 18
   ]
   edge [
     source 10
-    target 12
-    betweenness 10
-  ]
-  edge [
-    source 10
     target 22
-    betweenness 3
+    betweenness 17
   ]
   edge [
     source 11
     target 12
-    betweenness 6
+    betweenness 16
   ]
   edge [
     source 12
     target 14
-    betweenness 5
+    betweenness 15
   ]
   edge [
     source 13
     target 14
-    betweenness 29
+    betweenness 23
   ]
   edge [
     source 13
     target 20
-    betweenness 22
+    betweenness 20
   ]
   edge [
     source 14
     target 15
-    betweenness 9
+    betweenness 28
   ]
   edge [
     source 15
     target 16
-    betweenness 8
+    betweenness 26
   ]
   edge [
     source 16
     target 17
-    betweenness 7
+    betweenness 27
   ]
   edge [
     source 17
     target 18
-    betweenness 10
+    betweenness 25
   ]
   edge [
     source 18
     target 19
-    betweenness 1
+    betweenness 24
   ]
   edge [
     source 19
     target 21
-    betweenness 0
+    betweenness 28
   ]
   edge [
     source 20
     target 21
-    betweenness 29
+    betweenness 22
   ]
   edge [
     source 20
     target 29
-    betweenness 21
+    betweenness 19
   ]
   edge [
     source 21
     target 23
-    betweenness 4
+    betweenness 21
   ]
   edge [
     source 22
     target 23
-    betweenness 2
+    betweenness 23
   ]
   edge [
     source 22
@@ -547,32 +547,32 @@ graph [
   edge [
     source 29
     target 30
-    betweenness 20
+    betweenness 29
   ]
   edge [
     source 30
     target 31
-    betweenness 28
+    betweenness 4
   ]
   edge [
     source 31
     target 32
-    betweenness 26
+    betweenness 6
   ]
   edge [
     source 32
     target 33
-    betweenness 25
+    betweenness 5
   ]
   edge [
     source 33
     target 35
-    betweenness 27
+    betweenness 7
   ]
   edge [
     source 34
     target 35
-    betweenness 23
+    betweenness 2
   ]
   edge [
     source 34
