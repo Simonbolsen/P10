@@ -12,6 +12,14 @@ from tddpure.TDD.TDD_Q import cir_2_tn,get_real_qubit_num,add_trace_line,add_inp
 from qiskit.converters import circuit_to_dag
 from qiskit.transpiler import TransformationPass
 
+all_quimb_gates = ['h', 'x', 'y', 'z', 's', 't', 'cx', 'cnot', 'cy', 'cz', 'rz', 'rx', 'ry', 'sdg', 'tdg', 
+                       'x_1_2', 'y_1_2', 'z_1_2', 'w_1_2', 'hz_1_2', 'iden', 'u3', 'u2', 'u1', #'iswap', 'swap', 'cswap', 
+                       'cu3', 'cu2', 'cu1', 'fsim', 'fsimg', 'givens', 'rxx', 'ryy', 'rzz', 'crx', 'cry', 'crz',
+                       'su4', 'ccx', 'ccnot', 'toffoli', 'ccy', 'ccz', 'fredkin', 'u']
+
+one_qubit_quimb_gates = ['h', 'x', 'y', 'z', 's', 't', 'rz', 'rx', 'ry']
+two_qubit_quimb_gates = ['cx', 'cnot', 'cy', 'cz']
+
 class UToU3Translator(TransformationPass):
 
     def run(self, dag):
@@ -75,6 +83,11 @@ def qiskit_to_quimb_circuit(qiskit_circuit: QuantumCircuit):
     circ_qasm = qiskit_circuit.qasm()
     circ_qasm_no_u = circ_qasm.replace("\nu(", "\nu3(")
     return Circuit.from_openqasm2_str(circ_qasm_no_u)
+
+def refresh_circuit(circuit: Circuit):
+    qc = Circuit(circuit.N)
+    qc.apply_gates(circuit.gates)
+    return qc
 
 def _quimb_to_qasm(circuit: Circuit):
     temp = Template("")
