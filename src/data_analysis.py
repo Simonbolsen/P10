@@ -5,7 +5,7 @@ from enum import Enum
 import math
 from tqdm import tqdm
 import numpy as np
-from plots import process_sizes
+from contraction_plots import process_sizes
 from sklearn.linear_model import LinearRegression
 from scipy import stats
 

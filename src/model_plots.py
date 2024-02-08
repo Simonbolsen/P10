@@ -1,0 +1,23 @@
+import plotting_util as pu
+import file_util as fu
+import math
+
+def avg_last(l, num):
+    return sum(l[-num:])/(num)
+
+if __name__ == "__main__":
+    data = fu.load_all_json("experiment_data\\lr3")
+
+    data = sorted(data, key = lambda d: d["lr"])
+    avg = 10
+
+    print(f"Loss: {sum([d['loss'][-1] for d in data])/len(data)}, Val Loss: {sum([d['val_loss'][-1] for d in data])/len(data)}")
+
+    x = [math.log10(d["lr"]) for d in data]
+    pu.plot_line_series_2d([x,x], [[avg_last(d["loss"], avg) for d in data], [avg_last(d["val_loss"], avg) for d in data]], ["loss", "val loss"], legend= True)
+    
+    max_cut = 100
+    epoch_first = 100
+
+    #pu.plotSurface([[[min(l,max_cut) for l in d["loss"][epoch_first:]] for d in data], [[min(l,max_cut) for l in d["val_loss"][epoch_first:]] for d in data]], 
+    #               "Loss", x, "Lr log10(lr)", [i for i in range(epoch_first, 300)], "Epoch e", 2, ["Loss", "Val Loss"])
