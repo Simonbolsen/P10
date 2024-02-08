@@ -4,15 +4,17 @@ from mqt.bench.utils import get_supported_benchmarks
 from mqt import qcec
 import mqt.bench.qiskit_helper as qiskit_helper
 from quimb.tensor import Circuit
+from quimb.tensor.circuit import Gate
 import tdd_util as tddu
 import circuit_util as cu
+from circuit_util import all_quimb_gates
 import tensor_network_util as tnu
 from qiskit import QuantumCircuit, qasm3
 from qiskit.quantum_info import Operator
 from qiskit.compiler import transpile
 from qiskit.transpiler import PassManager, passes
 from qiskit.transpiler.passes import Unroller, UnrollCustomDefinitions, Decompose
-from random import randint
+from random import randint, random, choice
 import numpy as np
 
 selected_algorithms = [
@@ -22,10 +24,7 @@ selected_algorithms = [
     "vqe",          # useful
 ]
 
-all_quimb_gates = ['h', 'x', 'y', 'z', 's', 't', 'cx', 'cnot', 'cy', 'cz', 'rz', 'rx', 'ry' 'sdg', 'tdg', 
-                       'x_1_2', 'y_1_2', 'z_1_2', 'w_1_2', 'hz_1_2', 'iden', 'u3', 'u2', 'u1', #'iswap', 'swap', 'cswap', 
-                       'cu3', 'cu2', 'cu1', 'fsim', 'fsimg', 'givens', 'rxx', 'ryy', 'rzz', 'crx', 'cry', 'crz',
-                       'su4', 'ccx', 'ccnot', 'toffoli', 'ccy', 'ccz', 'fredkin', 'u']
+
 
 def get_circuit_setup(circuit: QuantumCircuit, draw: bool = False) -> QuantumCircuit:
     bench_circ = prepare_circuit(circuit)
@@ -231,14 +230,84 @@ def get_mapped_level(circuit: QuantumCircuit) -> QuantumCircuit:
     return qiskit_helper.get_mapped_level(qc, num_qubits=None, gate_set_name="ibm", device_name="ibm_washington", opt_level=1, file_precheck=False, return_qc=True)
 
 
+def generate_one_qubit_random_gate(on_qubit):
+    gate_label = choice(cu.one_qubit_quimb_gates)
+    return Gate(gate_label, (-1.5707963267948966,) if gate_label in ["rz", "rx", "ry"] else (), (on_qubit,))
+
+def generate_two_qubit_random_gate(control_qubit, target_qubit):
+    return Gate(choice(cu.two_qubit_quimb_gates), (), (control_qubit,target_qubit))
+
+def generate_random_gate(qubits):
+    one_qubit_gate_bias = 0.7
+    
+    target_qubit = randint(0, qubits - 1)
+    control_qubit = randint(0, qubits - 1)
+    while (control_qubit == target_qubit):
+        control_qubit = randint(0, qubits - 1)
+
+    new_gate = generate_two_qubit_random_gate(control_qubit, target_qubit) if random() >= one_qubit_gate_bias else generate_one_qubit_random_gate(target_qubit)
+
+    return new_gate
+
+def mutation_action(qubits, gates, data):
+    action = 'change'#choice(['delete', 'insert', 'change'])
+    action_index = randint(0, len(gates) - 1)
+    in_first = data["circuit_data"]["unrolled_first_circ_gate_count"] <= action_index + 1 
+
+    if action == 'delete':
+        if in_first:
+            data["circuit_data"]["unrolled_first_circ_gate_count"] -= 1
+        return gates[:action_index] + gates[action_index+1:]
+    else:
+        new_gate = generate_random_gate(qubits)
+        if action == 'insert':
+            if in_first:
+                data["circuit_data"]["unrolled_first_circ_gate_count"] += 1
+            return gates[:action_index] + [new_gate] + gates[action_index:]
+        return gates[:action_index] + [new_gate] + gates[action_index+1:]
+
+def mutate_circuit(circuit, mutation_degree, data):
+    num_of_mutations = int(np.ceil(len(circuit.gates) * mutation_degree))
+    gates = circuit.gates
+
+    for _ in range(num_of_mutations):
+        gates = mutation_action(circuit.N, gates, data)
+
+    circuit.gates = gates
+    return cu.refresh_circuit(circuit)
+
+def get_combined_circuit_example(algorithm='ghz', qubits=5):
+    settings = {
+        "simulate": False,
+        "algorithm": algorithm,
+        "level": (0, 2),
+        "qubits": qubits,
+        "random_gate_deletions": 0
+    }
+    data = {
+        "circuit_settings": settings,
+        "path_settings": {
+            "use_proportional": True
+        },
+        "circuit_data": {
+
+        }
+    }
+
+    return data, get_dual_circuit_setup_quimb(data, draw=False)
+
 
 if __name__ == "__main__":
-    circuit = get_benchmark('dj', "alg", 3)
-    bench_circ = get_circuit_setup_quimb(circuit)
+    circ = get_combined_circuit_example()
+    mutate_circuit(circ, 0.4)
+    print("fd")
+    
+    # circuit = get_benchmark('dj', "alg", 3)
+    # bench_circ = get_circuit_setup_quimb(circuit)
 
-    bench_tn = tnu.get_tensor_network(bench_circ, include_state=False, split_cnot=False)
-    bench_gate_decomp = tddu.get_tdds_from_quimb_tensor_network(bench_tn)
+    # bench_tn = tnu.get_tensor_network(bench_circ, include_state=False, split_cnot=False)
+    # bench_gate_decomp = tddu.get_tdds_from_quimb_tensor_network(bench_tn)
 
-    tddu.draw_all_tdds(bench_gate_decomp)
+    # tddu.draw_all_tdds(bench_gate_decomp)
 
-    print(2)
+    # print(2)

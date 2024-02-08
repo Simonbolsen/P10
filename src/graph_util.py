@@ -146,6 +146,17 @@ def find_first_tensor_for_each_qubit(tn: TensorNetwork, tids: [int], qubits):
 
     return first_tensors
 
+def tag_tn(tn: TensorNetwork, circ: Circuit, first_circ_gate_count: int):
+    add_circuit_tag_to_tn(tn, first_circ_gate_count)
+
+    add_split_tag_to_tn(tn, circ.N)
+    add_edge_tag_to_tn(tn)
+
+    add_multigate_order_tags(tn, circ)
+
+def circuit_to_nx_graph(circuit: Circuit, data):
+    pass
+
 def generate_graph_files(algorithms, qubits, folder_path="graphs"):
     if not os.path.exists(folder_path):
         os.makedirs(folder_path, exist_ok=True)
@@ -173,12 +184,8 @@ def generate_graph_files(algorithms, qubits, folder_path="graphs"):
             circuit = bu.get_dual_circuit_setup_quimb(data, draw=False)
             first_circ_gate_count = data["circuit_data"]["unrolled_first_circ_gate_count"]
             tensor_network = tnu.get_tensor_network(circuit, split_cnot=True, state = None)
-            add_circuit_tag_to_tn(tensor_network, first_circ_gate_count)
-
-            add_split_tag_to_tn(tensor_network, qubit)
-            add_edge_tag_to_tn(tensor_network)
-
-            add_multigate_order_tags(tensor_network, circuit)
+            
+            tag_tn(tensor_network, circuit, first_circ_gate_count)
 
             G = to_nx_graph(tensor_network, draw=False)
 
