@@ -19,7 +19,7 @@ class EdgePredictionGNN(nn.Module):
 
         self.dim_layer = nn.Linear(1, int(hidden_size / 2))
         self.emb_layer = nn.Embedding(len(self.gate_index), int(hidden_size / 2))
-        self.node_layers = nn.ModuleList([gnn.GATConv(hidden_size, hidden_size) if i % 4 == 3 else gnn.SAGEConv(hidden_size, hidden_size)  
+        self.node_layers = nn.ModuleList([gnn.GATConv(hidden_size, hidden_size, dropout=2) if i % 4 == 3 else gnn.SAGEConv(hidden_size, hidden_size)  
                                           for i in range(node_layers)])
         self.edge_layers = nn.ModuleList([nn.Linear(hidden_size, hidden_size) for _ in range(edge_layer)])
         self.edge_layer = nn.Linear(hidden_size, 1)
@@ -119,7 +119,7 @@ def training(data, data_loader, validation_graphs):
     model = EdgePredictionGNN(data["hidden_size"], data["node_layers"], data["edge_layers"])
     
     loss_function = nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=data["lr"])
+    optimizer = torch.optim.Adam(model.parameters(), lr=data["lr"], )
 
     data["loss"] = []
     data["val_loss"] = []
@@ -167,24 +167,25 @@ if __name__ == "__main__":
 
     
     data = [{
-        "experiment":"lr3",
+        "experiment":"lr4",
         "num_epochs": 200,
         "batch_size": 60,
         "hidden_size": 64,
         "node_layers": 10,
         "edge_layers": 3,
-        "lr":10**(-2.925),
+        "lr":10**(-2.8 - 0.025 * int(i * 0.2)),
         "target": "betweenness" #"random_greedy"
-    } for lr in range(20)]
+    } for i in range(100)]
 
-    graphs = prepare_graphs(graphs, data[0]["target"])
+    all_graphs = prepare_graphs(graphs, data[0]["target"])
     
 
     for i, d in enumerate(data):
         d["run"] = i
+        graphs = [g for g in all_graphs]
         validation_graphs = [graphs.pop(random.randint(0, len(graphs) - 1))  for _ in range(int(len(graphs) * 0.1))]
         data_loader = DataLoader(GraphDataset(graphs), batch_size=data[0]["batch_size"], shuffle=True, collate_fn= lambda batch: Batch.from_data_list(batch))
 
         training(d, data_loader, validation_graphs)
-        fu.save_to_json(f"experiment_data\\{d['experiment']}", f"experiment_{i}.json", d)
+        fu.save_to_json(f"experiment_data\\{d['experiment']}", f"experiment_n{i}.json", d)
         print("Saved")

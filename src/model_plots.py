@@ -6,10 +6,22 @@ def avg_last(l, num):
     return sum(l[-num:])/(num)
 
 if __name__ == "__main__":
-    data = fu.load_all_json("experiment_data\\lr3")
+    data = fu.load_all_json("experiment_data\\lr4")
 
-    data = sorted(data, key = lambda d: d["lr"])
+    x = [d["lr"] for d in data]
+    x = sorted(list(set(x)))
+    grouped_data = [[d for d in data if d["lr"] == lr] for lr in x]
+
+    x = [math.log10(v) for v in x]
     avg = 10
+    pu.plot_line_series_2d([x,x], 
+                           [[sum([avg_last(d["loss"], avg) for d in gd]) / len(gd)for gd in grouped_data], 
+                           [sum([avg_last(d["val_loss"], avg) for d in gd]) / len(gd) for gd in grouped_data]], ["loss", "val loss"], legend= True)
+
+    #data = sorted(data, key = lambda d: d["lr"])
+    avg = 10
+
+    pu.plot_line_series_2d([x,x], [[avg_last(d["loss"], avg) for d in data], [avg_last(d["val_loss"], avg) for d in data]], ["loss", "val loss"], x_label="Learning Rate Lr", y_label="Loss", legend= True)
 
     print(f"Loss: {sum([d['loss'][-1] for d in data])/len(data)}, Val Loss: {sum([d['val_loss'][-1] for d in data])/len(data)}")
 
