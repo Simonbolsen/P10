@@ -45,7 +45,7 @@ def extract_gate_tag_from_tn_tags(tags: oset([str]), specific_tag: bool = False)
 
     if specific_tag:
         all_gate_tags = [tag for tag in tag_list if filtered_tags[0] in tag]
-        if min(all_gate_tags) in max(all_gate_tags):
+        if min(all_gate_tags) in max(all_gate_tags) and any(char.isdigit() for char in max(all_gate_tags)):
             filtered_tags = [max(all_gate_tags)]
 
     assert len(filtered_tags) == 1
