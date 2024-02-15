@@ -2,6 +2,21 @@ import json
 import os
 import networkx as nx
 from tqdm import tqdm
+import torch
+import random
+
+def unsplit(folder):
+    path = os.scandir(get_path(folder))
+    for sf in tqdm(path):
+        graph = load_nx_graph(sf.path)
+        
+        graph.graph["name"] = sf.name[:-4]
+
+        if(random.random() < 0.1):
+            save_nx_graph(graph, "dataset/split/val", sf.name[:-4])
+        else:
+            save_nx_graph(graph, "dataset/split/train", sf.name[:-4])
+        
 
 def get_path(folder) :
     return os.path.normpath(os.path.join(os.path.dirname(__file__), '..', folder))
@@ -9,10 +24,7 @@ def get_path(folder) :
 def save_to_json(folder, file_name, object):
     folder_path = get_path(folder)
 
-    if not os.path.exists(folder_path):
-        print("==> folder to save embedding does not exist... creating folder...")
-        print("   ==> folder path: ", folder_path)
-        os.mkdir(folder_path)
+    make_folder(folder_path)
     
     with open(os.path.join(folder_path, file_name), 'w+') as outfile:
         json.dump(json.dumps(object), outfile)
@@ -37,7 +49,7 @@ def load_rec(file, func, load):
     path = os.scandir(file)
     for sf in tqdm(path):
         if sf.is_dir():
-            files += load_rec(sf, files, func, load)
+            files += load_rec(sf, func, load)
         elif func(sf):
             files.append(load(sf))
 
@@ -57,3 +69,18 @@ def save_nx_graph(graph: nx.Graph, path: str, file_name: str):
 def load_nx_graph(path: str):
     graph = nx.read_gml(path)
     return graph
+
+def save_model(model, folder, file_name):
+    path = get_path(folder)
+    make_folder(path)
+
+    torch.save(model, os.path.join(path, file_name))
+
+def load_model(path):
+    torch.load(path)
+
+def make_folder(folder_path):
+    if not os.path.exists(folder_path):
+        print("==> folder to save embedding does not exist... creating folder...")
+        print("   ==> folder path: ", folder_path)
+        os.mkdir(folder_path)

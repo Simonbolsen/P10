@@ -10,16 +10,20 @@ from torch.utils.data import DataLoader, Dataset
 from torch_geometric.utils.convert import from_networkx
 from torch_geometric.data import Batch
 #import tensor_network_util as tnu
+from torch.optim.lr_scheduler import StepLR
+from torch.nn.utils.rnn import pad_sequence, pack_padded_sequence, pad_packed_sequence
 
 class EdgePredictionGNN(nn.Module):
     def __init__(self, hidden_size, node_layers, edge_layer):
         super(EdgePredictionGNN, self).__init__()
 
-        self.gate_index = {'H': 0, 'X': 1, 'CX_0': 2, 'CX_1': 3, 'RZ': 4, 'S': 5, 'CZ_0': 6, 'CZ_1': 7, 'U3': 8}
+        self.gate_index = {'H': 0, 'CX_0': 1, 'CX_1': 2, 'RZ': 3, 'RX': 4, 'U3': 5, 'RY': 6, 'S': 7, 'X': 8, 
+                           'CZ_0': 9, 'CZ_1': 10, 'CY_0': 11, 'CY_1': 12, 'Y': 13, 'Z': 14, 'T': 15}
+        
 
         self.dim_layer = nn.Linear(1, int(hidden_size / 2))
         self.emb_layer = nn.Embedding(len(self.gate_index), int(hidden_size / 2))
-        self.node_layers = nn.ModuleList([gnn.GATConv(hidden_size, hidden_size, dropout=2) if i % 4 == 3 else gnn.SAGEConv(hidden_size, hidden_size)  
+        self.node_layers = nn.ModuleList([gnn.GATConv(hidden_size, hidden_size) if i % 4 == 3 else gnn.SAGEConv(hidden_size, hidden_size)  
                                           for i in range(node_layers)])
         self.edge_layers = nn.ModuleList([nn.Linear(hidden_size, hidden_size) for _ in range(edge_layer)])
         self.edge_layer = nn.Linear(hidden_size, 1)
@@ -48,7 +52,89 @@ class EdgePredictionGNN(nn.Module):
         x = self.edge_layer(x)
 
         return x
+    
+class IterativeGNN(nn.Module):
+    def __init__(self, hidden_size, node_layers, edge_layer):
+        super(IterativeGNN, self).__init__()
 
+        self.gate_index = {'H': 0, 'CX_0': 1, 'CX_1': 2, 'RZ': 3, 'RX': 4, 'U3': 5, 'RY': 6, 'S': 7, 'X': 8, 
+                           'CZ_0': 9, 'CZ_1': 10, 'CY_0': 11, 'CY_1': 12, 'Y': 13, 'Z': 14, 'T': 15}
+        
+
+        self.dim_layer = nn.Linear(1, int(hidden_size / 2))
+        self.emb_layer = nn.EmbeddingBag(len(self.gate_index), int(hidden_size / 2), mode="mean")
+        self.node_layers = nn.ModuleList([gnn.GATConv(hidden_size, hidden_size) if i % 4 == 3 else gnn.SAGEConv(hidden_size, hidden_size)  
+                                          for i in range(node_layers)])
+        self.edge_layers = nn.ModuleList([nn.Linear(hidden_size, hidden_size) for _ in range(edge_layer)])
+        self.edge_layer = nn.Linear(hidden_size, 1)
+
+    def get_edge_features(self, x, edge_index):
+        src, dst = edge_index
+        return x[src] + x[dst]
+
+    def create_bag_embeddings(_, gate_index_bags):
+        # Convert the list of lists to a list of tensors
+        list_of_tensors = torch.cat([torch.tensor(lst) for lst in gate_index_bags])
+
+        # Create offsets tensor based on the lengths of the original sequences
+        offsets = torch.cumsum(torch.tensor([0] + [len(lst) for lst in gate_index_bags[:-1]]), dim=0)
+
+        return list_of_tensors, offsets
+
+    def forward(self, data):
+        data = data.clone()
+        edge_index = data.edge_index
+        shapes = torch.tensor([[len(s) for s in data.shape]], dtype=torch.float).transpose(0,1)
+
+        path = []
+
+        for i in range(data.num_nodes - 1):
+            gate_index_bags = [[self.gate_index[gate]] for gate in data.gate]
+            gate_indices, offsets = self.create_bag_embeddings(gate_index_bags)
+
+            x_emb = self.emb_layer(gate_indices, offsets)
+            x_dim = self.dim_layer(shapes)
+            x = torch.cat((x_dim,x_emb), dim=1)
+
+            for layer in self.node_layers:
+                x = layer(x, edge_index)
+                x = F.relu(x)
+            x = self.get_edge_features(x, edge_index)
+            for layer in self.edge_layers:
+                x = layer(x)
+                x = F.relu(x)
+            x = self.edge_layer(x)
+
+            i = torch.argmin(x)
+            path.append(i)
+            self.contract(shapes, gate_index_bags, data, edge_index[0][i], edge_index[1][i])
+
+        return path
+    
+    def contract(self, shapes, gate_index_bags, data, n0, n1):
+
+        j = 0
+        sources = []
+        targets = []
+
+        for i in range(data.num_edges):
+            if(data.edge_index[0][i] == n1):
+                if(data.edge_index[1][i] != n0):
+                    data.edge_index[0][i] = n0
+                    shapes[n0] += 1
+                else:
+                    sources.append(data.edge_index[0][j:i])
+                    j = i+1
+            if(data.edge_index[1][i] == n1):
+                if(data.edge_index[0][i] != n0):
+                    data.edge_index[1][i] = n0
+                else:
+                    targets.append(data.edge_index[j:i])
+                    j = i+1
+
+        data.edge_index[0] = torch.cat(sources)
+        data.edge_index[1] = torch.cat(targets)
+        gate_index_bags[n0] = gate_index_bags[n0] + gate_index_bags[n1]
 
 class GraphDataset(Dataset):
     def __init__(self, data_list):
@@ -112,17 +198,22 @@ def prepare_graph(graph, target):
 def prepare_graphs(graphs, target):
     return [prepare_graph(graph, target) for graph in graphs]
 
-def training(data, data_loader, validation_graphs): 
+def training(data, data_loader, validation_graphs, model = None): 
     
     print("Building Model")
 
-    model = EdgePredictionGNN(data["hidden_size"], data["node_layers"], data["edge_layers"])
+    if(model is None):
+        model = EdgePredictionGNN(data["hidden_size"], data["node_layers"], data["edge_layers"])
     
     loss_function = nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=data["lr"], )
+    optimizer = torch.optim.Adam(model.parameters(), lr=data["lr"])
+    #scheduler = StepLR(optimizer, step_size=5, gamma=0.1)
 
     data["loss"] = []
     data["val_loss"] = []
+
+    min_val_loss = float("inf")
+    epochs_since_improvement = 0
 
     print("Training")
 
@@ -152,40 +243,73 @@ def training(data, data_loader, validation_graphs):
             validation_loss += loss_function(model(validation_graph), validation_graph[data["target"]]).item() * 1000
 
         validation_loss = validation_loss.item() / len(validation_graphs)
-        average_loss = running_loss / len(graphs) * 1000
+        average_loss = running_loss / len(data_loader.dataset) * 1000
 
         data["loss"].append(average_loss)
         data["val_loss"].append(validation_loss)
 
+        if(validation_loss < min_val_loss):
+            min_val_loss = validation_loss
+            epochs_since_improvement = 0
+        else:
+            epochs_since_improvement += 1
+
+            if(epochs_since_improvement >= 10):
+                print("Early Stopping...")
+                break
+
         print(f'Epoch [{epoch + 1}/{data["num_epochs"]}], Loss: {average_loss:.2f}, validation Loss: {validation_loss:.2f}')
 
+    return model
 
-if __name__ == "__main__":
+
+def run():
+
     print("Loading")
-    graphs = fu.load_all_nx_graphs("graphs\\betweenness") #"graphs\\random_greedy"
+    graphs = fu.load_all_nx_graphs("dataset/unsplit") #"graphs\\random_greedy"
     #graphs = [fu.load_nx_graph("C:\\Users\\simon\\Documents\\GitHub\\P10\\graphs\\random_greedy\\graph_dj_q5.gml")]
+
 
     
     data = [{
-        "experiment":"lr4",
-        "num_epochs": 200,
+        "load_experiment":"bbds2",
+        "load_name": "experiment_n2",
+        "experiment":"retraining",
+        "num_epochs": 50,
         "batch_size": 60,
         "hidden_size": 64,
         "node_layers": 10,
         "edge_layers": 3,
-        "lr":10**(-2.8 - 0.025 * int(i * 0.2)),
-        "target": "betweenness" #"random_greedy"
-    } for i in range(100)]
+        "lr":10**(-(i * 0.2 + 2.0)),
+        "target": "betweenness", #"random_greedy"
+        "run": i,
+        "run_name":  f"experiment_{i}"
+    } for i in range(5,10)]
 
+    print("Preparing Graphs")
     all_graphs = prepare_graphs(graphs, data[0]["target"])
     
 
     for i, d in enumerate(data):
-        d["run"] = i
+        print("Splitting Data")
         graphs = [g for g in all_graphs]
         validation_graphs = [graphs.pop(random.randint(0, len(graphs) - 1))  for _ in range(int(len(graphs) * 0.1))]
         data_loader = DataLoader(GraphDataset(graphs), batch_size=data[0]["batch_size"], shuffle=True, collate_fn= lambda batch: Batch.from_data_list(batch))
 
-        training(d, data_loader, validation_graphs)
-        fu.save_to_json(f"experiment_data\\{d['experiment']}", f"experiment_n{i}.json", d)
+        print("Loading Model")
+        model = torch.load(fu.get_path("experiment_data/" + d["load_experiment"] + "/models/" + d["load_name"]))
+
+        model = training(d, data_loader, validation_graphs, model = model)
+        fu.save_to_json(f"experiment_data/{d['experiment']}", d["run_name"] + ".json", d)
+        fu.save_model(model, f"experiment_data/{d['experiment']}/models", d["run_name"] + ".pt")
         print("Saved")
+
+if __name__ == "__main__":
+    #run()
+    graphs = fu.load_all_nx_graphs("dataset/betweenness")
+    graphs = prepare_graphs(graphs, "betweenness")
+    model = IterativeGNN(32, 10, 3)
+    model.eval()
+    path = model(graphs[0])
+    print("Done")
+

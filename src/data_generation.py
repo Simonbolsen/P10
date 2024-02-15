@@ -8,11 +8,11 @@ from tqdm import tqdm
 algorithms = [
     #"ghz",
     #"graphstate",
-    "twolocalrandom",  
-    "qftentangled", 
+    #"twolocalrandom",  
+    #"qftentangled", 
     #"dj",
-    "qpeexact", 
-    "su2random",
+    #"qpeexact", 
+    #"su2random",
     #"wstate",
     "realamprandom"
 ]
