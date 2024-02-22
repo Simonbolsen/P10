@@ -112,7 +112,11 @@ class IterativeGNN(nn.Module):
                 r = torch.ones_like(edges, requires_grad=False, dtype=torch.float)
                 r[edges != i] = 0
 
-                current_loss = loss_function(x.squeeze(), r)
+                x = x.squeeze()
+                if x.shape[0] != r.shape[0]:
+                    print(f"DELETE: {data.name} <---------------------")
+                    return None, torch.tensor([0.0])
+                current_loss = loss_function(x, r)
                 if learn:
                     current_loss.backward(retain_graph = False)
                 loss += current_loss.item()

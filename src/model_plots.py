@@ -6,7 +6,7 @@ def avg_last(l, num):
     return sum(l[-num:])/(num)
 
 if __name__ == "__main__":
-    data = fu.load_all_json("experiment_data/retraining")
+    data = fu.load_all_json("experiment_data/mini_iteration_0")
 
     x = [d["lr"] for d in data]
     #x = sorted(list(set(x)))
