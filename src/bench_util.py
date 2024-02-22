@@ -14,8 +14,9 @@ from qiskit.quantum_info import Operator
 from qiskit.compiler import transpile
 from qiskit.transpiler import PassManager, passes
 from qiskit.transpiler.passes import Unroller, UnrollCustomDefinitions, Decompose
-from random import randint, random, choice
+from random import randint, random, choice, gauss
 import numpy as np
+from math import floor
 
 selected_algorithms = [
     "dj",           # smaller
@@ -250,7 +251,7 @@ def generate_random_gate(qubits):
     return new_gate
 
 def mutation_action(qubits, gates, data):
-    action = 'change'#choice(['delete', 'insert', 'change'])
+    action = choice(['delete', 'insert', 'change'])
     action_index = randint(0, len(gates) - 1)
     in_first = data["circuit_data"]["unrolled_first_circ_gate_count"] <= action_index + 1 
 
@@ -266,6 +267,11 @@ def mutation_action(qubits, gates, data):
             return gates[:action_index] + [new_gate] + gates[action_index:]
         return gates[:action_index] + [new_gate] + gates[action_index+1:]
 
+def add_gate_to_circuit_at_random(qubits, gates):
+    action_index = 0 if len(gates) == 0 else randint(0, len(gates) - 1)
+    new_gate = generate_random_gate(qubits)
+    return gates[:action_index] + [new_gate] + gates[action_index:]
+
 def mutate_circuit(circuit, mutation_degree, data):
     num_of_mutations = int(np.ceil(len(circuit.gates) * mutation_degree))
     gates = circuit.gates
@@ -275,6 +281,20 @@ def mutate_circuit(circuit, mutation_degree, data):
 
     circuit.gates = gates
     return cu.refresh_circuit(circuit)
+
+def get_random_circuit(qubits, num_of_gates):
+    circuit = Circuit(qubits)
+    gates = circuit.gates
+
+    for _ in range(num_of_gates):
+        gates = add_gate_to_circuit_at_random(circuit.N, gates)
+
+    circuit.gates = gates
+    return cu.refresh_circuit(circuit)
+
+def get_gauss_random_circuit(qubits):
+    num_of_gates = min(max(qubits, floor(gauss(10*qubits, 2*qubits))), 20*qubits)
+    return get_random_circuit(qubits, num_of_gates)
 
 def get_combined_circuit_example(algorithm='ghz', qubits=5):
     settings = {

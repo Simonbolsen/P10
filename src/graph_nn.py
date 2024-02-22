@@ -69,15 +69,15 @@ def load_model(path):
     model.eval()
     return model
 
-def get_path_from_values(edge_index, edge_values):
-    ei = edge_index.transpose(0,1)
+def get_path_from_values(graph_data, edge_values):
+    ei = graph_data.edge_index.transpose(0,1)
 
     pairs = []
     part_of = {}
 
     for i, edge in enumerate(ei):
-        e0 = edge[0].item()
-        e1 = edge[1].item()
+        e0 = graph_data.tid[edge[0].item()].item()
+        e1 = graph_data.tid[edge[1].item()].item()
         pairs.append((e0, e1, edge_values[i].item()))
         part_of[e0] = e0
         part_of[e1] = e1
@@ -102,7 +102,7 @@ def get_path_from_values(edge_index, edge_values):
     return path
 
 def get_path(model, graph_data):
-    return get_path_from_values(graph_data.edge_index, model(graph_data))
+    return get_path_from_values(graph_data, model(graph_data))
 
 def prepare_graph(graph, target):
     data = from_networkx(graph)

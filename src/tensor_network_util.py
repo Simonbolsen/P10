@@ -2,7 +2,6 @@ import cotengra as ctg
 import random
 from quimb.tensor import Circuit, drawing
 import tn_draw
-import random
 import os
 import numpy as np
 import urllib.parse
@@ -16,7 +15,7 @@ import networkx as nx
 from tqdm import tqdm
 import graph_nn as gnn
 from torch_geometric.utils.convert import from_networkx
-from graph_util import to_nx_graph
+from graph_util import to_nx_graph, tag_tn
 
 def get_circuit(n):
     circ = Circuit(n)
@@ -393,20 +392,56 @@ def get_linear_path(tensor_network, fraction = 0.0, gridded = False):
 
     return path
 
-def get_nn_path(tn: TensorNetwork, settings):
+def get_random_path(tensor_network, gridded = False):
+    tensor_pos = get_grid_pos(tensor_network) if gridded else get_tensor_pos(tensor_network)
+
+    pairs = []
+
+    for ts in tensor_network.ind_map.values():
+        ts = list(ts)
+        if len(ts) > 1:
+            pairs.append((*ts,))
+
+    random.shuffle(pairs)
+
+    part_of = {i:i for i in tensor_network.tensor_map.keys()}
+
+    def get_current_tensor(i):
+        p = part_of[i]
+        return p if p == i else get_current_tensor(p)
+
+    path = []
+
+    while len(pairs) > 0:
+        pair = pairs.pop(0)
+        left = get_current_tensor(pair[0])
+        right = get_current_tensor(pair[1])
+
+        if left != right:
+            path.append((left, right))
+            part_of[left] = right
+
+    return path
+
+def get_nn_path(tn: TensorNetwork, circuit, data):
+    settings = data["path_settings"]
     model_path = os.path.join("models", settings["model_name"] + ".pt")
     if (not os.path.isfile(model_path)):
         print(f"Could not find model: {model_path}")
 
     model = gnn.load_model(model_path)
+    
+    first_circ_gate_count = data["circuit_data"]["unrolled_first_circ_gate_count"]
+    tag_tn(tn, circuit, first_circ_gate_count)
 
-    graph = from_networkx(to_nx_graph(tn))
+    graph = to_nx_graph(tn)
+    torch_graph = from_networkx(graph)
 
-    pred_path = gnn.get_path(model, graph)
+    pred_path = gnn.get_path(model, torch_graph)
 
     return pred_path
 
-def get_contraction_path(tensor_network, data):
+def get_contraction_path(tensor_network, circuit, data):
     path = None
     settings = data["path_settings"]
     if settings["method"] == "cotengra":
@@ -432,8 +467,9 @@ def get_contraction_path(tensor_network, data):
         usable_path = get_linear_path(tensor_network, settings["linear_fraction"] if "linear_fraction" in settings else 0.0, gridded=settings["gridded"])
     elif settings["method"] == "nn_model":
         print(f"Using NN-model {settings['model_name']}. Loading")
-        usable_path = get_nn_path(tensor_network, settings['model_name'])
-
+        usable_path = get_nn_path(tensor_network, circuit, data)
+    elif settings["method"] == "random":
+        usable_path = get_random_path(tensor_network, gridded=settings["gridded"])
     else:
         raise NotImplementedError(f"Method {settings['method']} is not supported")
 
