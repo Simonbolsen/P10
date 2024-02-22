@@ -18,6 +18,9 @@ tabulate
 numpy
 pandas
 future
+igraph
+torch
+torch_geometric
 
 ##### With version    #####
 
