@@ -5,17 +5,19 @@ from tqdm import tqdm
 import torch
 import random
 
-def unsplit(folder):
+def split(folder):
     path = os.scandir(get_path(folder))
     for sf in tqdm(path):
-        graph = load_nx_graph(sf.path)
+        data = load_json(sf.path)
+        l = []
+        for d in data:
+            l.extend(d)
+        file = {"data": l, "name": sf.name[:-5]}
         
-        graph.graph["name"] = sf.name[:-4]
-
         if(random.random() < 0.1):
-            save_nx_graph(graph, "dataset/split/val", sf.name[:-4])
+            save_to_json("dataset/tdd_size_predict/val", file["name"], file)
         else:
-            save_nx_graph(graph, "dataset/split/train", sf.name[:-4])
+            save_to_json("dataset/tdd_size_predict/train", file["name"], file)
         
 
 def get_path(folder) :
@@ -26,7 +28,7 @@ def save_to_json(folder, file_name, object):
 
     make_folder(folder_path)
     
-    with open(os.path.join(folder_path, file_name), 'w+') as outfile:
+    with open(os.path.join(folder_path, file_name + ".json"), 'w+') as outfile:
         json.dump(json.dumps(object), outfile)
 
 def load_json(file_path):
@@ -74,7 +76,7 @@ def save_model(model, folder, file_name):
     path = get_path(folder)
     make_folder(path)
 
-    torch.save(model, os.path.join(path, file_name))
+    torch.save(model, os.path.join(path, file_name + ".pt"))
 
 def load_model(path):
     torch.load(path)
