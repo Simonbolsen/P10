@@ -19,6 +19,7 @@ from tqdm import tqdm
 from itertools import combinations
 from mqt.qcec import verify
 from copy import deepcopy
+from graph_nn import EdgePredictionGNN
 
 import sys
 sys.setrecursionlimit(2000)
@@ -64,6 +65,9 @@ def fast_contract_tdds(tdds, data, max_time=-1, max_node_size=-1):
     usable_path = data["path"]
     sizes = {i: [0, tdd.node_number()] for i, tdd in tdds.items()}
 
+    if data["make_dataset"]:
+        data["contractions"] = []
+
     for left_index, right_index in tqdm(usable_path):
         if max_time > 0 and int(time.time() - start_time) > max_time:
             data["failed"] = True
@@ -71,7 +75,29 @@ def fast_contract_tdds(tdds, data, max_time=-1, max_node_size=-1):
             print("Time limit for contraction reached. Aborting check")
             return None
         
+        current_data = {
+            "left": {},
+            "right": {},
+            "result": {}
+        }
+
+        if data["make_dataset"]:
+            current_data["left"]["nodes"] = tdds[left_index].node_number()
+            current_data["left"]["indices"] = [index.name for index in tdds[left_index].index_set]
+            current_data["left"]["gates"] = tdds[left_index].gates
+            current_data["right"]["nodes"] = tdds[right_index].node_number()
+            current_data["right"]["indices"] = [index.name for index in tdds[right_index].index_set]
+            current_data["right"]["gates"] = tdds[right_index].gates
+            start_time = time.time_ns()
+
         tdds[right_index] = cont(tdds[left_index], tdds[right_index])
+
+        if data["make_dataset"]:
+            current_data["result"]["nodes"] = tdds[right_index].node_number()
+            current_data["result"]["indices"] = [index.name for index in tdds[right_index].index_set]
+            current_data["result"]["gates"] = tdds[right_index].gates
+            current_data["result"]["time"] = int((time.time_ns() - start_time) / 1000000)
+            data["contractions"].append(current_data)
 
         intermediate_tdd_size = tdds[right_index].node_number()
         sizes[right_index].append(intermediate_tdd_size)
@@ -213,7 +239,7 @@ def first_experiment(iter_settings, settings, contraction_settings, path_setting
     for circ_conf in circuit_configs:
         # Prepare data container
         data = {
-            "version": 1,
+            "version": 2,
             "experiment_name": experiment_name,
             "expect_equivalence": circ_conf['random_gate_deletions'] == 0,
             "file_name": f"circuit_{circ_conf['algorithm']}_{circ_conf['level'][0]}{circ_conf['level'][1]}_{circ_conf['qubits']}_d{circ_conf['random_gate_deletions']}_r{circ_conf['repetition']+prev_rep}",
@@ -226,7 +252,8 @@ def first_experiment(iter_settings, settings, contraction_settings, path_setting
             "not_same_tensors": [],
             "tdd_analysis": None,
             "correct_example": None,
-            "failed": False
+            "failed": False,
+            "make_dataset": True
         }
 
         if "simulate" in settings and settings["simulate"]:
@@ -241,7 +268,7 @@ def first_experiment(iter_settings, settings, contraction_settings, path_setting
         print("Preparing circuits...")
         #circuit = bu.get_circuit_setup_quimb(bu.get_benchmark_circuit(circ_conf), draw=False)
         starting_time = time.time_ns()
-        circuit = bu.get_dual_circuit_setup_quimb(data, draw=False)
+        circuit = bu.get_dual_circuit_setup_quimb(data, draw=False) if data["circuit_settings"]["algorithm"] != "random" else bu.get_gauss_random_circuit(data["circuit_settings"]["qubits"])
         data["circuit_setup_time"] = int((time.time_ns() - starting_time) / 1000000)
 
         if data["settings"]["use_qcec_only"]:
@@ -294,8 +321,9 @@ def first_experiment(iter_settings, settings, contraction_settings, path_setting
             # data["qcec_equivalence"] = verify(data["circuit_data"]["circuit_1_qasm"], data["circuit_data"]["circuit_2_qasm"]).equivalence.value in [1,4,5]  # see https://mqt.readthedocs.io/projects/qcec/en/latest/library/EquivalenceCriterion.html
             # data["qcec_time"] = int((time.time_ns() - starting_time) / 1000000)
             # print(f"QCEC says: {data['qcec_equivalence']}")
-            data["circuit_data"]["circuit_1_qasm"] = data["circuit_data"]["circuit_1_qasm"].qasm()
-            data["circuit_data"]["circuit_2_qasm"] = data["circuit_data"]["circuit_2_qasm"].qasm()
+            if bool(data["circuit_data"]):
+                data["circuit_data"]["circuit_1_qasm"] = data["circuit_data"]["circuit_1_qasm"].qasm()
+                data["circuit_data"]["circuit_2_qasm"] = data["circuit_data"]["circuit_2_qasm"].qasm()
 
             # quimb_result = tensor_network.contract(optimize=data["path_data"]["original_path"])
             # variable_order = sorted(list(quimb_result.inds), key=reverse_lexicographic_key, reverse=True)
@@ -314,7 +342,7 @@ def first_experiment(iter_settings, settings, contraction_settings, path_setting
                 # Construct the plan from CoTenGra
                 print("Find contraction path...")
                 starting_time = time.time_ns()
-                path = tnu.get_contraction_path(stn, data)
+                path = tnu.get_contraction_path(stn, circuit, data)
                 data["path_construction_time"] = int((time.time_ns() - starting_time) / 1000000)
 
                 #tn_draw.draw_tn(tensor_network, color=['PSI0', 'H', 'CX', 'RZ', 'RX', 'CZ'], save_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
@@ -343,7 +371,31 @@ def first_experiment(iter_settings, settings, contraction_settings, path_setting
 
             if any([data_containers[i]["failed"] for i in range(len(data_containers))]):
                 continue
-
+            
+            if data["make_dataset"]:
+                all_contractions = []
+                for dc in data_containers:
+                    all_contractions.extend(dc["contractions"]) 
+                    dc["contractions"] = []
+                # Save data 
+                dataset_folder_path = os.path.join("dataset", "tdd_size_predict")
+                if not os.path.exists(dataset_folder_path):
+                    os.makedirs(dataset_folder_path, exist_ok=True)
+                data_file_name = f"datapoint_{circ_conf['algorithm']}_{circ_conf['qubits']}_r{circ_conf['repetition']+prev_rep}"
+                dataset_file_path = os.path.join(dataset_folder_path, data_file_name + ".json")
+                data_obj = {
+                    "name": data_file_name,
+                    "data": all_contractions,
+                    "date": datetime.today().isoformat(),
+                    "version": 2,
+                    "experiment_name": experiment_name,
+                    "settings": settings,
+                    "contraction_settings": contraction_settings,
+                    "circuit_settings": circ_conf,
+                    "path_settings": path_settings,
+                }
+                with open(dataset_file_path, "w") as file:
+                    json.dump(all_contractions, file, indent=4)          
 
             if len(sub_tensor_networks) > 1 and settings["simulate"]:
                 for sub_tdd in resulting_sub_tdds[1:]:
@@ -483,31 +535,33 @@ if __name__ == "__main__":
             }
 
     path_settings = {
-                "method": "linear",
-                "opt_method": "betweenness", #  kahypar-balanced, kahypar-agglom, labels, labels-agglom
+                "method": "cotengra",
+                "opt_method": "random-greedy", #  kahypar-balanced, kahypar-agglom, labels, labels-agglom
                 "minimize": "flops",
-                "max_repeats": 1,
+                "max_repeats": 100,
                 "max_time": 60,
                 "use_proportional": True,
                 "gridded": False,
-                "linear_fraction": 0
+                "linear_fraction": 0,
+                "model_name": "experiment_n2"
             }
 
     iter_settings = {
-        "algorithms": ["qftentangled", "qpeexact"],#, "dj", "graphstate"],#, "ghz", "graphstate", "qftentangled"],
+        "algorithms": ["random"],#, "dj", "graphstate"],#, "ghz", "graphstate", "qftentangled"],
         "levels": [(0, 2)],
-        "qubits": [6, 8, 10],#list(range(4,100,1)),#[64, 128, 256],#list(range(256,257,1)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
+        "qubits": list(range(4,20,1)),#list(range(4,100,1)),#[64, 128, 256],#list(range(256,257,1)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
         "random_gate_dels_range": [0],
-        "repetitions": 10
+        "repetitions": 100
     }
 
     settings = {
         "simulate": False,
         "sliced": False,
-        "cnot_split": False,
+        "cnot_split": True,
         "use_subnets": True,
         "find_counter": False,
         "use_qcec_only": False
     }
 
-    first_experiment(iter_settings=iter_settings, settings=settings, contraction_settings=contraction_settings, path_settings=path_settings)
+    first_experiment(iter_settings=iter_settings, settings=settings, contraction_settings=contraction_settings, path_settings=path_settings,
+                     folder_name="generating_data_set_v2")

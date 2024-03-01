@@ -27,9 +27,22 @@ def reverse_lexicographic_key(s):
 def get_tdds_from_quimb_tensor_network(tensor_network) -> dict[int,TDD.TDD]:
     tdds = {}
 
+    def extract_gate_tag_from_tn_tags(tags, specific_tag: bool = False):
+        from bench_util import all_quimb_gates
+        tag_list = list(tags)
+        filtered_tags = [tag for tag in tag_list if tag.lower() in all_quimb_gates]
+
+        if specific_tag:
+            all_gate_tags = [tag for tag in tag_list if filtered_tags[0] in tag and len(tag) < 5]
+            if min(all_gate_tags) in max(all_gate_tags) and any(char.isdigit() for char in max(all_gate_tags)):
+                filtered_tags = [max(all_gate_tags)]
+
+        assert len(filtered_tags) == 1
+        return filtered_tags[0]
+
     for i, tensor in tqdm(tensor_network.tensor_map.items()):
         #tensor_t = tensor.transpose(*(sorted(list(tensor.inds), key=reverse_lexicographic_key, reverse=False)))
-        t = Tensor(tensor.data, [Index(s) for s in tensor.inds])
+        t = Tensor(tensor.data, [Index(s) for s in tensor.inds], name=extract_gate_tag_from_tn_tags(tensor.tags))
         tdds[i] = t.tdd()
         #check = tensor_of_tdd(tdds[i])
         #same = np.allclose(check.data, tensor.transpose(*check.inds).data)

@@ -44,7 +44,7 @@ def extract_gate_tag_from_tn_tags(tags: oset([str]), specific_tag: bool = False)
     filtered_tags = [tag for tag in tag_list if tag.lower() in bu.all_quimb_gates]
 
     if specific_tag:
-        all_gate_tags = [tag for tag in tag_list if filtered_tags[0] in tag]
+        all_gate_tags = [tag for tag in tag_list if filtered_tags[0] in tag and len(tag) < 5]
         if min(all_gate_tags) in max(all_gate_tags) and any(char.isdigit() for char in max(all_gate_tags)):
             filtered_tags = [max(all_gate_tags)]
 
@@ -73,6 +73,7 @@ def to_nx_graph(tn: TensorNetwork, draw=False):
     last_tags_dict = {node_id: is_last_from_tn_tags(tn.tensor_map[node_id].tags) for node_id in graph.nodes}
     circuit_tags_dict = {node_id: is_last_circuit_from_tn_tags(tn.tensor_map[node_id].tags) for node_id in graph.nodes}
     shape_dict = {node_id: tn.tensor_map[node_id].shape for node_id in graph.nodes}
+    tid_dict = {node_id: node_id for node_id in graph.nodes}
     
     nx.set_node_attributes(graph, node_tags_dict, "gate")
     nx.set_node_attributes(graph, split_tags_dict, "is_in_split")
@@ -80,6 +81,7 @@ def to_nx_graph(tn: TensorNetwork, draw=False):
     nx.set_node_attributes(graph, last_tags_dict, "is_last_tensor")
     nx.set_node_attributes(graph, circuit_tags_dict, "is_last_circuit")
     nx.set_node_attributes(graph, shape_dict, "shape")
+    nx.set_node_attributes(graph, tid_dict, "tid")
 
     if draw:
         draw_nx_graph(graph)
@@ -126,7 +128,7 @@ def add_edge_tag_to_tn(tn: TensorNetwork):
     last_tensors = []
 
     for tid, tensor in tn.tensor_map.items():
-        if any([re.match(r"k\d+", ind) for ind in list(tensor.inds)]):
+        if any([re.match(r"b\d+", ind) for ind in list(tensor.inds)]):
             tensor.add_tag("First")
             first_tensors.append(tid)
         elif any([re.match(r"k\d+", ind) for ind in list(tensor.inds)]):
