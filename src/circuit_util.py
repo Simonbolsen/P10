@@ -75,9 +75,15 @@ def get_qiskit_example_circuit() -> QuantumCircuit:
     return circ
 
 def quimb_to_qiskit_circuit(quimb_circuit: Circuit):
-    raise NotImplementedError("This is not supported by quimb")
-    circ_qasm = quimb_circuit
-    return QuantumCircuit.from_qasm_str(circ_qasm)
+    def qubit_str(qubits):
+        qubit_list = [f'q[{q}]' for q in list(qubits)]
+        qubit_str = ','.join(qubit_list) + ';'
+        return qubit_str
+
+    out_str = f'OPENQASM 2.0;\ninclude "qelib1.inc";\nqreg q[{quimb_circuit.N}];\n'
+    gate_strs = [f"{g.label.lower()}{g.params if len(g.params) > 0 else ''} {qubit_str(g.qubits)}" for g in quimb_circuit.gates]
+    res = out_str + '\n'.join(gate_strs)
+    return res
 
 def qiskit_to_quimb_circuit(qiskit_circuit: QuantumCircuit):
     circ_qasm = qiskit_circuit.qasm()
@@ -113,3 +119,12 @@ def get_qubit_template(qubits):
     if len(qubits) == 1:
         return Template('q[$index]').substitute({'index' : qubits[0]})
     return Template('q[$i1], q[$i2]').substitute({'i1' : qubits[0], 'i2' : qubits[1]})
+
+if __name__ == '__main__':
+    qiskit_circ = get_qiskit_example_circuit()
+    quimb_circ = qiskit_to_quimb_circuit(qiskit_circ)
+
+    out_str = quimb_to_qiskit_circuit(quimb_circ)
+    other_qiskit_circ = QuantumCircuit.from_qasm_str(out_str)
+
+    assert qiskit_circ.qasm() == other_qiskit_circ.qasm()

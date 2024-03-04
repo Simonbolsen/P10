@@ -282,9 +282,22 @@ def mutate_circuit(circuit, mutation_degree, data):
     circuit.gates = gates
     return cu.refresh_circuit(circuit)
 
+def one_random_gate_for_each_wire(gates, qubits):
+    one_qubit_gate_bias = 0.7
+    new_gates = []
+    for q in range(qubits):
+        control_qubit = randint(0, qubits - 1)
+        while (control_qubit == q):
+            control_qubit = randint(0, qubits - 1)
+        new_gates.append(generate_two_qubit_random_gate(control_qubit, q) if random() >= one_qubit_gate_bias else generate_one_qubit_random_gate(q))
+        
+    return gates + new_gates
+
 def get_random_circuit(qubits, num_of_gates):
     circuit = Circuit(qubits)
     gates = circuit.gates
+
+    gates = one_random_gate_for_each_wire(gates, qubits)
 
     for _ in range(num_of_gates):
         gates = add_gate_to_circuit_at_random(circuit.N, gates)
