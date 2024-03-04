@@ -17,6 +17,13 @@ import graph_nn as gnn
 from torch_geometric.utils.convert import from_networkx
 from graph_util import to_nx_graph, tag_tn
 
+all_viable_cotengra_methods = [
+    "random-greedy",
+    "betweenness",
+    # "greedy",
+    # "walktrap"
+]
+
 def get_circuit(n):
     circ = Circuit(n)
 
@@ -445,7 +452,8 @@ def get_contraction_path(tensor_network, circuit, data):
     path = None
     settings = data["path_settings"]
     if settings["method"] == "cotengra":
-        optimiser = ctg.HyperOptimizer(methods=settings["opt_method"], minimize=settings["minimize"], max_repeats=settings["max_repeats"], 
+        cot_method = settings["opt_method"] if not settings["opt_method"] == "all" else all_viable_cotengra_methods
+        optimiser = ctg.HyperOptimizer(methods=cot_method, minimize=settings["minimize"], max_repeats=settings["max_repeats"], 
                                max_time=settings["max_time"], progbar=True, parallel=False)
         tree = tensor_network.contraction_tree(optimiser)
         path = tree.get_path() 
