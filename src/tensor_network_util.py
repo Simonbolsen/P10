@@ -344,6 +344,23 @@ def get_tensor_network(circuit, split_cnot = True, state = None):
                         break
         for pair in pairs:
             tensor_network._contract_between_tids(pair[0], pair[1])
+        
+        cy_tag = "CY"
+        pairs = []
+        for i, tensor_1 in tensor_network.tensor_map.items():
+            if cy_tag in tensor_1.tags:
+                done = False
+                for ii, tensor_2 in tensor_network.tensor_map.items():
+                    if cy_tag in tensor_2.tags:
+                        for tag in tensor_1.tags:
+                            if "GATE" in tag and tag in tensor_2.tags:
+                                pairs.append((i, ii))
+                                done = True
+                                break
+                    if done:
+                        break
+        for pair in pairs:
+            tensor_network._contract_between_tids(pair[0], pair[1])
 
     # Fixing problematic gates (S, ...?)
     problematic_gates = []#["S"]
