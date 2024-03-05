@@ -264,6 +264,14 @@ def first_experiment(iter_settings, settings, contraction_settings, path_setting
         if not os.path.exists(working_path):
             os.makedirs(working_path, exist_ok=True)
 
+        if data["make_dataset"]:
+            dataset_folder_path = os.path.join("dataset", "tdd_size_predict")
+            data_file_name = f"datapoint_{circ_conf['algorithm']}_{'sim' if settings['simulate'] else 'equiv'}_{circ_conf['qubits']}_r{circ_conf['repetition']+prev_rep}"
+            dataset_file_path = os.path.join(dataset_folder_path, data_file_name + ".json")
+            if os.path.exists(dataset_file_path):
+                print(f"Skipping: {dataset_file_path}")
+                continue
+
         # Prepare circuit
         print("Preparing circuits...")
         #circuit = bu.get_circuit_setup_quimb(bu.get_benchmark_circuit(circ_conf), draw=False)
@@ -351,7 +359,7 @@ def first_experiment(iter_settings, settings, contraction_settings, path_setting
                 # Prepare gate TDDs
                 print("Preparing gate TDDs...")
                 starting_time = time.time_ns()
-                gate_tdds = tddu.get_tdds_from_quimb_tensor_network(stn)
+                gate_tdds = tddu.get_tdds_from_quimb_tensor_network(stn, with_input=settings["simulate"])
                 data["gate_prep_time"] = int((time.time_ns() - starting_time) / 1000000)
 
                 #tddu.draw_all_tdds(gate_tdds, folder=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
@@ -381,7 +389,7 @@ def first_experiment(iter_settings, settings, contraction_settings, path_setting
                 dataset_folder_path = os.path.join("dataset", "tdd_size_predict")
                 if not os.path.exists(dataset_folder_path):
                     os.makedirs(dataset_folder_path, exist_ok=True)
-                data_file_name = f"datapoint_{circ_conf['algorithm']}_{circ_conf['qubits']}_r{circ_conf['repetition']+prev_rep}"
+                data_file_name = f"datapoint_{circ_conf['algorithm']}_{'sim' if settings['simulate'] else 'equiv'}_{circ_conf['qubits']}_r{circ_conf['repetition']+prev_rep}"
                 dataset_file_path = os.path.join(dataset_folder_path, data_file_name + ".json")
                 data_obj = {
                     "name": data_file_name,
@@ -536,10 +544,10 @@ if __name__ == "__main__":
 
     path_settings = {
                 "method": "cotengra",
-                "opt_method": "random-greedy", #  kahypar-balanced, kahypar-agglom, labels, labels-agglom
+                "opt_method": "all", #  kahypar-balanced, kahypar-agglom, labels, labels-agglom
                 "minimize": "flops",
                 "max_repeats": 100,
-                "max_time": 60,
+                "max_time": 200,
                 "use_proportional": True,
                 "gridded": False,
                 "linear_fraction": 0,
@@ -547,15 +555,15 @@ if __name__ == "__main__":
             }
 
     iter_settings = {
-        "algorithms": ["random"],#, "dj", "graphstate"],#, "ghz", "graphstate", "qftentangled"],
+        "algorithms": ["ghz", "dj", "graphstate"],#["qftentangled", "su2random", "twolocalrandom", "qpeexact", "wstate", "realamprandom"],#,#, "ghz", "graphstate", "qftentangled"],
         "levels": [(0, 2)],
-        "qubits": list(range(4,20,1)),#list(range(4,100,1)),#[64, 128, 256],#list(range(256,257,1)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
+        "qubits": list(range(4,10,1)),#list(range(4,100,1)),#[64, 128, 256],#list(range(256,257,1)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
         "random_gate_dels_range": [0],
-        "repetitions": 100
+        "repetitions": 1
     }
 
     settings = {
-        "simulate": False,
+        "simulate": True,
         "sliced": False,
         "cnot_split": True,
         "use_subnets": True,
