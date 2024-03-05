@@ -9,15 +9,12 @@ def split(folder):
     path = os.scandir(get_path(folder))
     for sf in tqdm(path):
         data = load_json(sf.path)
-        l = []
-        for d in data:
-            l.extend(d)
-        file = {"data": l, "name": sf.name[:-5]}
+        file = {"data": data, "name": sf.name[:-5]}
         
         if(random.random() < 0.1):
-            save_to_json("dataset/tdd_size_predict/val", file["name"], file)
+            save_to_json("dataset/TSP2/val", file["name"], file)
         else:
-            save_to_json("dataset/tdd_size_predict/train", file["name"], file)
+            save_to_json("dataset/TSP2/train", file["name"], file)
         
 
 def get_path(folder) :

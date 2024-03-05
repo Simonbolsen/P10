@@ -20,7 +20,7 @@ def avg(l):
     return sum(l)/len(l)
 
 if __name__ == "__main__":
-    data = fu.load_all_json("experiment_data/tdd_training_3")
+    data = fu.load_all_json("experiment_data/tdd_mk2")
 
     keys = {Variables.LEARNING_RATE: "lr", Variables.DEPTH:"depth", Variables.DROPOUT_PROBABILITY:"dropout_probability", 
             Variables.HIDDEN_SIZE:"hidden_size", Variables.BATCH_SIZE:"batch_size", Variables.WEIGHT_DECAY: "weight_decay"}
@@ -36,6 +36,10 @@ if __name__ == "__main__":
     y = [d[keys[y_axis]] for d in data]
     y = sorted(list(set(y)))
 
+    d1_data = [[avg([min(d["val_loss"]) for d in data if d[keys[x_axis]] == xv]) for xv in x]]
+
+
+
     grouped_data = [[[avg([min(d["val_loss"]) for d in data if d[keys[x_axis]] == xv and d[keys[y_axis]] == yv]) for yv in y] for xv in x]]
 
     if x_axis in log10_variables:
@@ -48,7 +52,9 @@ if __name__ == "__main__":
     elif  y_axis in log2_variables:
         y = [math.log2(v) for v in y]
 
-    pu.plotSurface(grouped_data, "Loss", x, x_axis.value, y, y_axis.value, 1, ["Val Loss"])
+    pu.plot_line_series_2d([x], d1_data, ["val loss"], x_label="Learning Rate", y_label="Loss", legend= True)
+
+    #pu.plotSurface(grouped_data, "Loss", x, x_axis.value, y, y_axis.value, 1, ["Val Loss"])
 
     #print(grouped_data)
 #
@@ -74,13 +80,13 @@ if __name__ == "__main__":
         return [[2**v[0]] for v in l]
 
     #pu.plotPoints2d((optimal["batch_data"][4]), error, "Target","Error", legend=False, marker_size=2)
-    #pu.plotPoints2d((optimal["batch_data"][0]), (optimal["batch_data"][4]), "Output", "Target", legend=False, marker_size=2)
+    pu.plotPoints2d((optimal["batch_data"][0]), (optimal["batch_data"][4]), "Output", "Target", legend=False, marker_size=2)
 
     x = [i for i, _ in enumerate(optimal["loss"])]
     #avg = 10
 
     pu.plot_line_series_2d([x,x], [[min(700, i) for i in optimal["loss"]], [min(700, i) for i in  optimal["val_loss"]]], ["loss", "val loss"], x_label="Epochs", y_label="Loss", legend= True)
-    print(f"Lr: {math.log10(optimal['lr'])}, Depths: {optimal['depth']}, Dropout: {optimal['dropout_probability']},"+
+    print(f"Optimal: {optimal['run_name']}, Lr: {math.log10(optimal['lr'])}, Depths: {optimal['depth']}, Dropout: {optimal['dropout_probability']},"+
           f" Hidden Size: {optimal['hidden_size']}, Batch Size: {optimal['batch_size']}, Val Loss: {min(optimal['val_loss'])}")
 
     #print(f"Loss: {sum([d['loss'][-1] for d in data])/len(data)}, Val Loss: {sum([d['val_loss'][-1] for d in data])/len(data)}")
