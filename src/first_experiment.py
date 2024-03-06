@@ -555,15 +555,15 @@ if __name__ == "__main__":
             }
 
     iter_settings = {
-        "algorithms": ["ghz", "dj", "graphstate"],#["qftentangled", "su2random", "twolocalrandom", "qpeexact", "wstate", "realamprandom"],#,#, "ghz", "graphstate", "qftentangled"],
+        "algorithms": ["dj"],#["qftentangled", "su2random", "twolocalrandom", "qpeexact", "wstate", "realamprandom"],#,#, "ghz", "graphstate", "qftentangled"],
         "levels": [(0, 2)],
-        "qubits": list(range(100,10000,100)),#list(range(4,100,1)),#[64, 128, 256],#list(range(256,257,1)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
+        "qubits": [256],#list(range(4,100,1)),#[64, 128, 256],#list(range(256,257,1)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
         "random_gate_dels_range": [0],
-        "repetitions": 1
+        "repetitions": 5
     }
 
     settings = {
-        "simulate": True,
+        "simulate": False,
         "sliced": False,
         "cnot_split": True,
         "use_subnets": True,
@@ -572,4 +572,4 @@ if __name__ == "__main__":
     }
 
     first_experiment(iter_settings=iter_settings, settings=settings, contraction_settings=contraction_settings, path_settings=path_settings,
-                     folder_name="generating_data_set_v2")
+                     folder_name="model_contraction")
