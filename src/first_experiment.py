@@ -253,7 +253,7 @@ def first_experiment(iter_settings, settings, contraction_settings, path_setting
             "tdd_analysis": None,
             "correct_example": None,
             "failed": False,
-            "make_dataset": True
+            "make_dataset": False
         }
 
         if "simulate" in settings and settings["simulate"]:
@@ -543,7 +543,8 @@ if __name__ == "__main__":
             }
 
     path_settings = {
-                "method": "cotengra",
+                "method": "tdd_model",
+                "model_name":"model_8",
                 "opt_method": "all", #  kahypar-balanced, kahypar-agglom, labels, labels-agglom
                 "minimize": "flops",
                 "max_repeats": 100,
@@ -551,13 +552,12 @@ if __name__ == "__main__":
                 "use_proportional": True,
                 "gridded": False,
                 "linear_fraction": 0,
-                "model_name": "experiment_n2"
             }
 
     iter_settings = {
         "algorithms": ["ghz", "dj", "graphstate"],#["qftentangled", "su2random", "twolocalrandom", "qpeexact", "wstate", "realamprandom"],#,#, "ghz", "graphstate", "qftentangled"],
         "levels": [(0, 2)],
-        "qubits": list(range(4,10,1)),#list(range(4,100,1)),#[64, 128, 256],#list(range(256,257,1)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
+        "qubits": list(range(100,10000,100)),#list(range(4,100,1)),#[64, 128, 256],#list(range(256,257,1)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
         "random_gate_dels_range": [0],
         "repetitions": 1
     }
