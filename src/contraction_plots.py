@@ -87,6 +87,7 @@ def extract_data(folder, inclusion_condition = (lambda file, data:True)):
             file_data[Variables.SIZES] = (s)
             file_data[Variables.LOG_SIZES] = ([math.log10(point) for point in s])
             file_data[Variables.NEW_SIZES] = (new_sizes)
+            file_data[Variables.LOG2_NEW_SIZES] = ([math.log2(point) for point in new_sizes])
             file_data[Variables.STEPS] = (range(len(s)))
             file_data[Variables.CONTRACTION_STEPS] = (range(len(new_sizes)))
             file_data[Variables.MAX_SIZES] = ([max(s)])
@@ -110,7 +111,8 @@ def extract_data(folder, inclusion_condition = (lambda file, data:True)):
             if file["path_settings"]["method"] == "cotengra":
                 file_data[Variables.PATH_FLOPS] = ([math.log10(file["path_data"]["flops"])])
                 file_data[Variables.PATH_SIZE] = ([math.log2(file["path_data"]["size"])])
-
+            if file["path_settings"]["method"] == "tdd_model":
+                file_data[Variables.PREDICTED_SIZES] = file["path_data"]["size_predictions"]
             if "version" in file and file["version"] == 1 and "used_trials" in file["path_data"]:
                 file_data[Variables.OPT_RUNS_MAX] = (range(max(file["path_data"]["used_trials"])))
                 file_data[Variables.OPT_TIMES_MAX] = find_max_inner_list(file["path_data"]["opt_times"])
@@ -128,8 +130,8 @@ def extract_data(folder, inclusion_condition = (lambda file, data:True)):
                 file_data[Variables.OPT_SIZES] = ([math.log2(v) for v in file["path_data"]["opt_sizes"]])
                 file_data[Variables.OPT_FLOPS] = ([math.log10(v) for v in file["path_data"]["opt_flops"]])
                 file_data[Variables.OPT_WRITES] = ([math.log2(v) for v in file["path_data"]["opt_writes"]])
-        except KeyError:
-            ...
+        except KeyError as ke:
+            print(ke)
         except Exception as e:
             print(e)
         else: 
@@ -461,6 +463,7 @@ class Variables(Enum):
     OPT_SIZES_SUM = "Sum of Optimisation Sizes log2(os)"
     OPT_RUNS_SUM = "Sum of Optimisation Runs r"
     LOG_SIZES = "Nodes log10(|N|)"
+    LOG2_NEW_SIZES = "Nodes log2(|N_new|)"
     LOG_MAX_SIZES = "Max Nodes log10(|N_max|)"
     QCEC_TIME = "QCEC Time t_qcec [ms]"
     CIRCUIT_SETUP_TIME = "Circuit Setup Time t_cs [ms]"
@@ -480,6 +483,7 @@ class Variables(Enum):
     GROUP_LABELS = "Group Names as Labels"
     CONTRACTION_TIME_SLOPE = "Contraction time slope"
     MAX_SIZE_SLOPE = "Max size slope"
+    PREDICTED_SIZES = "Predicted Sizes"
 
 if __name__ == "__main__":
  
@@ -548,6 +552,8 @@ if __name__ == "__main__":
     #      #"sub_network_effect_without_2023-11-13_18-49"
     #      ]
     
+    data = extract_data("model_contraction_2024-03-06_14-20")
+    ...
 
     #file is the raw loaded file, and data is the processed variables for that file
     inclusion_condition = lambda file, data : ("conclusive" not in file or file["conclusive"] or file["settings"]["simulate"])

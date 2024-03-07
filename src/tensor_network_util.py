@@ -448,14 +448,15 @@ def get_random_path(tensor_network, gridded = False):
 
     return path
 
-def get_tdd_path(tensor_network, settings):
+def get_tdd_path(tensor_network, data):
+    settings = data["path_settings"]
     model_path = os.path.join("models", settings["model_name"] + ".pt")
     if (not os.path.isfile(model_path)):
         print(f"Could not find model: {model_path}")
     
     model = tnn.load_model(model_path)
 
-    return tnn.get_path(model, tensor_network)
+    return tnn.get_path(model, tensor_network, data = data)
 
 def get_nn_path(tn: TensorNetwork, circuit, data):
     settings = data["path_settings"]
@@ -505,7 +506,7 @@ def get_contraction_path(tensor_network, circuit, data):
         usable_path = get_nn_path(tensor_network, circuit, data)
     elif settings["method"] == "tdd_model":
         print(f"Using TDD model: {settings['model_name']}. Loading")
-        usable_path = get_tdd_path(tensor_network, settings)
+        usable_path = get_tdd_path(tensor_network, data)
     elif settings["method"] == "random":
         usable_path = get_random_path(tensor_network, gridded=settings["gridded"])
     else:

@@ -209,12 +209,15 @@ def load_model(path):
     model.eval()
     return model
 
-def get_path(model, tensor_network, print_sizes = False):
+def get_path(model, tensor_network, print_sizes = False, data = None):
     path = []
 
     edges = {}
     tensors = {}
     index_sets = {}
+
+    if data is not None:
+        data["path_data"]["size_predictions"] = []
 
     for tid, tensor in tensor_network.tensor_map.items():
         g = [0 for _ in GATE_INDICES]
@@ -256,7 +259,7 @@ def get_path(model, tensor_network, print_sizes = False):
         prediction_times -= time.time()
 
         for e in new_edges:
-            input = {"left_values":tensors[e[0]], "right_values": tensors[e[1]], "shared_values": torch.tensor([i], dtype=torch.float)}
+            input = {"left_values":tensors[e[0]], "right_values": tensors[e[1]], "shared_values": torch.tensor([edges[e]], dtype=torch.float)}
             edge_predictions[e] = model(input).item()
 
         prediction_times += time.time()
@@ -266,6 +269,9 @@ def get_path(model, tensor_network, print_sizes = False):
 
         if print_sizes:
             print(prediction)
+
+        if data is not None:
+            data["path_data"]["size_predictions"].append(prediction)
 
         cleanup_time -= time.time()
 
@@ -300,6 +306,8 @@ def get_path(model, tensor_network, print_sizes = False):
                 else:
                     edges[new_key] = n
         cleanup_time += time.time()
+
+        new_edges = [(min(step[1], i), max(step[1], i)) for i in index_sets[step[1]]]
 
     print(f"Prediction Time: {prediction_times}, Cleanup Time: {cleanup_time}")
 
@@ -363,7 +371,7 @@ if __name__ == "__main__":
     #run()
 
     model = load_model(fu.get_path("experiment_data/tdd_mk2/models/model_8.pt"))
-    network = tnu.get_tensor_network(tnu.get_circuit(5), False)
+    network = tnu.get_tensor_network(tnu.get_circuit(20), False)
 
     path = get_path(model, network)
     print(tnu.verify_path(path))

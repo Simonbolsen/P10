@@ -369,6 +369,7 @@ def first_experiment(iter_settings, settings, contraction_settings, path_setting
                 print(f"Contracting {len(path)} times...")
                 starting_time = time.time_ns()
                 #result_tdd = contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"], save_intermediate_results=True, comprehensive_saving=True, folder_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
+                print(data["path_data"]["size_predictions"][-5:])
                 result_tdd = fast_contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"])
                 data["contraction_time"] = int((time.time_ns() - starting_time) / 1000000)
 
@@ -557,7 +558,7 @@ if __name__ == "__main__":
     iter_settings = {
         "algorithms": ["dj"],#["qftentangled", "su2random", "twolocalrandom", "qpeexact", "wstate", "realamprandom"],#,#, "ghz", "graphstate", "qftentangled"],
         "levels": [(0, 2)],
-        "qubits": [256],#list(range(4,100,1)),#[64, 128, 256],#list(range(256,257,1)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
+        "qubits": [100],#list(range(4,100,1)),#[64, 128, 256],#list(range(256,257,1)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
         "random_gate_dels_range": [0],
         "repetitions": 5
     }
