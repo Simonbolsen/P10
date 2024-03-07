@@ -543,15 +543,15 @@ if __name__ == "__main__":
             }
 
     path_settings = {
-                "method": "cotengra",
-                "opt_method": "random-greedy", #  kahypar-balanced, kahypar-agglom, labels, labels-agglom
+                "method": "tdd_model",
+                "model_name":"model_8",
+                "opt_method": "all", #  kahypar-balanced, kahypar-agglom, labels, labels-agglom
                 "minimize": "flops",
                 "max_repeats": 100,
                 "max_time": 200,
                 "use_proportional": True,
                 "gridded": False,
                 "linear_fraction": 0,
-                "model_name": "experiment_n2"
             }
 
     iter_settings = {
@@ -559,7 +559,7 @@ if __name__ == "__main__":
         "levels": [(0, 2)],
         "qubits": [256],#list(range(5,155,1)),#list(range(4,100,1)),#[64, 128, 256],#list(range(256,257,1)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
         "random_gate_dels_range": [0],
-        "repetitions": 1
+        "repetitions": 5
     }
 
     settings = {
@@ -572,4 +572,4 @@ if __name__ == "__main__":
     }
 
     first_experiment(iter_settings=iter_settings, settings=settings, contraction_settings=contraction_settings, path_settings=path_settings,
-                     folder_name="qcec_no_opt_test")
+                     folder_name="model_contraction")

@@ -14,6 +14,7 @@ import bench_util as bu
 import networkx as nx
 from tqdm import tqdm
 import graph_nn as gnn
+import tdd_nn as tnn
 from torch_geometric.utils.convert import from_networkx
 from graph_util import to_nx_graph, tag_tn
 
@@ -447,6 +448,15 @@ def get_random_path(tensor_network, gridded = False):
 
     return path
 
+def get_tdd_path(tensor_network, settings):
+    model_path = os.path.join("models", settings["model_name"] + ".pt")
+    if (not os.path.isfile(model_path)):
+        print(f"Could not find model: {model_path}")
+    
+    model = tnn.load_model(model_path)
+
+    return tnn.get_path(model, tensor_network)
+
 def get_nn_path(tn: TensorNetwork, circuit, data):
     settings = data["path_settings"]
     model_path = os.path.join("models", settings["model_name"] + ".pt")
@@ -493,6 +503,9 @@ def get_contraction_path(tensor_network, circuit, data):
     elif settings["method"] == "nn_model":
         print(f"Using NN-model {settings['model_name']}. Loading")
         usable_path = get_nn_path(tensor_network, circuit, data)
+    elif settings["method"] == "tdd_model":
+        print(f"Using TDD model: {settings['model_name']}. Loading")
+        usable_path = get_tdd_path(tensor_network, settings)
     elif settings["method"] == "random":
         usable_path = get_random_path(tensor_network, gridded=settings["gridded"])
     else:

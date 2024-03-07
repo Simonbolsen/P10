@@ -67,6 +67,8 @@ if __name__ == "__main__":
     optimal = min(data, key = lambda d: min(d["val_loss"]))
 
     error = []
+    outputs = []
+    targets = []
 
     for i, output in enumerate(optimal["batch_data"][0]):
         output = output[0]
@@ -75,12 +77,14 @@ if __name__ == "__main__":
         #shared = optimal[3][i]
         target = optimal["batch_data"][4][i][0]
         error.append([(output - target)])
+        outputs.append(output)
+        targets.append(target)
 
     def exponmentiate(l):
         return [[2**v[0]] for v in l]
 
     #pu.plotPoints2d((optimal["batch_data"][4]), error, "Target","Error", legend=False, marker_size=2)
-    pu.plotPoints2d((optimal["batch_data"][0]), (optimal["batch_data"][4]), "Output", "Target", legend=False, marker_size=2)
+    pu.plotPoints2d([outputs], [targets], "Output", "Target", legend=False, marker_size=1)
 
     x = [i for i, _ in enumerate(optimal["loss"])]
     #avg = 10
