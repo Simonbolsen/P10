@@ -1,4 +1,4 @@
-# P9
+# P10
 This project is a quantum circuit verification and simulation tool using TDDs[[1]](#1) in conjunction with the contraction planning tool Cotengra[[2]](#2). The project uses parameterised circuits provided by MQT.Bench[[3]](#3). This project can only be run on Linux (Ubuntu 20.04) and using Python 3.9. 
 
 ## Installation and Preparation

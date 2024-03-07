@@ -282,7 +282,7 @@ def first_experiment(iter_settings, settings, contraction_settings, path_setting
         if data["settings"]["use_qcec_only"]:
             print("Starting QCEC sanity check")
             starting_time = time.time_ns()
-            data["equivalence"] = verify(data["circuit_data"]["circuit_1_qasm"], data["circuit_data"]["circuit_2_qasm"]).equivalence.value in [1,4,5]  # see https://mqt.readthedocs.io/projects/qcec/en/latest/library/EquivalenceCriterion.html
+            data["equivalence"] = verify(data["circuit_data"]["circuit_1_qasm"], data["circuit_data"]["circuit_2_qasm"], run_simulation_checker=False, run_zx_checker=False, fuse_single_qubit_gates=False, reconstruct_swaps=False, reorder_operations=False).equivalence.value in [1,4,5]  # see https://mqt.readthedocs.io/projects/qcec/en/latest/library/EquivalenceCriterion.html
             data["qcec_time"] = int((time.time_ns() - starting_time) / 1000000)
             print(f"QCEC says: {data['equivalence']}")
 
@@ -556,9 +556,9 @@ if __name__ == "__main__":
             }
 
     iter_settings = {
-        "algorithms": ["dj"],#["qftentangled", "su2random", "twolocalrandom", "qpeexact", "wstate", "realamprandom"],#,#, "ghz", "graphstate", "qftentangled"],
+        "algorithms": ["dj"],#["dj", "graphstate"],#["qftentangled", "su2random", "twolocalrandom", "qpeexact", "wstate", "realamprandom"],#,#, "ghz", "graphstate", "qftentangled"],
         "levels": [(0, 2)],
-        "qubits": [100],#list(range(4,100,1)),#[64, 128, 256],#list(range(256,257,1)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
+        "qubits": [256],#list(range(5,155,1)),#list(range(4,100,1)),#[64, 128, 256],#list(range(256,257,1)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
         "random_gate_dels_range": [0],
         "repetitions": 5
     }
@@ -569,7 +569,7 @@ if __name__ == "__main__":
         "cnot_split": True,
         "use_subnets": True,
         "find_counter": False,
-        "use_qcec_only": False
+        "use_qcec_only": True
     }
 
     first_experiment(iter_settings=iter_settings, settings=settings, contraction_settings=contraction_settings, path_settings=path_settings,
