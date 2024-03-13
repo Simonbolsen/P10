@@ -13,7 +13,7 @@ import time
 
 GATE_INDICES = {'H': 0, 'CX': 1, 'RZ': 2, 'RX': 3, 'U3': 4, 'RY': 5, 'S': 6, 'X': 7, 
                         'CZ': 8, 'CY': 9, 'Y': 10, 'Z': 11, 'T': 12}
-GATE_SIZES = {'CX': 6, 'CZ': 6, 'RZ': 4, 'S': 4, 'H': 3, 'Y': 4, 'Z': 4, 'X': 4, 'CY': 6, 'T': 4, 'RY': 3, 'RX': 4}
+GATE_SIZES = {'CX': 6, 'CZ': 6, 'RZ': 4, 'S': 4, 'H': 3, 'Y': 4, 'Z': 4, 'X': 4, 'CY': 6, 'T': 4, 'RY': 3, 'RX': 4, "U3": 4}
 
 class TDDPredicter(nn.Module):
     def __init__(self, hidden_size, depth, dropout_probability):
@@ -25,6 +25,7 @@ class TDDPredicter(nn.Module):
         self.batch_norm = nn.BatchNorm1d(2 + len(GATE_INDICES))
         self.batch_norm_shared = nn.BatchNorm1d(1)
         self.input_layer = nn.Linear(2 + len(GATE_INDICES), hidden_size)
+        #self.input_layers = nn.ModuleList([nn.Linear(hidden_size, hidden_size) for _ in range(depth)])
         self.shared_index_layer = nn.Linear(1, hidden_size)
         self.linear_layers = nn.ModuleList([nn.Linear(hidden_size, hidden_size) for _ in range(depth)])
         self.dropout_layer = nn.Dropout(p = dropout_probability)
@@ -59,43 +60,6 @@ class TDDPredicter(nn.Module):
 
         return x
     
-class TDDBaseline(nn.Module):
-    def __init__(self, hidden_size, depth):
-        super(TDDBaseline, self).__init__()
-
-        self.input_layer = nn.Linear(3, hidden_size)
-        self.linear_layers = nn.ModuleList([nn.Linear(hidden_size, hidden_size) for _ in range(depth)])
-        self.output_layer = nn.Linear(hidden_size, 1)
-        self.relu = nn.ReLU()
-
-    def forward(self, input):
-
-        if len(input["left_values"].shape) == 1:
-            x = torch.tensor([input["left_values"][0], input["right_values"][0], input["shared_values"][0]])
-        else:
-            x =  torch.stack([input["left_values"][:,0], input["right_values"][:,0], input["shared_values"][:,0]], dim = 1)
-
-        x = self.input_layer(x)
-
-        for layer in self.linear_layers:
-            x = layer(x)
-            x = self.relu(x)
-
-        x = self.output_layer(x)
-
-        return x
-    
-class TddDataset(Dataset):
-    def __init__(self, input_data, output_data):
-        self.input_data = input_data
-        self.output_data = output_data
-
-    def __len__(self):
-        return len(self.input_data)
-
-    def __getitem__(self, idx):
-        return self.input_data[idx], self.output_data[idx]
-
 def train_model(data, training_data, validation_data, model = None):
     print("Building Model")
 
@@ -201,23 +165,16 @@ def prepare_all_data(data):
                 p.append(prepare(d1))
     return p
 
-
 def load_model(path):
     saved_dict = torch.load(path)
-    model = TDDPredicter(64, 4, 0.008)
+    model = TDDPredicter(64, int(len([0 for i in saved_dict.keys() if "linear_layers" in i])/2), 0.008)
     model.load_state_dict(saved_dict)
     model.eval()
     return model
 
-def get_path(model, tensor_network, print_sizes = False, data = None):
-    path = []
-
-    edges = {}
+def get_tensors(tensor_network):
     tensors = {}
     index_sets = {}
-
-    if data is not None:
-        data["path_data"]["size_predictions"] = []
 
     for tid, tensor in tensor_network.tensor_map.items():
         g = [0 for _ in GATE_INDICES]
@@ -233,6 +190,11 @@ def get_path(model, tensor_network, print_sizes = False, data = None):
         tensors[tid] = torch.tensor([size, len(tensor.inds)] + g, dtype=torch.float)
 
         index_sets[tid] = set()
+    
+    return tensors, index_sets
+
+def get_edges(index_sets, tensor_network):
+    edges = {}
 
     for o in tensor_network.ind_map.values():
         key = (min(o), max(o))
@@ -245,6 +207,16 @@ def get_path(model, tensor_network, print_sizes = False, data = None):
             index_sets[key[0]].add(key[1])
             index_sets[key[1]].add(key[0])
 
+    return edges
+
+def get_path(model, tensor_network, print_sizes = False, data = None, local = True):
+    if data is not None:
+        data["path_data"]["size_predictions"] = []
+
+    path = []
+    tensors, index_sets = get_tensors(tensor_network)
+    edges = get_edges(index_sets, tensor_network)
+    
     progress_bar = tqdm(total=len(tensors) - 1, desc="Countdown", unit="step")
 
     prediction_times = 0
@@ -257,6 +229,9 @@ def get_path(model, tensor_network, print_sizes = False, data = None):
         progress_bar.update(1)
 
         prediction_times -= time.time()
+
+        if local:
+            edge_predictions = {}
 
         for e in new_edges:
             input = {"left_values":tensors[e[0]], "right_values": tensors[e[1]], "shared_values": torch.tensor([edges[e]], dtype=torch.float)}
@@ -296,7 +271,8 @@ def get_path(model, tensor_network, print_sizes = False, data = None):
                 index_sets[step[1]].add(i)
 
                 n = edges.pop(key)
-                edge_predictions.pop(key)
+                if not local:
+                    edge_predictions.pop(key)
 
                 k = key[1] if key[0] == step[0] else key[0]
                 new_key = (min(k, step[1]), max(k, step[1]))
@@ -313,6 +289,22 @@ def get_path(model, tensor_network, print_sizes = False, data = None):
 
     return path
 
+def remove_duplicates(dataset):
+    seen_data = set()
+    non_duplicate_data = []
+
+    for item in tqdm(dataset):
+        # Assuming each item is a tensor
+        item_tuple = tuple(torch.cat((item["left_values"], item["right_values"], item["shared_values"], item["target"])).numpy().tolist())
+        inv_tuple = tuple(torch.cat((item["right_values"], item["left_values"], item["shared_values"], item["target"])).numpy().tolist())
+
+        # Check if the item is already seen
+        if item_tuple not in seen_data and inv_tuple not in seen_data:
+            seen_data.add(item_tuple)
+            non_duplicate_data.append(item)
+
+    return non_duplicate_data
+
 def run():
 
     print("Loading")
@@ -323,25 +315,28 @@ def run():
     data = [{
         #"load_experiment":"bbds2",
         #"load_name": "experiment_n2",
-        "experiment":"tdd_mk2",
+        "experiment":"tdd_reduced_model_1",
         "save_model":True,
         "model":"predicter",#"baseline",
         "dropout_probability": 0.008,
         "num_epochs": 1000,
         "batch_size": 90,
         "hidden_size": 64,
-        "depth": 4,
-        "lr":10**(-(2.8 + 0.05 * i)),
+        "depth": 9 + i,
+        "lr":10**(-(3.0)),
         "weight_decay":0,
         "early_stopping":20,
         "warmup":20,
         "run": 0,
         "run_name":  f"model_{i}"
-    } for i in range(1, 10)]
+    } for i in range(0, 5)]
 
     print("Preparing Data")
     training_data = prepare_all_data(training_data)
     validation_data = prepare_all_data(validation_data)
+
+    training_data = remove_duplicates(training_data)
+    validation_data = remove_duplicates(validation_data)
 
     data_loader = DataLoader(training_data, batch_size=data[0]["batch_size"], shuffle=True)
     val_data_loader = DataLoader(validation_data, batch_size=len(validation_data), shuffle=False)
@@ -368,11 +363,5 @@ def run():
 
 if __name__ == "__main__":
     #fu.split("dataset/TSP2/all")
-    #run()
-
-    model = load_model(fu.get_path("experiment_data/tdd_mk2/models/model_8.pt"))
-    network = tnu.get_tensor_network(tnu.get_circuit(20), False)
-
-    path = get_path(model, network)
-    print(tnu.verify_path(path))
-    #print(tnu.get_dot_from_path(path))
+    run()
+    ...

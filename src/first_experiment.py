@@ -545,7 +545,7 @@ if __name__ == "__main__":
 
     path_settings = {
                 "method": "tdd_model",
-                "model_name":"model_8",
+                "model_name":"model_4",
                 "opt_method": "all", #  kahypar-balanced, kahypar-agglom, labels, labels-agglom
                 "minimize": "flops",
                 "max_repeats": 100,
@@ -556,9 +556,9 @@ if __name__ == "__main__":
             }
 
     iter_settings = {
-        "algorithms": ["dj"],#["dj", "graphstate"],#["qftentangled", "su2random", "twolocalrandom", "qpeexact", "wstate", "realamprandom"],#,#, "ghz", "graphstate", "qftentangled"],
+        "algorithms": ["su2random"],#["dj", "graphstate"],#["qftentangled", "su2random", "twolocalrandom", "qpeexact", "wstate", "realamprandom"],#,#, "ghz", "graphstate", "qftentangled"],
         "levels": [(0, 2)],
-        "qubits": [256],#list(range(5,155,1)),#list(range(4,100,1)),#[64, 128, 256],#list(range(256,257,1)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
+        "qubits": [10],#list(range(5,155,1)),#list(range(4,100,1)),#[64, 128, 256],#list(range(256,257,1)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
         "random_gate_dels_range": [0],
         "repetitions": 5
     }
@@ -569,7 +569,7 @@ if __name__ == "__main__":
         "cnot_split": True,
         "use_subnets": True,
         "find_counter": False,
-        "use_qcec_only": True
+        "use_qcec_only": False
     }
 
     first_experiment(iter_settings=iter_settings, settings=settings, contraction_settings=contraction_settings, path_settings=path_settings,

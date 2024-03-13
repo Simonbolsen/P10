@@ -20,7 +20,7 @@ def avg(l):
     return sum(l)/len(l)
 
 if __name__ == "__main__":
-    data = fu.load_all_json("experiment_data/tdd_mk2")
+    data = fu.load_all_json("experiment_data/tdd_reduced_1")
 
     keys = {Variables.LEARNING_RATE: "lr", Variables.DEPTH:"depth", Variables.DROPOUT_PROBABILITY:"dropout_probability", 
             Variables.HIDDEN_SIZE:"hidden_size", Variables.BATCH_SIZE:"batch_size", Variables.WEIGHT_DECAY: "weight_decay"}
@@ -34,9 +34,9 @@ if __name__ == "__main__":
     x = sorted(list(set(x)))
 
     y = [d[keys[y_axis]] for d in data]
-    y = sorted(list(set(y)))
+    y = sorted(list(set(y)))[1:]
 
-    d1_data = [[avg([min(d["val_loss"]) for d in data if d[keys[x_axis]] == xv]) for xv in x]]
+    #d1_data = [[avg([min(d["val_loss"]) for d in data if d[keys[x_axis]] == xv]) for xv in x]]
 
 
 
@@ -52,9 +52,9 @@ if __name__ == "__main__":
     elif  y_axis in log2_variables:
         y = [math.log2(v) for v in y]
 
-    pu.plot_line_series_2d([x], d1_data, ["val loss"], x_label="Learning Rate", y_label="Loss", legend= True)
+    #pu.plot_line_series_2d([x], d1_data, ["val loss"], x_label=x_axis.value, y_label="Loss", legend= True)
 
-    #pu.plotSurface(grouped_data, "Loss", x, x_axis.value, y, y_axis.value, 1, ["Val Loss"])
+    pu.plotSurface(grouped_data, "Loss", x, x_axis.value, y, y_axis.value, 1, ["Val Loss"])
 
     #print(grouped_data)
 #
@@ -89,7 +89,7 @@ if __name__ == "__main__":
     x = [i for i, _ in enumerate(optimal["loss"])]
     #avg = 10
 
-    pu.plot_line_series_2d([x,x], [[min(700, i) for i in optimal["loss"]], [min(700, i) for i in  optimal["val_loss"]]], ["loss", "val loss"], x_label="Epochs", y_label="Loss", legend= True)
+    pu.plot_line_series_2d([x,x], [[min(3000, i) for i in optimal["loss"]], [min(3000, i) for i in  optimal["val_loss"]]], ["loss", "val loss"], x_label="Epochs", y_label="Loss", legend= True)
     print(f"Optimal: {optimal['run_name']}, Lr: {math.log10(optimal['lr'])}, Depths: {optimal['depth']}, Dropout: {optimal['dropout_probability']},"+
           f" Hidden Size: {optimal['hidden_size']}, Batch Size: {optimal['batch_size']}, Val Loss: {min(optimal['val_loss'])}")
 
