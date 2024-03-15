@@ -323,8 +323,8 @@ def first_experiment(iter_settings, settings, contraction_settings, path_setting
             data["cpp_time"] = res["cont_time"]
             print(f"CPP says: {data['equivalence']}")
 
-            data["circuit_data"]["circuit_1_qasm"] = data["circuit_data"]["circuit_1_qasm"].qasm()
-            data["circuit_data"]["circuit_2_qasm"] = data["circuit_data"]["circuit_2_qasm"].qasm()
+            # data["circuit_data"]["circuit_1_qasm"] = data["circuit_data"]["circuit_1_qasm"].qasm()
+            # data["circuit_data"]["circuit_2_qasm"] = data["circuit_data"]["circuit_2_qasm"].qasm()
 
             print("Saving data...")
             file_path = os.path.join(working_path, data["file_name"] + ".json")
