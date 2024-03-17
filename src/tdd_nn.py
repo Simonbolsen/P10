@@ -134,37 +134,6 @@ def train_model(data, training_data, validation_data, model = None):
 
     return best_model_state
 
-def prepare(d):
-    l = d["left"]
-    r = d["right"]
-    o = d["result"]
-
-    lg = [0 for _ in GATE_INDICES]
-
-    for gate in l["gates"]:
-        lg[GATE_INDICES[gate]] += 1
-
-    rg = [0 for _ in GATE_INDICES]
-
-    for gate in l["gates"]:
-        rg[GATE_INDICES[gate]] += 1
-
-    return {"left_values":torch.tensor([math.log2(l["nodes"]), len(l["indices"])] + lg), 
-                "right_values":torch.tensor([math.log2(r["nodes"]), len(r["indices"])] + rg), 
-                "shared_values":torch.tensor([(len(l["indices"]) + len(r["indices"]) - len(o["indices"])) / 2]),
-                "target":torch.tensor([math.log2(o["nodes"])])}
-
-def prepare_all_data(data):
-    p = []
-    for d2 in data:
-        for d1 in d2["data"]:
-            if type(d1) is list:
-                for d in d1:
-                    p.append(prepare(d))
-            else:
-                p.append(prepare(d1))
-    return p
-
 def load_model(path):
     saved_dict = torch.load(path)
     model = TDDPredicter(64, int(len([0 for i in saved_dict.keys() if "linear_layers" in i])/2), 0.008)
@@ -305,6 +274,43 @@ def remove_duplicates(dataset):
 
     return non_duplicate_data
 
+def prepare(d):
+    l = d["left"]
+    r = d["right"]
+    o = d["result"]
+
+    lg = [0 for _ in GATE_INDICES]
+    rg = [0 for _ in GATE_INDICES]
+
+    if "time" in d:
+        l_gates = [g["name"] for g in l["gates"]]
+        r_gates = [g["name"] for g in r["gates"]]
+    else:
+        l_gates = l["gates"]
+        r_gates = r["gates"]
+
+    for gate in l_gates:
+        lg[GATE_INDICES[gate]] += 1
+
+    for gate in r_gates:
+        rg[GATE_INDICES[gate]] += 1
+
+    return {"left_values":torch.tensor([math.log2(l["nodes"]), len(l["indices"])] + lg), 
+                "right_values":torch.tensor([math.log2(r["nodes"]), len(r["indices"])] + rg), 
+                "shared_values":torch.tensor([(len(l["indices"]) + len(r["indices"]) - len(o["indices"])) / 2]),
+                "target":torch.tensor([math.log2(o["nodes"])])}
+
+def prepare_all_data(data):
+    p = []
+    for d2 in data:
+        for d1 in d2["data"]:
+            if type(d1) is list:
+                for d in d1:
+                    p.append(prepare(d))
+            else:
+                p.append(prepare(d1))
+    return p
+
 def run():
 
     print("Loading")
@@ -315,21 +321,21 @@ def run():
     data = [{
         #"load_experiment":"bbds2",
         #"load_name": "experiment_n2",
-        "experiment":"tdd_reduced_model_1",
+        "experiment":"tdd_two_handed_1",
         "save_model":True,
         "model":"predicter",#"baseline",
         "dropout_probability": 0.008,
         "num_epochs": 1000,
         "batch_size": 90,
         "hidden_size": 64,
-        "depth": 9 + i,
-        "lr":10**(-(3.0)),
+        "depth": 3 + i,
+        "lr":10**(-(2.8 + 0.1 * j)),
         "weight_decay":0,
         "early_stopping":20,
         "warmup":20,
         "run": 0,
-        "run_name":  f"model_{i}"
-    } for i in range(0, 5)]
+        "run_name":  f"model_{i}_{j}"
+    } for i in range(0, 10) for j in range (5)]
 
     print("Preparing Data")
     training_data = prepare_all_data(training_data)

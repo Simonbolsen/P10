@@ -154,7 +154,7 @@ def contract_tdds(tdds, data, max_time=-1, max_node_size=-1, save_intermediate_r
         same = same and np.allclose(presumed_result_tensor.data, result_tensor.data)
         wrong_nodes = []
         if not same:
-            if data["tdd_analysis"] is None:
+            if "tdd_analysis" in data and data["tdd_analysis"] is None:
                 
                 data["tdd_analysis"] = {
                     "left_tensor": map_complex(left_tensor.data.tolist()),
@@ -169,10 +169,11 @@ def contract_tdds(tdds, data, max_time=-1, max_node_size=-1, save_intermediate_r
                     "left_tdd_name": left_index,
                     "right_tdd_name": right_index
                 }
-
+            if not "not_same_tensors" in data:
+                data["not_same_tensors"] = []
             data["not_same_tensors"].append((left_index, right_index))
             wrong_nodes.append(right_index)
-        if same and len(left_tensor.inds) == 6 and len(right_tensor.inds) == 4:
+        if same and len(left_tensor.inds) == 6 and len(right_tensor.inds) == 4 and False:
             if data["correct_example"] is None:
                 
                 data["correct_example"] = {
@@ -369,8 +370,10 @@ def first_experiment(iter_settings, settings, contraction_settings, path_setting
                 print(f"Contracting {len(path)} times...")
                 starting_time = time.time_ns()
                 #result_tdd = contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"], save_intermediate_results=True, comprehensive_saving=True, folder_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
-                print(data["path_data"]["size_predictions"][-5:])
-                result_tdd = fast_contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"])
+                if "size_predictions" in data["path_data"]:
+                    print(data["path_data"]["size_predictions"][-5:])
+                #result_tdd = fast_contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"])
+                result_tdd = contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"], save_intermediate_results=True, comprehensive_saving=True)
                 data["contraction_time"] = int((time.time_ns() - starting_time) / 1000000)
 
                 data_containers[i] = data
@@ -560,7 +563,7 @@ if __name__ == "__main__":
         "levels": [(0, 2)],
         "qubits": [10],#list(range(5,155,1)),#list(range(4,100,1)),#[64, 128, 256],#list(range(256,257,1)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
         "random_gate_dels_range": [0],
-        "repetitions": 5
+        "repetitions": 1
     }
 
     settings = {
@@ -573,4 +576,4 @@ if __name__ == "__main__":
     }
 
     first_experiment(iter_settings=iter_settings, settings=settings, contraction_settings=contraction_settings, path_settings=path_settings,
-                     folder_name="model_contraction")
+                     folder_name="possible_bug_actual")

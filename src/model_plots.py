@@ -20,12 +20,12 @@ def avg(l):
     return sum(l)/len(l)
 
 if __name__ == "__main__":
-    data = fu.load_all_json("experiment_data/tdd_reduced_1")
+    data = fu.load_all_json("experiment_data/tdd_two_handed_1")
 
     keys = {Variables.LEARNING_RATE: "lr", Variables.DEPTH:"depth", Variables.DROPOUT_PROBABILITY:"dropout_probability", 
             Variables.HIDDEN_SIZE:"hidden_size", Variables.BATCH_SIZE:"batch_size", Variables.WEIGHT_DECAY: "weight_decay"}
-    x_axis = Variables.LEARNING_RATE
-    y_axis = Variables.DEPTH
+    x_axis = Variables.DEPTH
+    y_axis = Variables.LEARNING_RATE
 
     log10_variables = [Variables.LEARNING_RATE, Variables.WEIGHT_DECAY]
     log2_variables = [Variables.HIDDEN_SIZE, Variables.BATCH_SIZE]

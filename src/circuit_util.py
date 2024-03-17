@@ -18,7 +18,9 @@ all_quimb_gates = ['h', 'x', 'y', 'z', 's', 't', 'cx', 'cnot', 'cy', 'cz', 'rz',
                        'su4', 'ccx', 'ccnot', 'toffoli', 'ccy', 'ccz', 'fredkin', 'u']
 
 one_qubit_quimb_gates = ['h', 'x', 'y', 'z', 's', 't', 'rz', 'rx', 'ry']
+#one_qubit_quimb_gates = ['h', 'x', 'ry']
 two_qubit_quimb_gates = ['cx', 'cnot', 'cy', 'cz']
+#two_qubit_quimb_gates = ['cx']
 
 class UToU3Translator(TransformationPass):
 
@@ -42,11 +44,19 @@ class UToU3Translator(TransformationPass):
         return False
 
 def get_simple_circuit():
-    circ = QuantumCircuit(3)
+    circ = QuantumCircuit(1)
+    circ.s(0)
     circ.h(0)
-    circ.cx(0, 1)
-    circ.cx(0, 2)
     return circ
+
+def get_simple_equiv_circuit():
+    circ1 = QuantumCircuit(2)
+    circ1.cx(0, 1)
+
+    circ2 = QuantumCircuit(2)
+    circ2.cx(0, 1)
+    
+    return circ1.compose(circ2.inverse())
 
 def get_example_circuit(n):
     circ = Circuit(n)
@@ -60,7 +70,7 @@ def get_example_circuit(n):
 
     # chain of cnots to generate GHZ-state
     for i in range(n - 1):
-        circ.apply_gate('CNOT', regs[i], regs[i + 1])
+        circ.apply_gate('CX', regs[i], regs[i + 1])
 
     # apply multi-controlled NOT
     circ.apply_gate('X', regs[-1], controls=regs[:-1])
@@ -88,6 +98,10 @@ def quimb_to_qiskit_circuit(quimb_circuit: Circuit):
 def qiskit_to_quimb_circuit(qiskit_circuit: QuantumCircuit):
     circ_qasm = qiskit_circuit.qasm()
     circ_qasm_no_u = circ_qasm.replace("\nu(", "\nu3(")
+    return Circuit.from_openqasm2_str(circ_qasm_no_u)
+
+def qasm_to_quimb_circuit(qasm):
+    circ_qasm_no_u = qasm.replace("\nu(", "\nu3(")
     return Circuit.from_openqasm2_str(circ_qasm_no_u)
 
 def refresh_circuit(circuit: Circuit):
