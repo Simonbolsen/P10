@@ -689,6 +689,38 @@ def find_and_split_subgraphs_in_tn(tn: TensorNetwork, draw=False) -> ig.Graph:
 
     return sub_tns
 
+
+"""
+
+"""
+def cpp_variable_ordering(tn, qubits):
+    import re
+
+    qubit_lists = []
+    for i in range(qubits):
+        qb_list = list(tn.tag_map[f"I{i}"])
+        pair_list = []
+        for ent in qb_list:
+            tensor = tn.tensor_map[ent]
+            str_pair = tensor.inds
+            if len(str_pair) > 2:
+                is_first = any([bool(re.match(r"I\d+$", elem)) for elem in list(tensor.tags)[list(tensor.tags).index(f"I{i}")+1:]])
+                str_pair = str_pair[:2] if is_first else str_pair[2:]
+            pair_list.append(str_pair)
+
+        first_pair = pair_list.pop([any([re.match(r"k\d+$", e) for e in val]) for val in pair_list].index(True))
+        ordered_pairs = [first_pair[1]]
+        current_target = first_pair[0]
+        for _ in range(len(pair_list)):
+            current_pair = pair_list.pop([current_target in val for val in pair_list].index(True))
+            ordered_pairs.append(current_pair[1])
+            current_target = current_pair[0]
+        ordered_pairs.append(current_target)
+        #ordered_pairs.reverse()
+        qubit_lists.extend(ordered_pairs)
+    qubit_lists.reverse()
+    return qubit_lists
+
 if __name__ == "__main__":
     
     settings = {

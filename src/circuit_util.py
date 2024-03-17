@@ -44,16 +44,26 @@ class UToU3Translator(TransformationPass):
         return False
 
 def get_simple_circuit():
-    circ = QuantumCircuit(1)
-    circ.s(0)
-    circ.h(0)
+    circ = QuantumCircuit(2)
+    circ.cx(0, 1)
+    circ.rz(-1.5707963267948966, 0)
+    return circ
+
+def get_other_simple_circuit():
+    circ = QuantumCircuit(2)
+    circ.cx(0, 1)
+    circ.rz(-1.5707963267948966, 1)
     return circ
 
 def get_simple_equiv_circuit():
     circ1 = QuantumCircuit(2)
+    circ1.h(0)
+    circ1.h(1)
     circ1.cx(0, 1)
 
     circ2 = QuantumCircuit(2)
+    circ2.h(0)
+    circ2.h(1)
     circ2.cx(0, 1)
     
     return circ1.compose(circ2.inverse())
@@ -89,15 +99,18 @@ def quimb_to_qiskit_circuit(quimb_circuit: Circuit):
         qubit_list = [f'q[{q}]' for q in list(qubits)]
         qubit_str = ','.join(qubit_list) + ';'
         return qubit_str
+    
+    def handle_params(params):
+        return f"({','.join([str(i) for i in params])})" if len(params) > 0 else ''
 
     out_str = f'OPENQASM 2.0;\ninclude "qelib1.inc";\nqreg q[{quimb_circuit.N}];\n'
-    gate_strs = [f"{g.label.lower()}{g.params if len(g.params) > 0 else ''} {qubit_str(g.qubits)}" for g in quimb_circuit.gates]
+    gate_strs = [f"{g.label.lower().replace('iden', 'id')}{handle_params(g.params)} {qubit_str(g.qubits)}" for g in quimb_circuit.gates]
     res = out_str + '\n'.join(gate_strs)
     return res
 
 def qiskit_to_quimb_circuit(qiskit_circuit: QuantumCircuit):
     circ_qasm = qiskit_circuit.qasm()
-    circ_qasm_no_u = circ_qasm.replace("\nu(", "\nu3(")
+    circ_qasm_no_u = circ_qasm.replace("\nu(", "\nu3(").replace("\nid ", "\niden ")
     return Circuit.from_openqasm2_str(circ_qasm_no_u)
 
 def qasm_to_quimb_circuit(qasm):

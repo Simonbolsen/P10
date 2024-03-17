@@ -20,6 +20,7 @@ from itertools import combinations
 from mqt.qcec import verify
 from copy import deepcopy
 from graph_nn import EdgePredictionGNN
+from cpp_handler import CPPHandler
 
 import sys
 sys.setrecursionlimit(2000)
@@ -225,6 +226,10 @@ def get_all_configs(settings):
 
 debug=False
 def first_experiment(iter_settings, settings, contraction_settings, path_settings, folder_name="garbage", folder_with_time=True):
+    if [settings["use_cpp_only"]]:
+        cpp = CPPHandler()
+
+    
     # Prepare save folder and file paths
     experiment_name = f"{folder_name}_{datetime.today().strftime('%Y-%m-%d_%H-%M') if folder_with_time else ''}"
     folder_path = os.path.join("experiments", experiment_name)
@@ -305,6 +310,28 @@ def first_experiment(iter_settings, settings, contraction_settings, path_setting
             tnu.slice_tensor_network_vertically(tensor_network)
         data["tn_construnction_time"] = int((time.time_ns() - starting_time) / 1000000)
         
+        if data["settings"]["use_cpp_only"]:
+            print("Running in CPP")
+            cpp.res_name = data_file_name = f"datapoint_{circ_conf['algorithm']}_{'sim' if settings['simulate'] else 'equiv'}_{circ_conf['qubits']}_r{circ_conf['repetition']+prev_rep}"
+            print("Find contraction path...")
+            starting_time = time.time_ns()
+            path = tnu.get_contraction_path(tensor_network, circuit, data)
+            data["path_construction_time"] = int((time.time_ns() - starting_time) / 1000000)
+
+            res = cpp.fast_contraction(circuit, tensor_network, path)
+            data["equivalence"] = res["equivalence"]
+            data["cpp_time"] = res["cont_time"]
+            print(f"CPP says: {data['equivalence']}")
+
+            # data["circuit_data"]["circuit_1_qasm"] = data["circuit_data"]["circuit_1_qasm"].qasm()
+            # data["circuit_data"]["circuit_2_qasm"] = data["circuit_data"]["circuit_2_qasm"].qasm()
+
+            print("Saving data...")
+            file_path = os.path.join(working_path, data["file_name"] + ".json")
+            with open(file_path, "w") as file:
+                json.dump(data, file, indent=4)
+            continue
+
         #tensor_network.draw(color=['PSI0', 'H', 'CX', 'RZ', 'RX', 'CZ'])
         print(f"Number of tensors: {len(tensor_network.tensor_map)}")
 
@@ -559,21 +586,22 @@ if __name__ == "__main__":
             }
 
     iter_settings = {
-        "algorithms": ["su2random"],#["dj", "graphstate"],#["qftentangled", "su2random", "twolocalrandom", "qpeexact", "wstate", "realamprandom"],#,#, "ghz", "graphstate", "qftentangled"],
+        "algorithms": ["random"],#["dj", "graphstate"],#["qftentangled", "su2random", "twolocalrandom", "qpeexact", "wstate", "realamprandom"],#,#, "ghz", "graphstate", "qftentangled"],
         "levels": [(0, 2)],
-        "qubits": [10],#list(range(5,155,1)),#list(range(4,100,1)),#[64, 128, 256],#list(range(256,257,1)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
+        "qubits": list(range(5,30,1)),#list(range(5,155,1)),#list(range(4,100,1)),#[64, 128, 256],#list(range(256,257,1)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
         "random_gate_dels_range": [0],
-        "repetitions": 1
+        "repetitions": 100
     }
 
     settings = {
         "simulate": False,
         "sliced": False,
-        "cnot_split": True,
-        "use_subnets": True,
+        "cnot_split": False,
+        "use_subnets": False,
         "find_counter": False,
-        "use_qcec_only": False
+        "use_qcec_only": False,
+        "use_cpp_only": True
     }
 
     first_experiment(iter_settings=iter_settings, settings=settings, contraction_settings=contraction_settings, path_settings=path_settings,
-                     folder_name="possible_bug_actual")
+                     folder_name="predict_data_gen_cpp")
