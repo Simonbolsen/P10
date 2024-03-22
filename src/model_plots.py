@@ -11,6 +11,8 @@ class Variables(Enum):
     HIDDEN_SIZE = "Hidden Layer Size s"
     BATCH_SIZE = "Batch Size"
     WEIGHT_DECAY = "Weight Decay"
+    LOSS = "Loss"
+    EPOCHS = "Epoch num"
 
 
 def avg_last(l, num):
@@ -20,27 +22,35 @@ def avg(l):
     return sum(l)/len(l)
 
 if __name__ == "__main__":
-    data = fu.load_all_json("experiment_data/tdd_two_handed_1")
+    data = fu.load_all_json("experiment_data/tdd_lr_decay")
 
     keys = {Variables.LEARNING_RATE: "lr", Variables.DEPTH:"depth", Variables.DROPOUT_PROBABILITY:"dropout_probability", 
             Variables.HIDDEN_SIZE:"hidden_size", Variables.BATCH_SIZE:"batch_size", Variables.WEIGHT_DECAY: "weight_decay"}
-    x_axis = Variables.DEPTH
-    y_axis = Variables.LEARNING_RATE
+    x_axis = Variables.LEARNING_RATE
+    y_axis = Variables.DEPTH
+    z_axis = Variables.LOSS
 
-    log10_variables = [Variables.LEARNING_RATE, Variables.WEIGHT_DECAY]
+    use_axies = 1
+
+    log10_variables = [Variables.WEIGHT_DECAY]
     log2_variables = [Variables.HIDDEN_SIZE, Variables.BATCH_SIZE]
 
     x = [d[keys[x_axis]] for d in data]
     x = sorted(list(set(x)))
 
     y = [d[keys[y_axis]] for d in data]
-    y = sorted(list(set(y)))[1:]
+    y = sorted(list(set(y)))
 
-    #d1_data = [[avg([min(d["val_loss"]) for d in data if d[keys[x_axis]] == xv]) for xv in x]]
-
-
-
-    grouped_data = [[[avg([min(d["val_loss"]) for d in data if d[keys[x_axis]] == xv and d[keys[y_axis]] == yv]) for yv in y] for xv in x]]
+    if use_axies == 1:
+        if z_axis == Variables.LOSS:
+            d1_data = [[avg([min(d["val_loss"]) for d in data if d[keys[x_axis]] == xv]) for xv in x]]
+        elif z_axis == Variables.EPOCHS:
+            d1_data = [[avg([len(d["val_loss"]) for d in data if d[keys[x_axis]] == xv]) for xv in x]]
+    else:
+        if z_axis == Variables.LOSS:
+            grouped_data = [[[avg([min(d["val_loss"]) for d in data if d[keys[x_axis]] == xv and d[keys[y_axis]] == yv]) for yv in y] for xv in x]]
+        elif z_axis == Variables.EPOCHS:
+            grouped_data = [[[avg([len(d["val_loss"]) for d in data if d[keys[x_axis]] == xv and d[keys[y_axis]] == yv]) for yv in y] for xv in x]]
 
     if x_axis in log10_variables:
         x = [math.log10(v) for v in x]
@@ -52,9 +62,12 @@ if __name__ == "__main__":
     elif  y_axis in log2_variables:
         y = [math.log2(v) for v in y]
 
-    #pu.plot_line_series_2d([x], d1_data, ["val loss"], x_label=x_axis.value, y_label="Loss", legend= True)
+    label = ["Epoch num" if z_axis == Variables.EPOCHS else "Val loss"]
 
-    pu.plotSurface(grouped_data, "Loss", x, x_axis.value, y, y_axis.value, 1, ["Val Loss"])
+    if use_axies == 1:
+        pu.plot_line_series_2d([x], d1_data, label, x_label=x_axis.value, y_label=z_axis.value, legend= True)
+    else:
+        pu.plotSurface(grouped_data, z_axis.value, x, x_axis.value, y, y_axis.value, 1, label)
 
     #print(grouped_data)
 #
