@@ -31,6 +31,9 @@ def get_elapsed_time(start_time, end_time):
     t = end_time - start_time
     return f"{int(t.seconds / 60)}m {((t.seconds + t.microseconds / 1000000) % 60):.3f}s"
 
+def get_single_value_tensor(v):
+    return torch.tensor([v], dtype=torch.float, device= device) 
+
 def get_tensors(tensor_network):
     tensors = {}
     index_sets = {}
@@ -46,7 +49,7 @@ def get_tensors(tensor_network):
                 size += GATE_SIZES[t]
 
         size = math.log2(size) if size > 0 else len(tensor.inds)
-        tensors[tid] = torch.tensor([size, len(tensor.inds)] + g, dtype=torch.float)
+        tensors[tid] = torch.tensor([size, len(tensor.inds)] + g, dtype=torch.float, device=device)
 
         index_sets[tid] = set()
     
@@ -170,12 +173,14 @@ def train_model(data, training_data, validation_data, model = None):
  
     return model, best_model_state
 
+
 def load_model(path):
-    saved_dict = torch.load(path)
-    model = TDDPredicter(64, int(len([0 for i in saved_dict.keys() if "linear_layers" in i])/2), 0.008)
-    model.load_state_dict(saved_dict)
-    model.eval()
-    return model
+    return torch.load(path)
+    #saved_dict = torch.load(path)
+    #model = TDDPredicter(64, int(len([0 for i in saved_dict.keys() if "linear_layers" in i])/2), 0.008)
+    #model.load_state_dict(saved_dict)
+    #model.eval()
+    #return model
 
 def torchify(data):
     torched = []

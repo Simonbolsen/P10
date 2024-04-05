@@ -17,6 +17,8 @@ import graph_nn as gnn
 import tdd_nn as tnn
 from torch_geometric.utils.convert import from_networkx
 from graph_util import to_nx_graph, tag_tn
+import tree_search as ts
+import torch
 
 all_viable_cotengra_methods = [
     "random-greedy",
@@ -454,9 +456,9 @@ def get_tdd_path(tensor_network, data):
     if (not os.path.isfile(model_path)):
         print(f"Could not find model: {model_path}")
     
-    model = tnn.load_model(model_path)
+    model =  tnn.load_model(model_path) #torch.load(model_path)
 
-    return tnn.get_path(model, tensor_network, data = data)
+    return ts.get_path(model, tensor_network, data = data)
 
 def get_nn_path(tn: TensorNetwork, circuit, data):
     settings = data["path_settings"]

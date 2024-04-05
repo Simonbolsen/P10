@@ -1,9 +1,11 @@
 import math
 import time
 import torch
-import tqdm
+from tqdm import tqdm
 from random import random
+from tdd_nn import get_single_value_tensor
 from tdd_nn import get_tensors
+from tdd_nn import call_model
 
 def get_edges(index_sets, tensor_network):
     edges = {}
@@ -43,8 +45,8 @@ def get_path(model, tensor_network, print_sizes = False, data = None, normalized
         prediction_times -= time.time()
 
         for e in new_edges:
-            input = {"left_values":tensors[e[0]], "right_values": tensors[e[1]], "shared_values": torch.tensor([edges[e]], dtype=torch.float)}
-            edge_predictions[e] = (model(input).item(), input["left_values"][1] + input["right_values"] - edges[e] * 2)
+            input = {"left_values":tensors[e[0]], "right_values": tensors[e[1]], "shared_values": get_single_value_tensor(edges[e])}
+            edge_predictions[e] = (call_model(model, input).item(), input["left_values"][1].item() + input["right_values"][1].item() - edges[e] * 2)
 
         prediction_times += time.time()
 
@@ -64,7 +66,7 @@ def get_path(model, tensor_network, print_sizes = False, data = None, normalized
 
         tensor = tensors.pop(step[0])
         tensor = tensors[step[1]] + tensor
-        tensor[0] = prediction[1][0]
+        tensor[0] = prediction[0]
         tensor[1] -= i * 2
         tensors[step[1]] = tensor
 
@@ -173,8 +175,8 @@ def sample_path(model, tensor_network, tree, weight_func, path_bound, sample_num
     while len(edges) > 0:
 
         for e in new_edges:
-            input = {"left_values":tensors[e[0]], "right_values": tensors[e[1]], "shared_values": torch.tensor([edges[e]], dtype=torch.float)}
-            edge_predictions[e] = (model(input).item(), input["left_values"][1] + input["right_values"] - edges[e] * 2)
+            input = {"left_values":tensors[e[0]], "right_values": tensors[e[1]], "shared_values": get_single_value_tensor(edges[e])}
+            edge_predictions[e] = (call_model(model, input).item(), input["left_values"][1].item() + input["right_values"][1].item() - edges[e] * 2)
 
         step, prediction = choose_step(weight_func, edge_predictions, tree_node, path_bound, sample_num)
 

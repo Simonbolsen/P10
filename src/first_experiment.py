@@ -21,6 +21,7 @@ from mqt.qcec import verify
 from copy import deepcopy
 from graph_nn import EdgePredictionGNN
 from cpp_handler import CPPHandler
+from tdd_nn import TDDPredicter
 
 import sys
 sys.setrecursionlimit(2000)
@@ -575,7 +576,7 @@ if __name__ == "__main__":
 
     path_settings = {
                 "method": "tdd_model",
-                "model_name":"model_4",
+                "model_name":"model_V_c",
                 "opt_method": "all", #  kahypar-balanced, kahypar-agglom, labels, labels-agglom
                 "minimize": "flops",
                 "max_repeats": 100,
@@ -586,11 +587,11 @@ if __name__ == "__main__":
             }
 
     iter_settings = {
-        "algorithms": ["random"],#["dj", "graphstate"],#["qftentangled", "su2random", "twolocalrandom", "qpeexact", "wstate", "realamprandom"],#,#, "ghz", "graphstate", "qftentangled"],
+        "algorithms": ["dj"],#["dj", "graphstate"],#["qftentangled", "su2random", "twolocalrandom", "qpeexact", "wstate", "realamprandom"],#,#, "ghz", "graphstate", "qftentangled"],
         "levels": [(0, 2)],
-        "qubits": list(range(5,30,1)),#list(range(5,155,1)),#list(range(4,100,1)),#[64, 128, 256],#list(range(256,257,1)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
+        "qubits": list(range(5,30,2)),#list(range(5,155,1)),#list(range(4,100,1)),#[64, 128, 256],#list(range(256,257,1)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
         "random_gate_dels_range": [0],
-        "repetitions": 100
+        "repetitions": 1
     }
 
     settings = {
