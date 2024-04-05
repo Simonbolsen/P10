@@ -697,15 +697,24 @@ def cpp_variable_ordering(tn, qubits):
     import re
 
     qubit_lists = []
+    in_between_lists = {i:[] for i in range(qubits-1)}
     for i in range(qubits):
         qb_list = list(tn.tag_map[f"I{i}"])
         pair_list = []
         for ent in qb_list:
             tensor = tn.tensor_map[ent]
             str_pair = tensor.inds
-            if len(str_pair) > 2:
+            if len(str_pair) == 4:
                 is_first = any([bool(re.match(r"I\d+$", elem)) for elem in list(tensor.tags)[list(tensor.tags).index(f"I{i}")+1:]])
                 str_pair = str_pair[:2] if is_first else str_pair[2:]
+            elif len(str_pair) == 3:
+                gate_tag = [tag for tag in tensor.tags if re.match(r"GATE_\d+$", tag)][0]
+                other_tensor = tn.tensor_map[[v for v in list(tn.tag_map[gate_tag]) if v != ent][0]]
+                common_idx = list(set(tensor.inds) & set(other_tensor.inds))[0]
+                str_pair = tuple([ind for ind in tensor.inds if ind != common_idx])
+                if list(tensor.inds).index(common_idx) > list(other_tensor.inds).index(common_idx):
+                    in_btw_qubit = max(int([tag for tag in tensor.tags if re.match(r"I\d+$", tag)][0][1:]), int([tag for tag in other_tensor.tags if re.match(r"I\d+$", tag)][0][1:]))
+                    in_between_lists[in_btw_qubit-1].append(common_idx)
             pair_list.append(str_pair)
 
         first_pair = pair_list.pop([any([re.match(r"k\d+$", e) for e in val]) for val in pair_list].index(True))
@@ -717,9 +726,17 @@ def cpp_variable_ordering(tn, qubits):
             current_target = current_pair[0]
         ordered_pairs.append(current_target)
         #ordered_pairs.reverse()
-        qubit_lists.extend(ordered_pairs)
-    qubit_lists.reverse()
-    return qubit_lists
+        qubit_lists.append(ordered_pairs)
+
+    res_list = []
+    for i in range(qubits):
+        if i != 0:
+            res_list.extend(in_between_lists[i-1])
+        res_list.extend(qubit_lists[i])
+        
+    
+    res_list.reverse()
+    return res_list
 
 if __name__ == "__main__":
     

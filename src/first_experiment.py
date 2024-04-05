@@ -237,7 +237,7 @@ def first_experiment(iter_settings, settings, contraction_settings, path_setting
         os.makedirs(folder_path, exist_ok=True)
     
     # Experiment settings     
-    prev_rep = 0
+    prev_rep = 2311
     circuit_configs = get_all_configs(iter_settings)
     settings = settings | iter_settings
 
@@ -248,7 +248,7 @@ def first_experiment(iter_settings, settings, contraction_settings, path_setting
             "version": 2,
             "experiment_name": experiment_name,
             "expect_equivalence": circ_conf['random_gate_deletions'] == 0,
-            "file_name": f"circuit_{circ_conf['algorithm']}_{circ_conf['level'][0]}{circ_conf['level'][1]}_{circ_conf['qubits']}_d{circ_conf['random_gate_deletions']}_r{circ_conf['repetition']+prev_rep}",
+            "file_name": f"circuit_{circ_conf['algorithm']}_{'cpp' if settings['use_cpp_only'] else 'py'}_{circ_conf['level'][0]}{circ_conf['level'][1]}_{circ_conf['qubits']}_d{circ_conf['random_gate_deletions']}_r{circ_conf['repetition']+prev_rep}",
             "settings": settings,
             "contraction_settings": contraction_settings,
             "circuit_settings": circ_conf,
@@ -282,7 +282,14 @@ def first_experiment(iter_settings, settings, contraction_settings, path_setting
         print("Preparing circuits...")
         #circuit = bu.get_circuit_setup_quimb(bu.get_benchmark_circuit(circ_conf), draw=False)
         starting_time = time.time_ns()
-        circuit = bu.get_dual_circuit_setup_quimb(data, draw=False) if data["circuit_settings"]["algorithm"] != "random" else bu.get_gauss_random_circuit(data["circuit_settings"]["qubits"])
+        if data["circuit_settings"]["algorithm"] == "random":
+            circuit = bu.get_gauss_random_circuit(data["circuit_settings"]["qubits"])
+        elif data["circuit_settings"]["algorithm"] == "random_eqv":
+            circuit = bu.get_dual_circuit_setup_from_random_circuits(data, draw=False)
+        else:
+            circuit = bu.get_dual_circuit_setup_quimb(data, draw=False) 
+
+
         data["circuit_setup_time"] = int((time.time_ns() - starting_time) / 1000000)
 
         if data["settings"]["use_qcec_only"]:
@@ -309,28 +316,6 @@ def first_experiment(iter_settings, settings, contraction_settings, path_setting
         if settings["sliced"]:
             tnu.slice_tensor_network_vertically(tensor_network)
         data["tn_construnction_time"] = int((time.time_ns() - starting_time) / 1000000)
-        
-        if data["settings"]["use_cpp_only"]:
-            print("Running in CPP")
-            cpp.res_name = data_file_name = f"datapoint_{circ_conf['algorithm']}_{'sim' if settings['simulate'] else 'equiv'}_{circ_conf['qubits']}_r{circ_conf['repetition']+prev_rep}"
-            print("Find contraction path...")
-            starting_time = time.time_ns()
-            path = tnu.get_contraction_path(tensor_network, circuit, data)
-            data["path_construction_time"] = int((time.time_ns() - starting_time) / 1000000)
-
-            res = cpp.fast_contraction(circuit, tensor_network, path)
-            data["equivalence"] = res["equivalence"]
-            data["cpp_time"] = res["cont_time"]
-            print(f"CPP says: {data['equivalence']}")
-
-            # data["circuit_data"]["circuit_1_qasm"] = data["circuit_data"]["circuit_1_qasm"].qasm()
-            # data["circuit_data"]["circuit_2_qasm"] = data["circuit_data"]["circuit_2_qasm"].qasm()
-
-            print("Saving data...")
-            file_path = os.path.join(working_path, data["file_name"] + ".json")
-            with open(file_path, "w") as file:
-                json.dump(data, file, indent=4)
-            continue
 
         #tensor_network.draw(color=['PSI0', 'H', 'CX', 'RZ', 'RX', 'CZ'])
         print(f"Number of tensors: {len(tensor_network.tensor_map)}")
@@ -372,6 +357,7 @@ def first_experiment(iter_settings, settings, contraction_settings, path_setting
 
             resulting_sub_tdds = []
             data_containers = [deepcopy(data) for _ in sub_tensor_networks]
+            total_path_length = len(sub_tensor_networks)
             for i, stn in enumerate(sub_tensor_networks):
                 data = data_containers[i]
 
@@ -380,35 +366,83 @@ def first_experiment(iter_settings, settings, contraction_settings, path_setting
                 starting_time = time.time_ns()
                 path = tnu.get_contraction_path(stn, circuit, data)
                 data["path_construction_time"] = int((time.time_ns() - starting_time) / 1000000)
-
+                total_path_length += len(path)
                 #tn_draw.draw_tn(tensor_network, color=['PSI0', 'H', 'CX', 'RZ', 'RX', 'CZ'], save_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
                 #tnu.draw_contraction_order(tensor_network, path, save_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
 
-                # Prepare gate TDDs
-                print("Preparing gate TDDs...")
-                starting_time = time.time_ns()
-                gate_tdds = tddu.get_tdds_from_quimb_tensor_network(stn, with_input=settings["simulate"])
-                data["gate_prep_time"] = int((time.time_ns() - starting_time) / 1000000)
+                if data["settings"]["use_cpp_only"]:
+                    cpp.res_name = data_file_name = f"datapoint_{circ_conf['algorithm']}_{'sim' if settings['simulate'] else 'equiv'}_{circ_conf['qubits']}_r{circ_conf['repetition']+prev_rep}_stn{i}"
+                    #cpp.show_result()
+                    res = cpp.fast_contraction(circuit, tensor_network, path, length_indifferent=len(sub_tensor_networks)>1)
+                    if not res["equivalence"]:
+                        data["contraction_time"] = res["cont_time"]
+                        data["equivalence"] = res["equivalence"]
+                        data["conclusive"] = True
+                        data["gate_prep_time"] = 0
+                        for j in range(i, len(sub_tensor_networks)):
+                            data_containers[j] = data
+                        break
+                        success = []
+                        for z in range(1):
+                            res = cpp.fast_contraction(circuit, stn, path, length_indifferent=len(sub_tensor_networks)>1)
+                            success.append(res["equivalence"])
+                        print(f"CPP success: {success}")
 
-                #tddu.draw_all_tdds(gate_tdds, folder=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
-                
+                    data["contraction_time"] = res["cont_time"]
+                    data["equivalence"] = res["equivalence"]
+                    data["conclusive"] = True
+                    data["gate_prep_time"] = 0
 
-                # Contract TDDs + equivalence checking
-                print(f"Contracting {len(path)} times...")
-                starting_time = time.time_ns()
-                #result_tdd = contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"], save_intermediate_results=True, comprehensive_saving=True, folder_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
-                if "size_predictions" in data["path_data"]:
-                    print(data["path_data"]["size_predictions"][-5:])
-                #result_tdd = fast_contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"])
-                result_tdd = contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"], save_intermediate_results=True, comprehensive_saving=True)
-                data["contraction_time"] = int((time.time_ns() - starting_time) / 1000000)
+                else:
+                    # Prepare gate TDDs
+                    print("Preparing gate TDDs...")
+                    starting_time = time.time_ns()
+                    gate_tdds = tddu.get_tdds_from_quimb_tensor_network(stn, with_input=settings["simulate"])
+                    data["gate_prep_time"] = int((time.time_ns() - starting_time) / 1000000)
+
+                    #tddu.draw_all_tdds(gate_tdds, folder=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
+                    
+
+                    # Contract TDDs + equivalence checking
+                    print(f"Contracting {len(path)} times...")
+                    starting_time = time.time_ns()
+                    #result_tdd = contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"], save_intermediate_results=True, comprehensive_saving=True, folder_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
+                    if "size_predictions" in data["path_data"]:
+                        print(data["path_data"]["size_predictions"][-5:])
+                    result_tdd = fast_contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"])
+                    #result_tdd = contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"], save_intermediate_results=True, comprehensive_saving=True)
+                    data["contraction_time"] = int((time.time_ns() - starting_time) / 1000000)
 
                 data_containers[i] = data
 
-                if len(sub_tensor_networks) > 1:
+                if len(sub_tensor_networks) > 1 and not settings["use_cpp_only"]:
                     resulting_sub_tdds.append(result_tdd)
 
+            if len(tensor_network.tensor_map) != total_path_length:
+                print('\033[31m' + f"Total path length: {total_path_length}" + '\033[m')
+
             if any([data_containers[i]["failed"] for i in range(len(data_containers))]):
+                total_path = [item for i in range(len(data_containers)) for item in data_containers[i]["path"]]
+                dataset_folder_path = os.path.join("debugging")
+                if not os.path.exists(dataset_folder_path):
+                    os.makedirs(dataset_folder_path, exist_ok=True)
+                data_file_name = f"error_{circ_conf['algorithm']}_{'sim' if settings['simulate'] else 'equiv'}_{circ_conf['qubits']}_r{circ_conf['repetition']+prev_rep}"
+                dataset_file_path = os.path.join(dataset_folder_path, data_file_name + ".json")
+                data_obj = {
+                    "name": data_file_name,
+                    "date": datetime.today().isoformat(),
+                    "version": 2,
+                    "experiment_name": experiment_name,
+                    "settings": settings,
+                    "contraction_settings": contraction_settings,
+                    "circuit_settings": circ_conf,
+                    "path_settings": path_settings,
+                    "path": total_path,
+                    "circuit": circuit,
+                    "sub_tn_success": [data_containers[i]["failed"] for i in range(len(data_containers))]
+                }
+                with open(dataset_file_path, "w") as file:
+                    json.dump(data_obj, file, indent=4) 
                 continue
             
             if data["make_dataset"]:
@@ -434,9 +468,9 @@ def first_experiment(iter_settings, settings, contraction_settings, path_setting
                     "path_settings": path_settings,
                 }
                 with open(dataset_file_path, "w") as file:
-                    json.dump(all_contractions, file, indent=4)          
+                    json.dump(data_obj, file, indent=4)          
 
-            if len(sub_tensor_networks) > 1 and settings["simulate"]:
+            if len(sub_tensor_networks) > 1 and settings["simulate"] and not settings["use_cpp_only"]:
                 for sub_tdd in resulting_sub_tdds[1:]:
                     resulting_sub_tdds[0] = cont(resulting_sub_tdds[0], sub_tdd)
 
@@ -450,9 +484,19 @@ def first_experiment(iter_settings, settings, contraction_settings, path_setting
 
             if (data["expect_equivalence"] != data["equivalence"]):
                 print('\033[31m' + "Erroneous result: Expected != TDD" + '\033[m')
+                dataset_folder_path = os.path.join("debugging")
+                if not os.path.exists(dataset_folder_path):
+                    os.makedirs(dataset_folder_path, exist_ok=True)
+                data_file_name = f"error_{circ_conf['algorithm']}_{'sim' if settings['simulate'] else 'equiv'}_{circ_conf['qubits']}_r{circ_conf['repetition']+prev_rep}"
+                dataset_file_path = os.path.join(dataset_folder_path, data_file_name + ".json")
+                
+                #data["sub_tn_success"] = [data_containers[i]["failed"] for i in range(len(data_containers))]
+                data["circuit_data"]["quimb_circuit"] = cu.quimb_to_qiskit_circuit(circuit)
+                with open(dataset_file_path, "w") as file:
+                    json.dump(data, file, indent=4) 
                 continue
 
-            if not data["equivalence"] and settings["find_counter"]:
+            if not data["equivalence"] and settings["find_counter"] and not settings["use_cpp_only"]:
                 result_tdd.show(name="final_tdd")
                 inds = [v.name for v in result_tdd.index_set]
                 trace = tddu.get_counter_example_trace(result_tdd, inds, len(inds)-1)
@@ -469,7 +513,7 @@ def first_experiment(iter_settings, settings, contraction_settings, path_setting
                     json.dump(data, file, indent=4)
 
             #result_tdd.show(name=os.path.join(working_path, data["file_name"] + f"_R{attempts}" + "_TDD"))
-            if result_tdd is not None:
+            if data["equivalence"] or (not settings["use_cpp_only"] and result_tdd is not None):
                 succeeded = True
             else:
                 print(f"Retry #{attempts+1}")
@@ -557,7 +601,8 @@ def combinate_data_containers(containers: list[dict]) -> list[dict]:
     
     final_container["equivalence"] = all([containers[i]["equivalence"] for i in range(len(containers))])
     final_container["conclusive"] = all([containers[i]["conclusive"] for i in range(len(containers))])
-    final_container["sizes"] = dict([item for i in range(len(containers)) for item in containers[i]["sizes"].items()])
+    if "sizes" in final_container:
+        final_container["sizes"] = dict([item for i in range(len(containers)) for item in containers[i]["sizes"].items()])
 
     if "state" in final_container["settings"]:
         final_container["settings"]["state"] = str(final_container["settings"]["state"])
@@ -578,30 +623,30 @@ if __name__ == "__main__":
                 "model_name":"model_8",
                 "opt_method": "random-greedy", #  kahypar-balanced, kahypar-agglom, labels, labels-agglom
                 "minimize": "flops",
-                "max_repeats": 100,
-                "max_time": 200,
+                "max_repeats": 50,
+                "max_time": 60,
                 "use_proportional": True,
                 "gridded": False,
                 "linear_fraction": 0,
             }
 
     iter_settings = {
-        "algorithms": ["random"],#["dj", "graphstate"],#["qftentangled", "su2random", "twolocalrandom", "qpeexact", "wstate", "realamprandom"],#,#, "ghz", "graphstate", "qftentangled"],
+        "algorithms": ["random_eqv"],#["qftentangled", "su2random", "twolocalrandom", "qpeexact", "wstate", "realamprandom"],#,#, "ghz", "graphstate", "qftentangled"],
         "levels": [(0, 2)],
-        "qubits": list(range(5,30,1)),#list(range(5,155,1)),#list(range(4,100,1)),#[64, 128, 256],#list(range(256,257,1)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
+        "qubits": [9],#list(range(5,250,1)),#list(range(5,155,1)),#list(range(4,100,1)),#[64, 128, 256],#list(range(256,257,1)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
         "random_gate_dels_range": [0],
-        "repetitions": 100
+        "repetitions": 8000
     }
 
     settings = {
         "simulate": False,
         "sliced": False,
         "cnot_split": False,
-        "use_subnets": False,
+        "use_subnets": True,
         "find_counter": False,
         "use_qcec_only": False,
         "use_cpp_only": True
     }
 
     first_experiment(iter_settings=iter_settings, settings=settings, contraction_settings=contraction_settings, path_settings=path_settings,
-                     folder_name="predict_data_gen_cpp")
+                     folder_name="data_gen_q9", folder_with_time=False)
