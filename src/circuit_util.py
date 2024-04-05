@@ -19,7 +19,7 @@ all_quimb_gates = ['h', 'x', 'y', 'z', 's', 't', 'cx', 'cnot', 'cy', 'cz', 'rz',
 
 one_qubit_quimb_gates = ['h', 'x', 'y', 'z', 's', 't', 'rz', 'rx', 'ry']
 #one_qubit_quimb_gates = ['h', 'x', 'ry']
-two_qubit_quimb_gates = ['cx', 'cnot', 'cy', 'cz']
+two_qubit_quimb_gates = ['cx', 'cy', 'cz']
 #two_qubit_quimb_gates = ['cx']
 
 class UToU3Translator(TransformationPass):
@@ -46,7 +46,12 @@ class UToU3Translator(TransformationPass):
 def get_simple_circuit():
     circ = QuantumCircuit(2)
     circ.cx(0, 1)
-    circ.rz(-1.5707963267948966, 0)
+    circ.h(1)
+    circ.cx(0, 1)
+    circ.cx(0, 1)
+    circ.h(0)
+    circ.h(1)
+    #circ.rz(-1.5707963267948966, 0)
     return circ
 
 def get_other_simple_circuit():
@@ -94,19 +99,24 @@ def get_qiskit_example_circuit() -> QuantumCircuit:
     circ.cx(1, 2)
     return circ
 
-def quimb_to_qiskit_circuit(quimb_circuit: Circuit):
+def handle_gate_str(gate):
     def qubit_str(qubits):
         qubit_list = [f'q[{q}]' for q in list(qubits)]
         qubit_str = ','.join(qubit_list) + ';'
         return qubit_str
-    
     def handle_params(params):
         return f"({','.join([str(i) for i in params])})" if len(params) > 0 else ''
+    
+    return f"{gate.label.lower().replace('iden', 'id')}{handle_params(gate.params)} {qubit_str(gate.qubits)}"
 
-    out_str = f'OPENQASM 2.0;\ninclude "qelib1.inc";\nqreg q[{quimb_circuit.N}];\n'
-    gate_strs = [f"{g.label.lower().replace('iden', 'id')}{handle_params(g.params)} {qubit_str(g.qubits)}" for g in quimb_circuit.gates]
+def get_qasm_header(qubits):
+    return f'OPENQASM 2.0;\ninclude "qelib1.inc";\nqreg q[{qubits}];\n'
+
+def quimb_to_qiskit_circuit(quimb_circuit: Circuit, as_obj: bool = False, gate_prefixes = None):
+    out_str = get_qasm_header(quimb_circuit.N)
+    gate_strs = [f"{'' if gate_prefixes is None else gate_prefixes[i] + ' '}{handle_gate_str(g)}" for i, g in enumerate(quimb_circuit.gates)]
     res = out_str + '\n'.join(gate_strs)
-    return res
+    return res if not as_obj else QuantumCircuit.from_qasm_str(res)
 
 def qiskit_to_quimb_circuit(qiskit_circuit: QuantumCircuit):
     circ_qasm = qiskit_circuit.qasm()

@@ -129,7 +129,7 @@ def get_dual_circuit_setup_quimb(data, draw: bool = False, as_qiskit: bool= Fals
     assert circ_conf["algorithm"] is not None and circ_conf["level"] is not None and circ_conf["qubits"] is not None
     
     base_circ = get_rounded_circuit(get_benchmark(circ_conf["algorithm"], level=0, circuit_size=circ_conf["qubits"]), decimal_places=-1)
-    
+
     c1 = level_mapping[circ_conf["level"][0]](base_circ)
     c2 = level_mapping[circ_conf["level"][1]](base_circ)
     
@@ -308,6 +308,21 @@ def get_random_circuit(qubits, num_of_gates):
 def get_gauss_random_circuit(qubits):
     num_of_gates = min(max(qubits, floor(gauss(10*qubits, 2*qubits))), 20*qubits)
     return get_random_circuit(qubits, num_of_gates)
+
+def get_dual_circuit_setup_from_random_circuits(data, draw: bool = False, as_qiskit: bool = False) -> Circuit:
+    assert data["circuit_settings"] is not None
+    circ_conf = data["circuit_settings"]
+    
+    rnd_circuit = get_gauss_random_circuit(circ_conf["qubits"])
+    base_circ = get_rounded_circuit(cu.quimb_to_qiskit_circuit(rnd_circuit, as_obj=True), decimal_places=-1)
+    
+    c1 = level_mapping[circ_conf["level"][0]](base_circ)
+    c2 = level_mapping[circ_conf["level"][1]](base_circ)
+    
+    data["circuit_data"]["circuit_1_qasm"] = c1
+    data["circuit_data"]["circuit_2_qasm"] = c2
+
+    return get_dual_circuit_setup_quimb_from_circuits(c1, c2, data, draw, as_qiskit)
 
 def get_combined_circuit_example(algorithm='ghz', qubits=5):
     settings = {

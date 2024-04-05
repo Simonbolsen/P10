@@ -116,7 +116,7 @@ def save_to_json(folder, file_name, object):
 
 def load_json(file_path):
     os_path = os.path.join(os.path.realpath(__file__), '..', file_path)
-    with open(os_path, 'r') as json_file:
+    with open(get_path(os_path), 'r') as json_file:
         data = json_file.read()
     return json.loads(data)
 
