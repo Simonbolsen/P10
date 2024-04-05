@@ -70,21 +70,24 @@ def prepare_all_data(data, gate_indices):
                 p.append(prepare(d1, gate_indices))
     return p
 
-def process_data(path):
+def process_data(path, gate_indices):
     data = load_all_json(path)
-    data = prepare_all_data(data)
-    return remove_duplicates(data)
+    data = prepare_all_data(data, gate_indices)
+    return remove_duplicates(data), len(data)
 
-def process_all_data():
-    paths = ["dataset/TSP2/b1", "dataset/TSP2/b2", "dataset/TSP2/b3", "dataset/TSP2/b4", "dataset/TSP2/b5", "dataset/TSP2/b6", 
-             "dataset/TSP2/b7", "dataset/TSP2/b8", "dataset/TSP2/train", "dataset/TSP2/val"]
+def process_all_data(gate_indices, folder_num, mk):
     final_data = []
 
-    for p in paths:
-        final_data.extend(process_data(p))
+    sum = 0
+
+    for p in range(1,folder_num + 1):
+        print(f"Processing: b{p}")
+        data, original_num = process_data(f"dataset/TSP2/b{p}", gate_indices)
+        final_data.extend(data)
+        sum += original_num
         
     final_data = remove_duplicates(final_data)
-    print(len(final_data))
+    print(f"Original data: {sum}, Final data: {len(final_data)}")
 
     train = []
     val = []
@@ -97,8 +100,8 @@ def process_all_data():
 
     print(f"Train: {len(train)}, Val: {len(val)}")
 
-    save_to_json(f"dataset/TSP3", "train", train)
-    save_to_json(f"dataset/TSP3", "val", val)
+    save_to_json(f"dataset/TSP{mk}", "train", train)
+    save_to_json(f"dataset/TSP{mk}", "val", val)
 
 def get_path(folder) :
     return os.path.normpath(os.path.join(os.path.dirname(__file__), '..', folder))
@@ -117,8 +120,8 @@ def load_json(file_path):
         data = json_file.read()
     return json.loads(data)
 
-def load_all_json(folder):
-    return load_rec(get_path(folder), is_file_type(".json"), load_single_json)  
+def load_all_json(folder, func=lambda x:x):
+    return load_rec(get_path(folder), is_file_type(".json"), lambda x: func(load_single_json(x))) 
 
 def load_all_file_paths(folder):
     return load_rec(get_path(folder), is_file_type(".qasm"), lambda x:x)   
@@ -158,6 +161,15 @@ def save_model(model, folder, file_name):
     make_folder(path)
 
     torch.save(model, os.path.join(path, file_name + ".pt"))
+
+def save_jit_model(model, folder, file_name):
+    path = get_path(folder)
+    make_folder(path)
+
+    for param in model.parameters():
+        param.requires_grad = False
+
+    torch.jit.script(model).save(os.path.join(path, file_name + ".pt"))
 
 def load_model(path):
     torch.load(path)

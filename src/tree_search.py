@@ -3,31 +3,7 @@ import time
 import torch
 import tqdm
 from random import random
-
-GATE_INDICES = {'H': 0, 'CX': 1, 'CNOT':1, 'RZ': 2, 'RX': 3, 'U3': 4, 'RY': 5, 'S': 6, 'X': 7, 
-                        'CZ': 8, 'CY': 9, 'Y': 10, 'Z': 11, 'T': 12}
-GATE_SIZES = {'CX': 6, 'CZ': 6, 'RZ': 4, 'S': 4, 'H': 3, 'Y': 4, 'Z': 4, 'X': 4, 'CY': 6, 'T': 4, 'RY': 3, 'RX': 4, "U3": 4}
-
-def get_tensors(tensor_network):
-    tensors = {}
-    index_sets = {}
-
-    for tid, tensor in tensor_network.tensor_map.items():
-        g = [0 for _ in GATE_INDICES]
-
-        size = 0
-
-        for t in tensor.tags:
-            if t in GATE_INDICES:
-                g[GATE_INDICES[t]] += 1
-                size += GATE_SIZES[t]
-
-        size = math.log2(size) if size > 0 else len(tensor.inds)
-        tensors[tid] = torch.tensor([size, len(tensor.inds)] + g, dtype=torch.float)
-
-        index_sets[tid] = set()
-    
-    return tensors, index_sets
+from tdd_nn import get_tensors
 
 def get_edges(index_sets, tensor_network):
     edges = {}
@@ -68,11 +44,11 @@ def get_path(model, tensor_network, print_sizes = False, data = None, normalized
 
         for e in new_edges:
             input = {"left_values":tensors[e[0]], "right_values": tensors[e[1]], "shared_values": torch.tensor([edges[e]], dtype=torch.float)}
-            edge_predictions[e] = model(input).item() / (input["left_values"][1] + input["right_values"] - edges[e] * 2)
+            edge_predictions[e] = (model(input).item(), input["left_values"][1] + input["right_values"] - edges[e] * 2)
 
         prediction_times += time.time()
 
-        step, prediction = min(edge_predictions.items(), key=lambda x:x[1])
+        step, prediction = min(edge_predictions.items(), key=lambda x:x[1][0] / x[1][1])
         path.append(step)
 
         if print_sizes:
@@ -88,7 +64,7 @@ def get_path(model, tensor_network, print_sizes = False, data = None, normalized
 
         tensor = tensors.pop(step[0])
         tensor = tensors[step[1]] + tensor
-        tensor[0] = prediction
+        tensor[0] = prediction[1][0]
         tensor[1] -= i * 2
         tensors[step[1]] = tensor
 
@@ -155,7 +131,7 @@ def take_step(step, tensors, index_sets, edges, edge_predictions, prediction):
 
     return [(min(step[1], i), max(step[1], i)) for i in index_sets[step[1]]] 
 
-def choose_step(weight_func, edge_predictions, tree_node):
+def choose_step(weight_func, edge_predictions, tree_node, path_bound, sample_num):
     weight_sum = 0
     weights = []
     for step, (prediction, bound) in edge_predictions.items():
@@ -165,7 +141,7 @@ def choose_step(weight_func, edge_predictions, tree_node):
         else:
             visits = 0
             path_prediction = -1
-        weight = weight_func(prediction, bound, visits, path_prediction, len(edge_predictions))
+        weight = weight_func(prediction, bound, visits, path_prediction, path_bound, sample_num)
         weight_sum += weight
         weights.append((step, weight))
 
@@ -182,7 +158,7 @@ def choose_step(weight_func, edge_predictions, tree_node):
 
     return step, prediction
 
-def sample_path(model, tensor_network, tree, weight_func):
+def sample_path(model, tensor_network, tree, weight_func, path_bound, sample_num):
     path = []
     path_prediction = 0
 
@@ -200,7 +176,7 @@ def sample_path(model, tensor_network, tree, weight_func):
             input = {"left_values":tensors[e[0]], "right_values": tensors[e[1]], "shared_values": torch.tensor([edges[e]], dtype=torch.float)}
             edge_predictions[e] = (model(input).item(), input["left_values"][1] + input["right_values"] - edges[e] * 2)
 
-        step, prediction = choose_step(weight_func, edge_predictions, tree_node)
+        step, prediction = choose_step(weight_func, edge_predictions, tree_node, path_bound, sample_num)
 
         if prediction > path_prediction:
             path_prediction = prediction
@@ -230,20 +206,23 @@ def back_propegate(path, value, tree):
 def get_tree_search_path(model, tensor_network, weight_func, time_limit = 60):
 
     best_path = []
-    best_value = len(tensor_network.out_inds) * 2
+    path_bound = len(tensor_network.out_inds) * 2
+    best_value = path_bound
     tree = [{}]
     start_time = time.time()
 
     progress_bar = tqdm()
+    sample_num = 1
 
     while time.time() - start_time < time_limit:
-        latest_path, latest_value = sample_path(model, tensor_network, tree, weight_func)
+        latest_path, latest_value = sample_path(model, tensor_network, tree, weight_func, path_bound, sample_num)
         back_propegate(latest_path, latest_value, tree)
 
         if latest_value < best_value:
             best_path = latest_path
             best_value = latest_value
 
+        sample_num += 1
         progress_bar.update(1)
     return best_path
 

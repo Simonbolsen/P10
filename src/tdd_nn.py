@@ -14,7 +14,43 @@ from random import random as rand
 
 GATE_INDICES = {'H': 0, 'CX': 1, 'CNOT':1, 'RZ': 2, 'RX': 3, 'U3': 4, 'RY': 5, 'S': 6, 'X': 7, 
                         'CZ': 8, 'CY': 9, 'Y': 10, 'Z': 11, 'T': 12}
-GATE_SIZES = {'CX': 6, 'CZ': 6, 'RZ': 4, 'S': 4, 'H': 3, 'Y': 4, 'Z': 4, 'X': 4, 'CY': 6, 'T': 4, 'RY': 3, 'RX': 4, "U3": 4}
+GATE_SIZES = {'CX': 6, 'CNOT': 6, 'CZ': 6, 'RZ': 4, 'S': 4, 'H': 3, 'Y': 4, 'Z': 4, 'X': 4, 'CY': 6, 'T': 4, 'RY': 3, 'RX': 4, "U3": 4}
+
+# Check if CUDA is available
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+    print("CUDA version:", torch.version.cuda)
+    print("Number of CUDA devices:", torch.cuda.device_count())
+    print("Current CUDA device:", torch.cuda.current_device())
+    print("CUDA device properties:", torch.cuda.get_device_properties(device))
+else: 
+    device = torch.device("cpu")
+    print("Using CPU")
+
+def get_elapsed_time(start_time, end_time):
+    t = end_time - start_time
+    return f"{int(t.seconds / 60)}m {((t.seconds + t.microseconds / 1000000) % 60):.3f}s"
+
+def get_tensors(tensor_network):
+    tensors = {}
+    index_sets = {}
+
+    for tid, tensor in tensor_network.tensor_map.items():
+        g = [0 for _ in GATE_INDICES]
+
+        size = 0
+
+        for t in tensor.tags:
+            if t in GATE_INDICES:
+                g[GATE_INDICES[t]] += 1
+                size += GATE_SIZES[t]
+
+        size = math.log2(size) if size > 0 else len(tensor.inds)
+        tensors[tid] = torch.tensor([size, len(tensor.inds)] + g, dtype=torch.float)
+
+        index_sets[tid] = set()
+    
+    return tensors, index_sets
 
 class TDDPredicter(nn.Module):
     def __init__(self, hidden_size, depth, dropout_probability):
@@ -23,9 +59,7 @@ class TDDPredicter(nn.Module):
         self.hidden_size = hidden_size
         self.depth = depth
 
-        self.batch_norm = nn.BatchNorm1d(2 + len(GATE_INDICES))
-        self.batch_norm_shared = nn.BatchNorm1d(1)
-        self.input_layer = nn.Linear(2 + len(GATE_INDICES), hidden_size)
+        self.input_layer = nn.Linear(2 + 14, hidden_size)
         #self.input_layers = nn.ModuleList([nn.Linear(hidden_size, hidden_size) for _ in range(depth)])
         self.shared_index_layer = nn.Linear(1, hidden_size)
         self.linear_layers = nn.ModuleList([nn.Linear(hidden_size, hidden_size) for _ in range(depth)])
@@ -33,29 +67,13 @@ class TDDPredicter(nn.Module):
         self.output_layer = nn.Linear(hidden_size, 1)
         self.relu = nn.ReLU()
 
-        for l in self.linear_layers:
-            init.kaiming_uniform_(l.weight, nonlinearity="relu")
+    def forward(self, l, r, s):
+        x = self.input_layer(l) + self.input_layer(r) + self.shared_index_layer(s)
 
-    def forward(self, input):
-        
-        l = input["left_values"]
-        #l = self.batch_norm()
-        l = self.input_layer(l)
-
-        r = input["right_values"]
-        #r = self.batch_norm()
-        r = self.input_layer(r)
-
-        s = input["shared_values"]
-        #s = self.batch_norm_shared()
-        s = self.shared_index_layer(s)
-
-        x = l + r + s
-
-        for i in range(self.depth):
+        for _, layer in enumerate(self.linear_layers):
             y = x
             x = self.dropout_layer(x)
-            x = self.linear_layers[i](x)
+            x = layer(x)
             x = self.relu(x)
             x = x + y
 
@@ -63,14 +81,17 @@ class TDDPredicter(nn.Module):
 
         return x
     
+def call_model(model, input):
+    return model(input["left_values"], input["right_values"], input["shared_values"])
+
 def train_model(data, training_data, validation_data, model = None):
     print("Building Model")
 
     if(model is None):
         if "model" not in data or data["model"] == "predicter":
-            model = TDDPredicter(data["hidden_size"], data["depth"], data["dropout_probability"])
+            model = TDDPredicter(data["hidden_size"], data["depth"], data["dropout_probability"]).to(device)
         elif data["model"] == "baseline":
-            model = TDDBaseline(data["hidden_size"], data["depth"])
+            ...#model = TDDBaseline(data["hidden_size"], data["depth"])
         else:
             print(f"Invalid Model {data['model']}")
 
@@ -87,7 +108,10 @@ def train_model(data, training_data, validation_data, model = None):
 
     print("Training")
 
+    # Move input data to GPU before the loop
+
     for epoch in range(data["num_epochs"]):
+        start_time = dt.today()
         model.train()
         running_loss = 0.0
 
@@ -97,11 +121,12 @@ def train_model(data, training_data, validation_data, model = None):
         
 
         for batch in training_data:        
+
             optimizer.zero_grad()
 
-            outputs = model(batch)
+            outputs = call_model(model, batch)
             loss = loss_function(outputs, batch["target"])
-                
+
             loss.backward()
             optimizer.step()
 
@@ -112,7 +137,8 @@ def train_model(data, training_data, validation_data, model = None):
         validation_loss = 0
         batch_data = None
         for val_batch in validation_data:
-            output = model(val_batch)
+            
+            output = call_model(model, val_batch)
             val_loss = loss_function(output, val_batch["target"]).item()
             validation_loss += val_loss
             batch_data = (output, val_batch)
@@ -138,9 +164,11 @@ def train_model(data, training_data, validation_data, model = None):
                 print("Early Stopping...")
                 break
 
-        print(f'Epoch [{epoch + 1}/{data["num_epochs"]}], \tLoss: {average_loss:.2f}, \tValidation Loss: {validation_loss:.2f}, \tLearning rate: {math.log10(learning_rate):.2f}')
-
-    return best_model_state
+        
+        print(f'Epoch [{epoch + 1}/{data["num_epochs"]}], \tLoss: {int(average_loss)}, \tValidation Loss: {int(validation_loss)},'+ 
+              f'\tLearning rate: {math.log10(learning_rate):.2f}, \tElapsed Time: {get_elapsed_time(start_time, dt.today())}  {"<-" if epochs_since_improvement == 0 else ""}')
+ 
+    return model, best_model_state
 
 def load_model(path):
     saved_dict = torch.load(path)
@@ -160,41 +188,56 @@ def torchify(data):
                 "target":torch.tensor(d["target"]),})
     return torched
 
+def cuda_collate(data):
+    moved_batch = {"left_values": [], "right_values": [], "shared_values": [], "shared_values": [], "target": []}
+    for element in data:
+        for key in moved_batch:
+            moved_batch[key].append(element[key])
 
+    for key in moved_batch:
+        moved_batch[key] = torch.stack(moved_batch[key]).to(device)
+    return moved_batch
+
+def get_dataloaders(dataset, batch_size):
+    training_data = fu.load_single_json(fu.get_path(f"dataset/{dataset}/train.json"))
+    validation_data =  fu.load_single_json(fu.get_path(f"dataset/{dataset}/val.json"))
+
+    data_loader = DataLoader(torchify(training_data), batch_size=batch_size, shuffle=True, collate_fn=cuda_collate)
+    val_data_loader = DataLoader(torchify(validation_data), batch_size=len(validation_data), shuffle=False, collate_fn=cuda_collate)
+
+    return data_loader, val_data_loader
 
 def run():
     settings = [{
         #"load_experiment":"bbds2",
         #"load_name": "experiment_n2",
-        "experiment":"tdd_lr_decay_1",
-        "save_model":False,
+        "experiment":"tdd_mk_V_c_model",
+        "save_model":True,
         "model":"predicter",#"baseline",
         "dropout_probability": 0.001 * 2**(2 / 3),
         "num_epochs": 1000,
-        "batch_size": 90,
-        "hidden_size": 90,
-        "depth": 14,
-        "lr":-(3.6),
-        "lr_decay": 0.5 + 0.2 * j,
-        "lr_decay_speed": 0.01 * i,
+        "batch_size": int(2**(11)),
+        "hidden_size": int(2**(6)),
+        "depth": 10,
+        "lr":-(2.9), # 
+        "lr_decay": 0.8,
+        "lr_decay_speed": 0.04,
         "weight_decay":0,
         "early_stopping":20,
-        "warmup":20,
-        "run": 0,
-        "run_name":  f"model_{i}_{j}"
-    } for i in range(6) for j in range(6)]
+        "warmup":10,
+        "run": i,
+        "run_name":  f"model_{i}"
+    } for i in range(10)]
 
     print("Loading")
-    dataset = "TSP3"
-    training_data = fu.load_single_json(fu.get_path(f"dataset/{dataset}/train.json"))
-    validation_data =  fu.load_single_json(fu.get_path(f"dataset/{dataset}/val.json"))
+    dataset = "TSP5"
 
-    data_loader = DataLoader(torchify(training_data), batch_size=settings[0]["batch_size"], shuffle=True)
-    val_data_loader = DataLoader(torchify(validation_data), batch_size=len(validation_data), shuffle=False)
+    data_loader, val_data_loader = get_dataloaders(dataset, settings[0]["batch_size"])
 
     for s in settings:
 
-        s["begin_time"] = dt.today().isoformat()
+        begin_time = dt.today()
+        s["begin_time"] = begin_time.isoformat()
 
         if "load_experiment" in s:
             print("Loading Model")
@@ -202,16 +245,23 @@ def run():
         else:
             model = None
 
-        model = train_model(s, data_loader, val_data_loader, model = model)
+        print(f"CUDA memory usage. Current: {torch.cuda.memory_allocated()}, Max: {torch.cuda.max_memory_allocated()}, Total: {torch.cuda.memory_reserved()}")
+        model, state = train_model(s, data_loader, val_data_loader, model = model)
 
-        s["end_time"] = dt.today().isoformat()
+        end_time = dt.today()
+        s["end_time"] = end_time.isoformat()
         
         fu.save_to_json(f"experiment_data/{s['experiment']}", s["run_name"], s)
         if s["save_model"]:
-            fu.save_model(model, f"experiment_data/{s['experiment']}/models", s["run_name"])
-        print(f"Saved: {s['end_time']}")
+            model.load_state_dict(state)
+            model.eval()
+            path = f"experiment_data/{s['experiment']}/models"
+            fu.save_model(model, path, s["run_name"])
+            fu.save_jit_model(model, path, s["run_name"] + "_jit")
+        print(f"Saved at {s['end_time'].replace('T', ' ')}, elapsed time: {get_elapsed_time(begin_time, end_time)}")
         
 
 if __name__ == "__main__":
+    #fu.process_all_data(GATE_INDICES, 20, 5)
     run()
     ...
