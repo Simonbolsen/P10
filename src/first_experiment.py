@@ -619,9 +619,9 @@ if __name__ == "__main__":
             }
 
     path_settings = {
-                "method": "cotengra",
-                "model_name":"model_8",
-                "opt_method": "random-greedy", #  kahypar-balanced, kahypar-agglom, labels, labels-agglom
+                "method": "tdd_model",
+                "model_name":"model_4",
+                "opt_method": "all", #  kahypar-balanced, kahypar-agglom, labels, labels-agglom
                 "minimize": "flops",
                 "max_repeats": 50,
                 "max_time": 60,
