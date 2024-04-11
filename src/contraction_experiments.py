@@ -226,35 +226,34 @@ def get_all_configs(settings):
     return all_configs
 
 debug=False
-def first_experiment(iter_settings, settings, contraction_settings, path_settings, folder_name="garbage", folder_with_time=True):
-    if [settings["use_cpp_only"]]:
+def run_experiment(configs, folder_with_time=True, prev_rep = 2311):
+    if configs[0]["settings"]["use_cpp_only"]:
         cpp = CPPHandler()
 
+    for c in configs:
+        if c["file_name"] == "standard_name":
+            circ_conf = c["circuit_settings"]
+            c["file_name"] == f"circuit_{circ_conf['algorithm']}_{'cpp' if c['settings']['use_cpp_only'] else 'py'}_{circ_conf['level'][0]}{circ_conf['level'][1]}_{circ_conf['qubits']}_d{circ_conf['random_gate_deletions']}_r{circ_conf['repetition']+prev_rep}"
     
     # Prepare save folder and file paths
-    experiment_name = f"{folder_name}_{datetime.today().strftime('%Y-%m-%d_%H-%M') if folder_with_time else ''}"
+    experiment_name = f"{configs[0]['folder_name']}_{datetime.today().strftime('%Y-%m-%d_%H-%M') if folder_with_time else ''}"
     folder_path = os.path.join("experiments", experiment_name)
     if not os.path.exists(folder_path):
         os.makedirs(folder_path, exist_ok=True)
     
-    # Experiment settings     
-    prev_rep = 2311
-    circuit_configs = get_all_configs(iter_settings)
-    settings = settings | iter_settings
-
     # For each circuit, run equivalence checking:
-    for circ_conf in circuit_configs:
+    for data in configs:
+        settings = data["settings"]
+        contraction_settings = data["contraction_settings"]
+        path_settings = data["path_settings"]
+        circ_conf = c["circuit_settings"]
+
         # Prepare data container
-        data = {
+        data |= {
             "version": 2,
             "experiment_name": experiment_name,
             "expect_equivalence": circ_conf['random_gate_deletions'] == 0,
-            "file_name": f"circuit_{circ_conf['algorithm']}_{'cpp' if settings['use_cpp_only'] else 'py'}_{circ_conf['level'][0]}{circ_conf['level'][1]}_{circ_conf['qubits']}_d{circ_conf['random_gate_deletions']}_r{circ_conf['repetition']+prev_rep}",
-            "settings": settings,
-            "contraction_settings": contraction_settings,
-            "circuit_settings": circ_conf,
             "circuit_data": {},
-            "path_settings": path_settings,
             "path_data": {},
             "not_same_tensors": [],
             "tdd_analysis": None,
@@ -262,6 +261,7 @@ def first_experiment(iter_settings, settings, contraction_settings, path_setting
             "failed": False,
             "make_dataset": False
         }
+
 
         if "simulate" in settings and settings["simulate"]:
             options = [[1 + 0j, 0j], [0j, 1 + 0j]]
@@ -481,7 +481,7 @@ def first_experiment(iter_settings, settings, contraction_settings, path_setting
                     data["conclusive"] = not are_equal
 
 
-            data = combinate_data_containers(data_containers)
+            data = combine_data_containers(data_containers)
 
             if (data["expect_equivalence"] != data["equivalence"]):
                 print('\033[31m' + "Erroneous result: Expected != TDD" + '\033[m')
@@ -549,9 +549,7 @@ def simulation_using_counter(circuit, counter_example, data):
 
     print(f"Simulation finds that the two circuits are: {'equivalent' if data['equivalence'] else 'inequivalent'}")
 
-
-
-def combinate_data_containers(containers: list[dict]) -> list[dict]:
+def combine_data_containers(containers: list[dict]) -> list[dict]:
     """
     circuit data?
     path_data: {
@@ -613,41 +611,43 @@ def combinate_data_containers(containers: list[dict]) -> list[dict]:
 
 
 if __name__ == "__main__":
-    contraction_settings = {
-                "max_time": 300, # in seconds, -1 for inf
-                "max_replans": 1,
-                "max_intermediate_node_size": -1 #-1 for inf
-            }
+    configs = [{
+        "contraction_settings": {
+            "max_time": 300, # in seconds, -1 for inf
+            "max_replans": 1,
+            "max_intermediate_node_size": -1 #-1 for inf
+        },
+        "settings": {
+            "simulate": False,
+            "sliced": False,
+            "cnot_split": False,
+            "use_subnets": True,
+            "find_counter": False,
+            "use_qcec_only": False,
+            "use_cpp_only": True
+        },
+        "path_settings": {
+            "method": "tree_search",
+            "weight_function":"wf1",
+            "model_name":"model_V_c",
+            "opt_method": "all", #  kahypar-balanced, kahypar-agglom, labels, labels-agglom
+            "minimize": "flops",
+            "max_repeats": 50,
+            "max_time": 10 + 20 * i,
+            "use_proportional": True,
+            "gridded": False,
+            "linear_fraction": 0,
+        },
+        "circuit_settings": {
+            "algorithm": "qftentangled", #"dj", "ghz", "graphstate", "qftentangled", "su2random", "twolocalrandom", "qpeexact", "wstate", "realamprandom"
+            "level": (0, 2),
+            "qubits": 6,
+            "random_gate_deletions": 0,
+            "repetition": 0
+        },
+        "folder_name":"tree_search_model_V_qft_time", #garbage
+        "file_name": f"run_{i}" #standard_name,
+    } for i in range(10)] #for alg in ["dj", "ghz", "graphstate"]
 
-    path_settings = {
-                "method": "tdd_model",
-                "model_name":"model_V_c",
-                "opt_method": "all", #  kahypar-balanced, kahypar-agglom, labels, labels-agglom
-                "minimize": "flops",
-                "max_repeats": 50,
-                "max_time": 60,
-                "use_proportional": True,
-                "gridded": False,
-                "linear_fraction": 0,
-            }
 
-    iter_settings = {
-        "algorithms": ["dj"],#["dj", "graphstate"],#["qftentangled", "su2random", "twolocalrandom", "qpeexact", "wstate", "realamprandom"],#,#, "ghz", "graphstate", "qftentangled"],
-        "levels": [(0, 2)],
-        "qubits": list(range(5,30,2)),#list(range(5,155,1)),#list(range(4,100,1)),#[64, 128, 256],#list(range(256,257,1)),#sorted(list(set([int(x**(3/2)) for x in range(2, 41)])))#list(set([int(2**(x/4)) for x in range(4, 30)]))
-        "random_gate_dels_range": [0],
-        "repetitions": 1
-    }
-
-    settings = {
-        "simulate": False,
-        "sliced": False,
-        "cnot_split": False,
-        "use_subnets": True,
-        "find_counter": False,
-        "use_qcec_only": False,
-        "use_cpp_only": True
-    }
-
-    first_experiment(iter_settings=iter_settings, settings=settings, contraction_settings=contraction_settings, path_settings=path_settings,
-                     folder_name="data_gen_q9", folder_with_time=False)
+    run_experiment(configs, folder_with_time=False)

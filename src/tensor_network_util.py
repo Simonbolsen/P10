@@ -455,10 +455,29 @@ def get_tdd_path(tensor_network, data):
     model_path = os.path.join("models", settings["model_name"] + ".pt")
     if (not os.path.isfile(model_path)):
         print(f"Could not find model: {model_path}")
+        return None
     
     model =  tnn.load_model(model_path) #torch.load(model_path)
 
     return ts.get_path(model, tensor_network, data = data)
+
+def get_tree_path(tensor_network, data):
+    settings = data["path_settings"]
+    model_path = os.path.join("models", settings["model_name"] + ".pt")
+    if (not os.path.isfile(model_path)):
+        print(f"Could not find model: {model_path}")
+        return None
+    
+    model =  tnn.load_model(model_path) #torch.load(model_path)
+
+    weight_function = settings["weight_function"]
+    if weight_function == "wf1":
+        weight_function = ts.weight_function_1
+    else:
+        print(f"No weight function is name {weight_function}")
+        return None
+
+    return ts.get_tree_search_path(model, tensor_network, weight_function, data["path_data"], settings["max_time"])
 
 def get_nn_path(tn: TensorNetwork, circuit, data):
     settings = data["path_settings"]
@@ -509,6 +528,9 @@ def get_contraction_path(tensor_network, circuit, data):
     elif settings["method"] == "tdd_model":
         print(f"Using TDD model: {settings['model_name']}. Loading")
         usable_path = get_tdd_path(tensor_network, data)
+    elif settings["method"] == "tree_search":
+        print(f"Using Tree Search with model: {settings['model_name']}. Loading")
+        usable_path = get_tree_path(tensor_network, data)
     elif settings["method"] == "random":
         usable_path = get_random_path(tensor_network, gridded=settings["gridded"])
     else:

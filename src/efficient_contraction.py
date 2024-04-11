@@ -7,7 +7,7 @@ import os
 import tensor_network_util as tnu
 import circuit_util as cu
 from tdd_util import get_tdds_from_quimb_tensor_network, reverse_lexicographic_key
-from first_experiment import contract_tdds, fast_contract_tdds
+from contraction_experiments import contract_tdds, fast_contract_tdds
 from tddpure.TDD.TDD import Ini_TDD, TDD, tdd_2_np, cont
 from cpp_handler import CPPHandler
 
