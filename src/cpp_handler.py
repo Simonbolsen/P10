@@ -21,6 +21,11 @@ class CPPHandler():
         self.handle.pyTestGraph.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_char_p] 
         self.handle.pyTestGraph.restype = ctypes.c_char_p
 
+        self.handle.pyTestOnlinePlanning.argtypes = [ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_char_p] 
+        self.handle.pyTestOnlinePlanning.restype = ctypes.c_char_p
+
+        self.handle.pyTestWindowedPlanning.argtypes = [ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int] 
+        self.handle.pyTestWindowedPlanning.restype = ctypes.c_char_p
 
     def TestNNModel(self, model_name, circuit, tensor_network, plan):
         new_circ = self.interject_tensor_indices_into_circuit(circuit, tensor_network)
@@ -35,6 +40,20 @@ class CPPHandler():
         plan_str = self.plan_to_str(plan)
         new_circ = new_circ.replace(",)", ")").replace("|", "#")
         res = self.handle.pyTestGraph(str.encode(model_name), str.encode(new_circ), circuit.N, str.encode(plan_str), str.encode(edges))
+        return res.decode('utf-8')
+    
+    def TestOnlinePlanning(self, model_name, circuit, tensor_network):
+        edges = self.plan_to_str(self.extract_edges_from_tn(tensor_network))
+        new_circ = self.interject_tensor_indices_into_circuit(circuit, tensor_network)
+        new_circ = new_circ.replace(",)", ")").replace("|", "#")
+        res = self.handle.pyTestOnlinePlanning(str.encode(new_circ), circuit.N, str.encode(model_name), str.encode(edges))
+        return res.decode('utf-8')
+
+    def TestWindowedPlanning(self, model_name, circuit, tensor_network, window_size=4):
+        edges = self.plan_to_str(self.extract_edges_from_tn(tensor_network))
+        new_circ = self.interject_tensor_indices_into_circuit(circuit, tensor_network)
+        new_circ = new_circ.replace(",)", ")").replace("|", "#")
+        res = self.handle.pyTestWindowedPlanning(str.encode(new_circ), circuit.N, str.encode(model_name), str.encode(edges), window_size)
         return res.decode('utf-8')
 
     def CPPContraction(self, circuit, qubits, plan, length_indifferent=False, expect_equivalence=False):
