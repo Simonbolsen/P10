@@ -82,16 +82,17 @@ def extract_data(folder, inclusion_condition = (lambda file, data:True)):
                             data[v].append(file_data[v])
                 continue
             
-            s, estimated_time, new_sizes = process_sizes(file)
-            file_data[Variables.ESTIMATED_TIME] = ([sum(estimated_time)])
-            file_data[Variables.SIZES] = (s)
-            file_data[Variables.LOG_SIZES] = ([math.log10(point) for point in s])
-            file_data[Variables.NEW_SIZES] = (new_sizes)
-            file_data[Variables.LOG2_NEW_SIZES] = ([math.log2(point) for point in new_sizes])
-            file_data[Variables.STEPS] = (range(len(s)))
-            file_data[Variables.CONTRACTION_STEPS] = (range(len(new_sizes)))
-            file_data[Variables.MAX_SIZES] = ([max(s)])
-            file_data[Variables.LOG_MAX_SIZES] = ([math.log10(max(s))])
+            if "sizes" in file:
+                s, estimated_time, new_sizes = process_sizes(file)
+                file_data[Variables.ESTIMATED_TIME] = ([sum(estimated_time)])
+                file_data[Variables.SIZES] = (s)
+                file_data[Variables.LOG_SIZES] = ([math.log10(point) for point in s])
+                file_data[Variables.NEW_SIZES] = (new_sizes)
+                file_data[Variables.LOG2_NEW_SIZES] = ([math.log2(point) for point in new_sizes])
+                file_data[Variables.STEPS] = (range(len(s)))
+                file_data[Variables.CONTRACTION_STEPS] = (range(len(new_sizes)))
+                file_data[Variables.MAX_SIZES] = ([max(s)])
+                file_data[Variables.LOG_MAX_SIZES] = ([math.log10(max(s))])
             file_data[Variables.CONTRACTION_TIME] = ([file["contraction_time"]])
             file_data[Variables.TENSOR_COUNT] = [len(file["path"]) + (file["sub_networks"] if "sub_networks" in file else 1)]
             file_data[Variables.GATE_DELETIONS] = [file['circuit_settings']["random_gate_deletions"]]
@@ -113,6 +114,7 @@ def extract_data(folder, inclusion_condition = (lambda file, data:True)):
                 file_data[Variables.PATH_SIZE] = ([math.log2(file["path_data"]["size"])])
             if file["path_settings"]["method"] == "tdd_model":
                 file_data[Variables.PREDICTED_SIZES] = file["path_data"]["size_predictions"]
+                file_data[Variables.MAX_PREDICTED_SIZES] = [max([p[0] for p in file["path_data"]["size_predictions"]])]
             if "version" in file and file["version"] == 1 and "used_trials" in file["path_data"]:
                 file_data[Variables.OPT_RUNS_MAX] = (range(max(file["path_data"]["used_trials"])))
                 file_data[Variables.OPT_TIMES_MAX] = find_max_inner_list(file["path_data"]["opt_times"])
@@ -180,7 +182,15 @@ def extract_data(folder, inclusion_condition = (lambda file, data:True)):
     return data
 
 def plot(folder, plots, save_path = "", inclusion_condition = (lambda file, data:True), show_3d = False):
-    data = extract_data(folder, inclusion_condition)
+    if type(folder) == str:
+        data = extract_data(folder, inclusion_condition)
+    else:
+        all_data = [extract_data(f, inclusion_condition) for f in folder]
+        data = {}
+        uncombinable_variables = [Variables.EQUIV_GROUP_COUNTS, Variables.GROUP_NAMES, Variables.CONTRACTION_TIME_BUCKETED, Variables.QUBITS_BUCKETED]
+        for key in all_data[0]:
+            if key not in uncombinable_variables:
+                data[key] = [[x for l in d[key] for x in l] for d in all_data]
 
     if save_path != "":
         save_path = os.path.normpath(os.path.join(os.path.realpath(__file__), "..", "..", "experiments", save_path))
@@ -201,6 +211,8 @@ def plot(folder, plots, save_path = "", inclusion_condition = (lambda file, data
                 pu.plotPoints2d(data[p[1]], data[p[2]], p[1].value, p[2].value, 
                                 series_labels=data[Variables.NAMES], title= title,
                                 marker="o", save_path=full_path, legend=False)
+            else:
+                print(f"{p[1].value}: {is_non_empty(data[p[1]])}, {p[2].value}: {is_non_empty(data[p[2]])}")
         elif p[0] == "3d_points": 
             if is_non_empty(data[p[1]]) and is_non_empty(data[p[2]]) and is_non_empty(data[p[3]]):
                 pu.plotPoints(data[p[1]], data[p[2]], data[p[3]], [p[1].value, p[2].value, p[3].value], 
@@ -484,12 +496,16 @@ class Variables(Enum):
     CONTRACTION_TIME_SLOPE = "Contraction time slope"
     MAX_SIZE_SLOPE = "Max size slope"
     PREDICTED_SIZES = "Predicted Sizes"
+    MAX_PREDICTED_SIZES = "Max Predicted Sizes"
 
 if __name__ == "__main__":
  
-    plots = [("points", Variables.QUBITS, Variables.QCEC_TIME, "QCEC Time by Qubits"),
+    plots = [
+            #  ("points", Variables.QUBITS, Variables.QCEC_TIME, "QCEC Time by Qubits"),
             #  ("points", Variables.QUBITS, Variables.TN_CONSTRUNCTION_TIME, "Tensor Network Construction Time by Qubits"),
-            #  ("points", Variables.QUBITS, Variables.PATH_CONSTRUCTION_TIME, "Path Construction Time by Qubits"), 
+              ("points", Variables.QUBITS, Variables.PATH_CONSTRUCTION_TIME, "Path Construction Time by Qubits"), 
+            #  ("points", Variables.QUBITS, Variables.MAX_PREDICTED_SIZES, "Maximum Predicted Sizes by Qubits"), 
+            #  ("points", Variables.PATH_CONSTRUCTION_TIME, Variables.MAX_PREDICTED_SIZES, "Maximum Predicted Sizes by Path Construction Time"), 
             #  ("points", Variables.QUBITS, Variables.GATE_PREP_TIME, "Gate TDD Construction Time by Qubits"),
             #  ("points", Variables.QUBITS, Variables.CIRCUIT_SETUP_TIME, "Circuit Setup Time by Qubits"),
             #  ("points", Variables.QUBITS, Variables.SUB_NETWORK_COUNT, "Num of Sub Networks by Qubits"),
@@ -508,7 +524,9 @@ if __name__ == "__main__":
             #  ("line", Variables.OPT_RUNS, Variables.OPT_SIZES, "Optimisation Sizes"),
             #  ("line", Variables.OPT_RUNS, Variables.OPT_WRITES, "Optimisation Writes"),
             #  ("line", Variables.OPT_RUNS, Variables.OPT_TIMES, "Optimisation Times"),
-            #  ("points", Variables.QUBITS, Variables.CONTRACTION_TIME, "Contraction Time by Qubits"),
+              ("points", Variables.QUBITS, Variables.CONTRACTION_TIME, "Contraction Time by Qubits"),
+              ("points", Variables.PATH_CONSTRUCTION_TIME, Variables.CONTRACTION_TIME, "Contraction Time by Path Construction Time"),
+             # ("points", Variables.MAX_PREDICTED_SIZES, Variables.CONTRACTION_TIME, "Contraction Time by Predicted Maximum Sizes"),
             #  ("points", Variables.GATE_DELETIONS, Variables.MAX_SIZES, "Max size by Gate Deletion"),
             #  ("points", Variables.GATE_DELETIONS, Variables.QCEC_TIME, "QCEC Time by Gate Deletion"),
             #  ("points", Variables.GATE_DELETIONS, Variables.TN_CONSTRUNCTION_TIME, "Tensor Network Construction Time by Gate Deletion"),
@@ -522,7 +540,7 @@ if __name__ == "__main__":
             #  ("points", Variables.GATE_DELETIONS, Variables.CONTRACTION_TIME, "Contraction Time by Gate Deletion"),
             #  ("points", Variables.QUBITS, Variables.EQUIV_CASES, "Equivalence Case by Qubits"),
             #  ("points", Variables.QUBITS, Variables.SMOOTH_EQUIV_CASES, "Smooth Equivalence Case by Qubits"),
-            ("bar", Variables.GROUP_NAMES, Variables.EQUIV_GROUP_COUNTS, Variables.NO_LABELS, "Count of Equivalence Cases"),
+            #("bar", Variables.GROUP_NAMES, Variables.EQUIV_GROUP_COUNTS, Variables.NO_LABELS, "Count of Equivalence Cases"),
             #  ("bar", Variables.QUBITS_BUCKETED, Variables.CONTRACTION_TIME_BUCKETED, Variables.GROUP_LABELS, "Contraction Time by Qubits and Equivalence Cases"),
 
             #  ("3d_points", Variables.QUBITS, Variables.MAX_SIZES, 
@@ -530,29 +548,9 @@ if __name__ == "__main__":
                 ]
 
     # ["simulation_dj_gate_del_1_2023-11-17_11-21"]
-    folders = ["simulation_dj_2023-11-17_09-59", "simulation_dj_repeated_gate_del_1_2023-11-17_14-46", "simulation_dj_2023-11-17_09-59"]
-    #folders = ["limit_testing_qcec_dj_2023-12-13_08-46", "limit_testing_qcec_ghz_2023-12-13_08-26", "limit_testing_qcec_graphstate_2023-12-13_09-45"]
-    # folders =  [
-    #      #"driver_greedy_compressed_2023-11-10_11-38",
-    #      #"driver_kahypar_2023-11-10_13-51",
-    #      #"driver_kahypar_agglom_2023-11-10_13-56",
-    #      #"driver_kahypar_balanced_2023-11-10_13-55",
-    #      #"driver_labelprop_2023-11-10_13-22",
-    #      #"driver_labels_2023-11-13_14-39",
-    #      #"driver_rgreedy_2023-11-10_10-06",
-    #      #"driver_sliced_2023-11-10_08-36",
-    #      #"driver_spinglass_2023-11-10_12-18",
-    #      #"inequivalent_gate_del_1_2023-11-14_09-31",
-    #      #"inequivalent_gate_del_3_2023-11-14_10-48",
-    #      #"inequivalent_graph_del_1_2023-11-14_12-17",
-    #      #"inequivalent_graph_del_3_2023-11-14_18-29",
-    #      #"sub_network_effect_without_2023-11-13_18-49",
-    #      #"sub_network_effect_with_2023-11-13_18-05",
-    #      #"sub_network_effect_with_btw_2023-11-13_20-52",
-    #      #"sub_network_effect_without_2023-11-13_18-49"
-    #      ]
+    folders = [["data_model_V_c_un_dj_","data_model_V_cc_un_dj_", "data_tree_search_model_V_cc_un_dj_", "tree_search_model_V_dj_"]]
     
-    data = extract_data("model_contraction_2024-03-06_14-20")
+    #data = extract_data("model_contraction_2024-03-06_14-20")
     ...
 
     #file is the raw loaded file, and data is the processed variables for that file
@@ -561,5 +559,10 @@ if __name__ == "__main__":
     #gate_del_comparison_plots(os.path.join("plots", "comparison_plots"), inclusion_condition=inclusion_condition) 
 
     for i, folder in enumerate(folders):
-       plot(folder, plots, os.path.join("plots", folder), inclusion_condition=inclusion_condition, show_3d=True) 
-       print(f"Plotted: {int((i + 1) / len(folders) * 100)}%")
+        if type(folder) == str:
+           save_path = os.path.join("plots", folder)
+        else:
+            save_path = os.path.join("plots/comparison_plots", "_".join(folder))
+
+        plot(folder, plots, save_path, inclusion_condition=inclusion_condition, show_3d=True) 
+        print(f"Plotted: {int((i + 1) / len(folders) * 100)}%")

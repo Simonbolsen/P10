@@ -1,9 +1,14 @@
 import math
 import time
 import torch
-import tqdm
+from tqdm import tqdm
 from random import random
+from tdd_nn import get_single_value_tensor
 from tdd_nn import get_tensors
+from tdd_nn import call_model
+
+def weight_function_1(prediction, bound, visits, path_prediction, path_bound, sample_num):
+    return bound - prediction + visits * (path_bound - path_prediction)
 
 def get_edges(index_sets, tensor_network):
     edges = {}
@@ -42,13 +47,29 @@ def get_path(model, tensor_network, print_sizes = False, data = None, normalized
 
         prediction_times -= time.time()
 
+        input = {"left_values":[], "right_values": [], "shared_values": []}
+
         for e in new_edges:
-            input = {"left_values":tensors[e[0]], "right_values": tensors[e[1]], "shared_values": torch.tensor([edges[e]], dtype=torch.float)}
-            edge_predictions[e] = (model(input).item(), input["left_values"][1] + input["right_values"] - edges[e] * 2)
+            input["left_values"].append(tensors[e[0]])
+            input["right_values"].append(tensors[e[1]])
+            input["shared_values"].append(get_single_value_tensor(edges[e]))
+
+        input["left_values"] = torch.stack(input["left_values"])
+        input["right_values"] = torch.stack(input["right_values"])
+        input["shared_values"] = torch.stack(input["shared_values"])
+
+        predctions = call_model(model, input)
+
+        for i, e in enumerate(new_edges):
+            edge_predictions[e] = (predctions[i].item(), input["left_values"][i][1].item() + input["right_values"][i][1].item() - edges[e] * 2)
+
+        #for e in new_edges:
+        #    input = {"left_values":tensors[e[0]], "right_values": tensors[e[1]], "shared_values": get_single_value_tensor(edges[e])}
+        #    edge_predictions[e] = (call_model(model, input).item(), input["left_values"][1].item() + input["right_values"][1].item() - edges[e] * 2)
 
         prediction_times += time.time()
 
-        step, prediction = min(edge_predictions.items(), key=lambda x:x[1][0] / x[1][1])
+        step, prediction = min(edge_predictions.items(), key=lambda x:x[1][0])# / x[1][1])
         path.append(step)
 
         if print_sizes:
@@ -64,7 +85,7 @@ def get_path(model, tensor_network, print_sizes = False, data = None, normalized
 
         tensor = tensors.pop(step[0])
         tensor = tensors[step[1]] + tensor
-        tensor[0] = prediction[1][0]
+        tensor[0] = prediction[0]
         tensor[1] -= i * 2
         tensors[step[1]] = tensor
 
@@ -134,6 +155,7 @@ def take_step(step, tensors, index_sets, edges, edge_predictions, prediction):
 def choose_step(weight_func, edge_predictions, tree_node, path_bound, sample_num):
     weight_sum = 0
     weights = []
+
     for step, (prediction, bound) in edge_predictions.items():
         if step in tree_node:
             visits = tree_node[step]["visits"]
@@ -141,6 +163,7 @@ def choose_step(weight_func, edge_predictions, tree_node, path_bound, sample_num
         else:
             visits = 0
             path_prediction = -1
+
         weight = weight_func(prediction, bound, visits, path_prediction, path_bound, sample_num)
         weight_sum += weight
         weights.append((step, weight))
@@ -155,6 +178,7 @@ def choose_step(weight_func, edge_predictions, tree_node, path_bound, sample_num
         if weight_sum > step_value:
             step = s
             prediction, _ = edge_predictions[s]
+            break
 
     return step, prediction
 
@@ -172,9 +196,21 @@ def sample_path(model, tensor_network, tree, weight_func, path_bound, sample_num
 
     while len(edges) > 0:
 
+        input = {"left_values":[], "right_values": [], "shared_values": []}
+
         for e in new_edges:
-            input = {"left_values":tensors[e[0]], "right_values": tensors[e[1]], "shared_values": torch.tensor([edges[e]], dtype=torch.float)}
-            edge_predictions[e] = (model(input).item(), input["left_values"][1] + input["right_values"] - edges[e] * 2)
+            input["left_values"].append(tensors[e[0]])
+            input["right_values"].append(tensors[e[1]])
+            input["shared_values"].append(get_single_value_tensor(edges[e]))
+
+        input["left_values"] = torch.stack(input["left_values"])
+        input["right_values"] = torch.stack(input["right_values"])
+        input["shared_values"] = torch.stack(input["shared_values"])
+
+        predctions = call_model(model, input)
+
+        for i, e in enumerate(new_edges):
+            edge_predictions[e] = (predctions[i].item(), input["left_values"][i][1].item() + input["right_values"][i][1].item() - edges[e] * 2)
 
         step, prediction = choose_step(weight_func, edge_predictions, tree_node, path_bound, sample_num)
 
@@ -201,28 +237,38 @@ def back_propegate(path, value, tree):
 
         if value < edge["path_prediction"]:
             edge["path_prediction"] = value
+        node = tree[edge["child"]]
 
 
-def get_tree_search_path(model, tensor_network, weight_func, time_limit = 60):
+def get_tree_search_path(model, tensor_network, weight_func, data, max_time = 60):
 
     best_path = []
-    path_bound = len(tensor_network.out_inds) * 2
+    path_bound = len(tensor_network.outer_inds()) * 2
     best_value = path_bound
     tree = [{}]
     start_time = time.time()
 
-    progress_bar = tqdm()
     sample_num = 1
 
-    while time.time() - start_time < time_limit:
-        latest_path, latest_value = sample_path(model, tensor_network, tree, weight_func, path_bound, sample_num)
-        back_propegate(latest_path, latest_value, tree)
+    data["sample_time"] = []
+    data["propagation_time"] = []
 
+    while time.time() - start_time < max_time:
+        t = time.time()
+        latest_path, latest_value = sample_path(model, tensor_network, tree, weight_func, path_bound, sample_num)
+        data["sample_time"].append(time.time() - t)
+
+        t = time.time()
+        back_propegate(latest_path, latest_value, tree)
+        data["propagation_time"].append(time.time() - t)
+        
         if latest_value < best_value:
             best_path = latest_path
             best_value = latest_value
+            data["size_predictions"] = [best_value]
+
+        print(f"Sample: {sample_num}, latest value: {latest_value}, best value: {best_value}")
 
         sample_num += 1
-        progress_bar.update(1)
     return best_path
 

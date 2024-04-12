@@ -19,7 +19,7 @@ from tqdm import tqdm
 from itertools import combinations
 from mqt.qcec import verify
 from copy import deepcopy
-from first_experiment import *
+from contraction_experiments import *
 import file_util as fu
 
 import sys
@@ -183,7 +183,7 @@ def experiment():
 
                 data_containers[i] = data
 
-            data = combinate_data_containers(data_containers)
+            data = combine_data_containers(data_containers)
 
             if (data["expect_equivalence"] != data["equivalence"]):
                 print('\033[31m' + "Erroneous result: Expected != TDD" + '\033[m')

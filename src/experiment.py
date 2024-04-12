@@ -20,7 +20,7 @@ from itertools import combinations
 from mqt.qcec import verify
 import argparse
 from tabulate import tabulate
-from first_experiment import first_experiment
+from contraction_experiments import run_experiment 
 
 class bcolors:
     HEADER = '\033[95m'
@@ -156,7 +156,7 @@ def pretty_print(args):
     return tabulate(vars(args).items(), headers=["arg", "value"], missingval=f"{bcolors.WARNING}None{bcolors.ENDC}")
 
 
-def run_experiment(args):
+def setup_and_run_experiment(args):
     if not legal_args(args):
         raise argparse.ArgumentError("Illegal arguments")
 
@@ -200,12 +200,12 @@ def run_experiment(args):
         "use_qcec_only": args.exp_type == "pure_qcec"
     }
 
-    first_experiment(iter_settings=iter_settings, settings=settings, 
+    run_experiment(iter_settings=iter_settings, settings=settings, #new args needed!! (see contraction_experiments.py)
                      contraction_settings=contraction_settings, path_settings=path_settings,
                      folder_name=args.exp_name, folder_with_time=args.use_time_stamp)
 
 
 if __name__ == "__main__":
     args = argparser.parse_args()
-    run_experiment(args)
+    setup_and_run_experiment(args)
     #first_experiment()
