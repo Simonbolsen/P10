@@ -10,6 +10,8 @@ from tdd_util import get_tdds_from_quimb_tensor_network, reverse_lexicographic_k
 from contraction_experiments import contract_tdds, fast_contract_tdds
 from tddpure.TDD.TDD import Ini_TDD, TDD, tdd_2_np, cont
 from cpp_handler import CPPHandler
+import file_util as fu
+from qiskit import QuantumCircuit
 
 
 
@@ -64,12 +66,13 @@ if __name__ == '__main__':
     #TestCPPFunc(7)
     cpp = CPPHandler()
     #cpp.enable_debug()
+    #cpp.show_result()
 
     settings = {
         "simulate": False,
-        "algorithm": "graphstate",
+        "algorithm": "qpeexact",
         "level": (0, 2),
-        "qubits": 4,
+        "qubits": 8,
         "random_gate_deletions": 0
     }
     data = {
@@ -86,7 +89,9 @@ if __name__ == '__main__':
         "make_dataset": False
     }
     
-
+    file = fu.load_json(os.path.join("..", "debugging", "error_wstate_equiv_13_r2319.json"))
+    #file["path"] = file["path"][:file["path"][1:].index(file["path"][0])+1]
+    #circuit = cu.qiskit_to_quimb_circuit(QuantumCircuit.from_qasm_str(file["circuit_data"]["quimb_circuit"]))
     #circuit = bu.get_gauss_random_circuit(settings["qubits"])#
     circuit = bu.get_dual_circuit_setup_quimb(data, draw=False)#cu.get_example_circuit(settings["qubits"])#bu.get_dual_circuit_setup_quimb(data, draw=False)
     #circuit = cu.qiskit_to_quimb_circuit(cu.get_simple_equiv_circuit())
@@ -95,17 +100,19 @@ if __name__ == '__main__':
     data["settings"]["qubits"] = circuit.N
     #new_circ = replace_low_prec_nums(cu.quimb_to_qiskit_circuit(circuit))
 
-    tensor_network = tnu.get_tensor_network(circuit, split_cnot=False, state = None)
-    tensor_network_other = tnu.get_tensor_network(circuit_other, split_cnot=False, state = None)
+    tensor_network = tnu.get_tensor_network(circuit, split_cnot=True, state = None)
+    tensor_network_other = tnu.get_tensor_network(circuit_other, split_cnot=True, state = None)
 
     #tensor_network.draw()
     #tdd_predict = tnu.get_tdd_path(tensor_network, data)
     stats = {"agree_right": 0, "agree_wrong": 0,"disagree": 0, "python_wrong": 0, "cpp_wrong": 0}
     for i in range(1):
         # path = tnu.get_usable_path(tensor_network, tensor_network.contraction_path(
-        #     ctg.HyperOptimizer(methods = "random-greedy", minimize="flops", max_repeats=100, max_time=60, progbar=True, parallel=False)))
+        #     ctg.HyperOptimizer(methods = "betweenness", minimize="flops", max_repeats=1, max_time=60, progbar=True, parallel=False)))
+        #path = [(v[0], v[1]) for v in file["path"]]
         path = tnu.get_linear_path(tensor_network, 0.5, False)
-        res = cpp.fast_contraction(circuit, tensor_network, path)
+        
+        res = cpp.fast_contraction(circuit, tensor_network, path, length_indifferent=True)
         print(res)
 
         print("Running Python\n\n")
@@ -115,6 +122,7 @@ if __name__ == '__main__':
 
         gate_tdds = get_tdds_from_quimb_tensor_network(tensor_network, False)
         data["path"] = path
+        data["circuit_settings"]["qubits"] = -1
         result_tdd = contract_tdds(gate_tdds, data, save_intermediate_results=True, comprehensive_saving=True)
         #result_tdd = fast_contract_tdds(gate_tdds, data)
         #print(f"Equivalent: {data['equivalence']}")

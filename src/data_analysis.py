@@ -28,6 +28,10 @@ def get_data_from_folder(folder):
     elif files[0]["path_settings"]["method"] == "cotengra" and files[0]["path_settings"]["opt_method"] == "betweenness":
         method = "betweenness"
 
+    is_cpp = False
+    if "use_cpp_only" in files[0]["settings"] and files[0]["settings"]["use_cpp_only"]:
+        is_cpp = True
+    
     is_cotengra = False
 
     for file in tqdm(files):
@@ -35,7 +39,7 @@ def get_data_from_folder(folder):
         is_cotengra = not is_qcec and (is_cotengra or file["path_settings"]["method"] == "cotengra")
         
         file_res = {}
-        if not is_qcec:
+        if not is_qcec and not is_cpp:
             s, estimated_time, new_sizes = process_sizes(file)
             file_res["max_size"] = max(s)
             file_res["avg_size"] = sum(s) / len(s)
@@ -97,7 +101,7 @@ def get_printable_conf_data(data):
         
         for inner_key, inner_value in value.items():
             is_time = "time" in inner_key
-            inter_res[inner_key] = divide_and_round_2tuple(inner_value, 1000 if is_time else 1, 1 if is_time else 0)
+            inter_res[inner_key] = divide_and_round_2tuple(inner_value, 1 if is_time else 1, 1 if is_time else 0)
 
         processed_data[key] = inter_res
 
@@ -252,14 +256,18 @@ if __name__ == "__main__":
         "time_sn_between_gs_dj_ghz_64_128_256_2023-12-11_11-25"
     ]
 
-    all_data = get_all_data(folders)
-    prepped_data, groups, methods = prepare_data_for_bar_plot(all_data, whitelist=["dj", "graphstate", "wstate", "twolocalrandom", "qpeexact"], as_log=True)
-    plot_as_bar_plot(prepped_data, groups, methods)
+    folders = [
+        "test_new_cpp_opt_benchmark_test_wsplit_betweenness_v1_"
+    ]
+
+    # all_data = get_all_data(folders)
+    # prepped_data, groups, methods = prepare_data_for_bar_plot(all_data, whitelist=["dj", "graphstate", "wstate", "twolocalrandom", "qpeexact"], as_log=True)
+    # plot_as_bar_plot(prepped_data, groups, methods)
 
     
-    # _, is_cotengra, data = get_data_from_folder("time_sn_between_gs_dj_ghz_64_128_256_2023-12-11_11-25")
-    # processed_data = get_confidence_of_data(data)
-    # printable_data = get_printable_conf_data(processed_data)
-    # #print_table_compatible_confidence_of_data(data, printable_data, is_cotengra, is_qcec=False, is_last_column=False)
-    # #print_sizes_table(data, printable_data, is_last_column=False)
+    _, is_cotengra, data = get_data_from_folder("python_benchmark_new_")
+    processed_data = get_confidence_of_data(data)
+    printable_data = get_printable_conf_data(processed_data)
+    print_table_compatible_confidence_of_data(data, printable_data, is_cotengra, is_qcec=False, is_last_column=False)
+    # print_sizes_table(data, printable_data, is_last_column=False)
     # print_count_table(data, is_last_column=False)
