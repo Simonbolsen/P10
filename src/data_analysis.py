@@ -6,8 +6,15 @@ import math
 from tqdm import tqdm
 import numpy as np
 from contraction_plots import process_sizes
-from sklearn.linear_model import LinearRegression
+#from sklearn.linear_model import LinearRegression
 from scipy import stats
+
+
+def get_meta_data_from_experiment(exp_name):
+    files = fu.load_all_json(os.path.join("experiments", exp_name))
+    res = {}
+
+    
 
 
 def get_data_from_folder(folder):

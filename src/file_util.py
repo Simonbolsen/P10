@@ -120,8 +120,8 @@ def load_json(file_path):
         data = json_file.read()
     return json.loads(data)
 
-def load_all_json(folder, func=lambda x:x):
-    return load_rec(get_path(folder), is_file_type(".json"), lambda x: func(load_single_json(x))) 
+def load_all_json(folder, func=lambda x:x, silent=False):
+    return load_rec(get_path(folder), is_file_type(".json"), lambda x: func(load_single_json(x)), silent=silent) 
 
 def load_all_file_paths(folder):
     return load_rec(get_path(folder), is_file_type(".qasm"), lambda x:x)   
@@ -129,12 +129,12 @@ def load_all_file_paths(folder):
 def load_all_nx_graphs(folder):
     return load_rec(get_path(folder), is_file_type(".gml"), lambda x:load_nx_graph(x.path))  
 
-def load_rec(file, func, load):
+def load_rec(file, func, load, silent=False):
     files = []
     path = os.scandir(file)
-    for sf in tqdm(path):
+    for sf in tqdm(path, disable=silent):
         if sf.is_dir():
-            files += load_rec(sf, func, load)
+            files += load_rec(sf, func, load, silent=silent)
         elif func(sf):
             files.append(load(sf))
 

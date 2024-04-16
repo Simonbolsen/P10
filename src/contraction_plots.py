@@ -3,9 +3,11 @@ import plotting_util as pu
 import os
 from enum import Enum
 import math
-from tqdm import tqdm
+#from tqdm import tqdm
 import numpy as np
-from sklearn.linear_model import LinearRegression
+#from sklearn.linear_model import LinearRegression
+
+silent_mode = False
 
 def process_sizes(data):
     sizes = data["sizes"]
@@ -63,11 +65,12 @@ def find_sum_inner_list(l):
     l = list_extend_zeroes(l)
     return [sum([l[k][i] for k in range(len(l))]) for i in range(max([len(l[i]) for i in range(len(l))]))]
 
-def extract_data(folder, inclusion_condition = (lambda file, data:True)):
-    files = fu.load_all_json(os.path.join("experiments", folder))
+def extract_data(folder, inclusion_condition = (lambda file, data:True), silent=False):
+    files = fu.load_all_json(os.path.join("experiments", folder), silent=silent)
     data = {v : [] for v in list(Variables)}
     file_data = {v : None for v in list(Variables)}
-    for file in tqdm(files):
+    #for file in tqdm(files, disable=True):
+    for file in files:
         try:
             file_data[Variables.ALGORITHM] = [file["circuit_settings"]["algorithm"]]
             q = file['circuit_settings']['qubits']
@@ -115,7 +118,7 @@ def extract_data(folder, inclusion_condition = (lambda file, data:True)):
             if file["path_settings"]["method"] == "tdd_model":
                 file_data[Variables.PREDICTED_SIZES] = file["path_data"]["size_predictions"]
                 file_data[Variables.MAX_PREDICTED_SIZES] = [max([p[0] for p in file["path_data"]["size_predictions"]])]
-            if "version" in file and file["version"] == 1 and "used_trials" in file["path_data"]:
+            if "version" in file and file["version"] in [1,2] and "used_trials" in file["path_data"]:
                 file_data[Variables.OPT_RUNS_MAX] = (range(max(file["path_data"]["used_trials"])))
                 file_data[Variables.OPT_TIMES_MAX] = find_max_inner_list(file["path_data"]["opt_times"])
                 file_data[Variables.OPT_SIZES_MAX] = ([math.log2(v) for v in find_max_inner_list(file["path_data"]["opt_sizes"])])
@@ -198,7 +201,8 @@ def plot(folder, plots, save_path = "", inclusion_condition = (lambda file, data
         if not os.path.exists(save_path):
             os.makedirs(save_path)
 
-    for p in tqdm(plots):
+    #for p in tqdm(plots):
+    for p in plots:
         full_path = ("" if save_path == "" else os.path.join(save_path, p[-1].replace(" ", "_")))
         title = p[-1] + " " + data[Variables.ALGORITHM][0][0]
         if p[0] == "line":
@@ -446,6 +450,43 @@ def linear_analysis(plot_data, save_path, names, algorithm = "dj") :
                                         series_labels=labels , title= title,
                                         marker="o", marker_size=10, save_path=full_path, legend=True)
 
+
+# Designed for exp_visualiser to show plots in a convenient manner
+def single_experiment_single_plot(data, plot, inclusion_condition = (lambda file, data:True), show_3d = False):
+    plt_3point_types = ["3d_points", "bar"]
+
+    plt_type = plot[0]
+    plt_xval = plot[1]
+    plt_yval = plot[2]
+    plt_zval = plot[3] if plt_type in plt_3point_types else None
+    plt_name = plot[-1]
+
+    if not (is_non_empty(data[plt_xval]) and is_non_empty(data[plt_yval])):
+        if (plt_type in ["3d_points"] and not is_non_empty(data[plt_zval])):
+            print(f"{plt_xval.value}: {is_non_empty(data[plt_xval])}, {plt_yval.value}: {is_non_empty(data[plt_yval])}, {plt_zval.value}: {is_non_empty(data[plt_zval])}")
+        else:
+            print(f"{plt_xval.value}: {is_non_empty(data[plt_xval])}, {plt_yval.value}: {is_non_empty(data[plt_yval])}")
+
+    title = plt_name + " " + data[Variables.ALGORITHM][0][0]
+
+    if plt_type == "line":
+        pu.plot_line_series_2d(data[plt_xval], data[plt_yval], data[Variables.NAMES], 
+                                plt_xval.value, plt_yval.value, title=title, legend=False)
+    elif plt_type == "points": 
+        pu.plotPoints2d(data[plt_xval], data[plt_yval], plt_xval.value, plt_yval.value, 
+                        series_labels=data[Variables.NAMES], title= title,
+                        marker="o", legend=False)
+    elif plt_type == "3d_points": 
+        pu.plotPoints(data[plt_xval], data[plt_yval], data[plt_zval], [plt_xval.value, plt_yval.value, plt_zval.value], 
+                        legend=False, series_labels=data[Variables.NAMES], marker="o", title=title)
+    elif plt_type == "bar":
+        values = list(data[plt_yval].values())
+        groups = list(data[plt_yval].keys())
+        pu.plot_nested_bars(values, groups, data[plt_zval], x_label=plt_xval.value, y_label=plt_yval.value, 
+                            title=plt_name)
+    else:
+        print(f"{plt_type} is not a valid plot type!")
+
 class Variables(Enum):
     SIZES = "Nodes |N|"
     STEPS = "Path Steps s"
@@ -548,8 +589,8 @@ if __name__ == "__main__":
                 ]
 
     # ["simulation_dj_gate_del_1_2023-11-17_11-21"]
-    folders = [["data_model_V_c_un_dj_","data_model_V_cc_un_dj_", "data_tree_search_model_V_cc_un_dj_", "tree_search_model_V_dj_"]]
-    
+    #folders = [["data_model_V_c_un_dj_","data_model_V_cc_un_dj_", "data_tree_search_model_V_cc_un_dj_", "tree_search_model_V_dj_"]]
+    folders = ["cpp_benchmark_new_betweenness_"]
     #data = extract_data("model_contraction_2024-03-06_14-20")
     ...
 
