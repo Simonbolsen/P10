@@ -5,10 +5,14 @@ from tqdm import tqdm
 from random import random
 from tdd_nn import get_single_value_tensor
 from tdd_nn import get_tensors
+from tdd_nn import get_tensor
 from tdd_nn import call_model
 
 def weight_function_1(prediction, bound, visits, path_prediction, path_bound, sample_num):
     return bound - prediction + visits * (path_bound - path_prediction)
+
+def get_weight_function_2(alpha):
+    return lambda prediction, bound, visits, path_prediction, path_bound, sample_num: alpha**(- prediction)
 
 def get_edges(index_sets, tensor_network):
     edges = {}
@@ -182,37 +186,66 @@ def choose_step(weight_func, edge_predictions, tree_node, path_bound, sample_num
 
     return step, prediction
 
-def sample_path(model, tensor_network, tree, weight_func, path_bound, sample_num):
+def sample_path(model, tensor_network, tree, weight_func, path_bound, sample_num, data):
     path = []
     path_prediction = 0
 
+    t = time.time()
     tensors, index_sets = get_tensors(tensor_network)
+    data["tensor_time"].append(time.time() - t)
+
+    t = time.time()
     edges = get_edges(index_sets, tensor_network)
+    data["edge_time"].append(time.time() - t)
     
     new_edges = list(edges.keys())
     edge_predictions = {}
 
     tree_node = tree[0]
+    model_time = []
+    choice_time = []
+    step_time = []
+    input_time = []
+    prediction_time = []
+    item_time = []
+    stack_time = []
+
+    predicted_sizes = []
 
     while len(edges) > 0:
 
-        input = {"left_values":[], "right_values": [], "shared_values": []}
+        t = time.time()
+        input = {"left_values":[], "right_values": [], "shared_values": get_tensor([edges[e] for e in new_edges], transposed = True)}
 
         for e in new_edges:
             input["left_values"].append(tensors[e[0]])
             input["right_values"].append(tensors[e[1]])
-            input["shared_values"].append(get_single_value_tensor(edges[e]))
+        input_time.append(time.time() - t)
 
+        t = time.time()
         input["left_values"] = torch.stack(input["left_values"])
         input["right_values"] = torch.stack(input["right_values"])
-        input["shared_values"] = torch.stack(input["shared_values"])
+        stack_time.append(time.time() - t)
 
-        predctions = call_model(model, input)
+        t = time.time()
+        predctions = call_model(model, input).tolist()
+        model_time.append(time.time() - t)
 
+        t = time.time()
+        left = input["left_values"].tolist()
+        right = input["right_values"].tolist()
+        item_time.append(time.time() - t)
+
+        t = time.time()
         for i, e in enumerate(new_edges):
-            edge_predictions[e] = (predctions[i].item(), input["left_values"][i][1].item() + input["right_values"][i][1].item() - edges[e] * 2)
+            edge_predictions[e] = (predctions[i][0], left[i][1] + right[i][1] - edges[e] * 2)
+        prediction_time.append(time.time() - t)
 
+        t = time.time()
         step, prediction = choose_step(weight_func, edge_predictions, tree_node, path_bound, sample_num)
+        choice_time.append(time.time() - t)
+
+        predicted_sizes.append(prediction)
 
         if prediction > path_prediction:
             path_prediction = prediction
@@ -225,7 +258,18 @@ def sample_path(model, tensor_network, tree, weight_func, path_bound, sample_num
 
         tree_node = tree[tree_node[step]["child"]]
 
+        t = time.time()
         new_edges = take_step(step, tensors, index_sets, edges, edge_predictions, prediction)        
+        step_time.append(time.time() - t)
+
+    data["model_time"].append(model_time)
+    data["choice_time"].append(choice_time)
+    data["step_time"].append(step_time)
+    data["input_time"].append(input_time)
+    data["prediction_time"].append(prediction_time)
+    data["item_time"].append(item_time)
+    data["stack_time"].append(stack_time)
+    data["all_size_predictions"].append(predicted_sizes)
 
     return path, path_prediction
 
@@ -244,7 +288,7 @@ def get_tree_search_path(model, tensor_network, weight_func, data, max_time = 60
 
     best_path = []
     path_bound = len(tensor_network.outer_inds()) * 2
-    best_value = path_bound
+    best_value = path_bound #changed to negative for testing!!!
     tree = [{}]
     start_time = time.time()
 
@@ -252,23 +296,41 @@ def get_tree_search_path(model, tensor_network, weight_func, data, max_time = 60
 
     data["sample_time"] = []
     data["propagation_time"] = []
+    data["model_time"] = []        # used in sample_path()
+    data["choice_time"] = []       # used in sample_path()
+    data["step_time"] = []         # used in sample_path()
+    data["input_time"] = []        # used in sample_path()
+    data["prediction_time"] = []   # used in sample_path()
+    data["tensor_time"] = []       # used in sample_path()
+    data["edge_time"] = []         # used in sample_path()
+    data["item_time"] = []         # used in sample_path()
+    data["stack_time"] = []         # used in sample_path()
+    data["all_size_predictions"] = [] # used in sample_path()
+
+    data["size_predictions"] = []
+    paths = []
 
     while time.time() - start_time < max_time:
         t = time.time()
-        latest_path, latest_value = sample_path(model, tensor_network, tree, weight_func, path_bound, sample_num)
+        latest_path, latest_value = sample_path(model, tensor_network, tree, weight_func, path_bound, sample_num, data)
         data["sample_time"].append(time.time() - t)
+
+        data["size_predictions"].append([latest_value])
+        paths.append(latest_path)
 
         t = time.time()
         back_propegate(latest_path, latest_value, tree)
         data["propagation_time"].append(time.time() - t)
         
-        if latest_value < best_value:
-            best_path = latest_path
-            best_value = latest_value
-            data["size_predictions"] = [best_value]
+        #if latest_value < best_value: #Changed from < to > for testing!!!!
+        #    best_path = latest_path
+        #    best_value = latest_value
+        #    data["chosen_sample"] = sample_num
 
         print(f"Sample: {sample_num}, latest value: {latest_value}, best value: {best_value}")
 
         sample_num += 1
-    return best_path
+
+    data["chosen_sample"] = int(len(paths) * random())
+    return paths[data["chosen_sample"]]
 

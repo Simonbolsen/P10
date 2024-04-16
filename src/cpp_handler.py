@@ -6,7 +6,7 @@ import circuit_util as cu
 class CPPHandler():
     def __init__(self):
         self.debug = False
-        self.draw_result = False
+        self.draw_result = True
         self.make_data = True
         self.res_name = "tddRes2"
         self.dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -53,7 +53,7 @@ class CPPHandler():
         self.debug = True
 
     def data_creation_mode(self):
-        self.make_data = True
+        self.make_data = False
 
     def show_result(self):
         self.draw_result = True

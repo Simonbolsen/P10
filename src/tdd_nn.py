@@ -32,7 +32,11 @@ def get_elapsed_time(start_time, end_time):
     return f"{int(t.seconds / 60)}m {((t.seconds + t.microseconds / 1000000) % 60):.3f}s"
 
 def get_single_value_tensor(v):
-    return torch.tensor([v], dtype=torch.float, device= device) 
+    return get_tensor([v])
+
+def get_tensor(v, transposed = False):
+    tensor = torch.tensor(v, dtype=torch.float, device= device) 
+    return tensor.view(len(v), 1) if transposed else tensor
 
 def get_tensors(tensor_network):
     tensors = {}
