@@ -32,7 +32,11 @@ def get_elapsed_time(start_time, end_time):
     return f"{int(t.seconds / 60)}m {((t.seconds + t.microseconds / 1000000) % 60):.3f}s"
 
 def get_single_value_tensor(v):
-    return torch.tensor([v], dtype=torch.float, device= device) 
+    return get_tensor([v])
+
+def get_tensor(v, transposed = False):
+    tensor = torch.tensor(v, dtype=torch.float, device= device) 
+    return tensor.view(len(v), 1) if transposed else tensor
 
 def get_tensors(tensor_network):
     tensors = {}
@@ -216,7 +220,7 @@ def run():
     settings = [{
         #"load_experiment":"bbds2",
         #"load_name": "experiment_n2",
-        "experiment":"tdd_mk_V_c_model",
+        "experiment":"tdd_mk_VI_lr",
         "save_model":True,
         "model":"predicter",#"baseline",
         "dropout_probability": 0.001 * 2**(2 / 3),
@@ -224,20 +228,20 @@ def run():
         "batch_size": int(2**(11)),
         "hidden_size": int(2**(6)),
         "depth": 10,
-        "lr":-(2.9), # 
+        "lr":-(2.7 + 0.05 * i), # 
         "lr_decay": 0.8,
         "lr_decay_speed": 0.04,
         "weight_decay":0,
         "early_stopping":20,
         "warmup":10,
-        "run": i,
+        "run": 0,
         "run_name":  f"model_{i}"
     } for i in range(10)]
 
     print("Loading")
-    dataset = "TSP5"
+    dataset = "TSP6"
 
-    data_loader, val_data_loader = get_dataloaders(dataset, settings[0]["batch_size"])
+    data_loader, val_data_loader = get_dataloaders(dataset, settings[0]["batch_size"]) #move into loop to change batch size!!
 
     for s in settings:
 
@@ -267,6 +271,7 @@ def run():
         
 
 if __name__ == "__main__":
-    #fu.process_all_data(GATE_INDICES, 20, 5)
+    #fu.move_files("dataset/TSP/cpp_size_prediction_rnd_equiv_20q", 43, 1200)
+    #fu.process_all_data(GATE_INDICES, 62, 6)
     run()
     ...

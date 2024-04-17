@@ -115,9 +115,30 @@ def extract_data(folder, inclusion_condition = (lambda file, data:True), silent=
             if file["path_settings"]["method"] == "cotengra":
                 file_data[Variables.PATH_FLOPS] = ([math.log10(file["path_data"]["flops"])])
                 file_data[Variables.PATH_SIZE] = ([math.log2(file["path_data"]["size"])])
-            if file["path_settings"]["method"] == "tdd_model":
+            if file["path_settings"]["method"] == "tdd_model" or (file["path_settings"]["method"] == "tree_search"):
                 file_data[Variables.PREDICTED_SIZES] = file["path_data"]["size_predictions"]
+            if file["path_settings"]["method"] == "tdd_model":
                 file_data[Variables.MAX_PREDICTED_SIZES] = [max([p[0] for p in file["path_data"]["size_predictions"]])]
+            if file["path_settings"]["method"] == "tree_search":
+                file_data[Variables.MAX_PREDICTED_SIZES] = file["path_data"]["size_predictions"][file["path_data"]["chosen_sample"]]
+                file_data[Variables.SIZES] = (file["path_data"]["all_size_predictions"][file["path_data"]["chosen_sample"]])
+                file_data[Variables.PREDICTED_SIZE_SUM] = [sum(file_data[Variables.SIZES])]
+                file_data[Variables.STEPS] = (range(len(file_data[Variables.SIZES])))
+            if "alpha" in file["path_settings"]:
+                file_data[Variables.ALPHA] = [file["path_settings"]["alpha"]]
+            if "sample_time" in file["path_data"]:
+                file_data[Variables.ALPHAS] = [file["path_settings"]["alpha"] for _ in file["path_data"]["sample_time"]]
+                file_data[Variables.MAX_SAMPLE_TIME]  = [max(file["path_data"]["sample_time"]) * 1000]
+                file_data[Variables.MODEL_TIME]       = [sum(t) * 1000 for t in file["path_data"]["model_time"]]
+                file_data[Variables.MAX_PROPAGATION_TIME] = [max(file["path_data"]["propagation_time"]) * 1000]
+                file_data[Variables.CHOICE_TIME]      = [sum(t) * 1000 for t in file["path_data"]["choice_time"]]
+                file_data[Variables.STEP_TIME]        = [sum(t) * 1000 for t in file["path_data"]["step_time"]]
+                file_data[Variables.INPUT_TIME]       = [sum(t) * 1000 for t in file["path_data"]["input_time"]]
+                file_data[Variables.PREDICTION_TIME]  = [sum(t) * 1000 for t in file["path_data"]["prediction_time"]]
+                file_data[Variables.MAX_TENSOR_TIME]      = [max(file["path_data"]["tensor_time"]) * 1000]
+                file_data[Variables.MAX_EDGE_TIME]        = [max(file["path_data"]["edge_time"]) * 1000]
+                file_data[Variables.ITEM_TIME]        = [sum(t) * 1000 for t in file["path_data"]["item_time"]]
+                file_data[Variables.STACK_TIME]       = [sum(t) * 1000 for t in file["path_data"]["stack_time"]]
             if "version" in file and file["version"] in [1,2] and "used_trials" in file["path_data"]:
                 file_data[Variables.OPT_RUNS_MAX] = (range(max(file["path_data"]["used_trials"])))
                 file_data[Variables.OPT_TIMES_MAX] = find_max_inner_list(file["path_data"]["opt_times"])
@@ -184,9 +205,9 @@ def extract_data(folder, inclusion_condition = (lambda file, data:True), silent=
 
     return data
 
-def plot(folder, plots, save_path = "", inclusion_condition = (lambda file, data:True), show_3d = False):
+def plot(folder, plots, save_path = "", inclusion_condition = (lambda file, data:True), show_3d = False, silent = False):
     if type(folder) == str:
-        data = extract_data(folder, inclusion_condition)
+        data = extract_data(folder, inclusion_condition, silent)
     else:
         all_data = [extract_data(f, inclusion_condition) for f in folder]
         data = {}
@@ -538,15 +559,32 @@ class Variables(Enum):
     MAX_SIZE_SLOPE = "Max size slope"
     PREDICTED_SIZES = "Predicted Sizes"
     MAX_PREDICTED_SIZES = "Max Predicted Sizes"
+    PREDICTED_SIZE_SUM = "Sum of Predicted Sizes"
+    ALPHA = "Alpha value"
+    ALPHAS = "Alpha value "
+    MAX_SAMPLE_TIME = "Maximum Sample Time [ms]"
+    MODEL_TIME = "Model Time [ms]"
+    SAMPLE_TIME = "Sample Time [ms]"
+    MAX_PROPAGATION_TIME = "Maximum Propagation Time [ms]"
+    CHOICE_TIME = "Choice Time [ms]" 
+    STEP_TIME = "Step Time [ms]"
+    INPUT_TIME = "Input Time [ms]"
+    PREDICTION_TIME = "Prediction Time [ms]"
+    MAX_TENSOR_TIME = "Tensor Time [ms]" 
+    MAX_EDGE_TIME = "Edge Time [ms]"
+    ITEM_TIME = "Item Time [ms]"
+    STACK_TIME = "Stack Time [ms]"
 
 if __name__ == "__main__":
  
     plots = [
             #  ("points", Variables.QUBITS, Variables.QCEC_TIME, "QCEC Time by Qubits"),
             #  ("points", Variables.QUBITS, Variables.TN_CONSTRUNCTION_TIME, "Tensor Network Construction Time by Qubits"),
-              ("points", Variables.QUBITS, Variables.PATH_CONSTRUCTION_TIME, "Path Construction Time by Qubits"), 
+            #  ("points", Variables.QUBITS, Variables.PATH_CONSTRUCTION_TIME, "Path Construction Time by Qubits"), 
+
             #  ("points", Variables.QUBITS, Variables.MAX_PREDICTED_SIZES, "Maximum Predicted Sizes by Qubits"), 
-            #  ("points", Variables.PATH_CONSTRUCTION_TIME, Variables.MAX_PREDICTED_SIZES, "Maximum Predicted Sizes by Path Construction Time"), 
+              ("points", Variables.PATH_CONSTRUCTION_TIME, Variables.MAX_PREDICTED_SIZES, "Maximum Predicted Sizes by Path Construction Time"), 
+              ("points", Variables.PATH_CONSTRUCTION_TIME, Variables.CONTRACTION_TIME, "Contraction Time by Path Construction Time"), 
             #  ("points", Variables.QUBITS, Variables.GATE_PREP_TIME, "Gate TDD Construction Time by Qubits"),
             #  ("points", Variables.QUBITS, Variables.CIRCUIT_SETUP_TIME, "Circuit Setup Time by Qubits"),
             #  ("points", Variables.QUBITS, Variables.SUB_NETWORK_COUNT, "Num of Sub Networks by Qubits"),
@@ -564,9 +602,25 @@ if __name__ == "__main__":
             #  ("line", Variables.OPT_RUNS, Variables.OPT_FLOPS, "Optimisation Flops"),
             #  ("line", Variables.OPT_RUNS, Variables.OPT_SIZES, "Optimisation Sizes"),
             #  ("line", Variables.OPT_RUNS, Variables.OPT_WRITES, "Optimisation Writes"),
-            #  ("line", Variables.OPT_RUNS, Variables.OPT_TIMES, "Optimisation Times"),
-              ("points", Variables.QUBITS, Variables.CONTRACTION_TIME, "Contraction Time by Qubits"),
-              ("points", Variables.PATH_CONSTRUCTION_TIME, Variables.CONTRACTION_TIME, "Contraction Time by Path Construction Time"),
+            #  ("line", Variables.OPT_RUNS, Variables.OPT_TIMES, "Optimisation Times"),  
+            #  ("points", Variables.ALPHAS, Variables.MODEL_TIME, "Model Time by Alpha value"),
+            #  ("points", Variables.ALPHAS, Variables.CHOICE_TIME, "Choice Time by Alpha value"),
+            #  ("points", Variables.ALPHAS, Variables.STEP_TIME, "Step Time by Alpha value"),
+            #  ("points", Variables.ALPHAS, Variables.INPUT_TIME, "Input Time by Alpha value"),
+            #  ("points", Variables.ALPHAS, Variables.PREDICTION_TIME, "Preidction Time by Alpha value"),
+            #  ("points", Variables.ALPHA, Variables.MAX_TENSOR_TIME, "Maximum Tensor Time by Alpha value"),
+            #  ("points", Variables.ALPHA, Variables.MAX_EDGE_TIME, "Maximum Edge Time by Alpha value"),
+            #  ("points", Variables.ALPHAS, Variables.ITEM_TIME, "Item Time by Alpha value"),
+            #  ("points", Variables.ALPHAS, Variables.STACK_TIME, "Stack Time by Alpha value"),
+              ("points", Variables.ALPHA, Variables.CONTRACTION_TIME, "Contraction Time by Alpha value"),
+              ("line", Variables.STEPS, Variables.SIZES, "Predicted Sizes over Path"),
+            #  ("points", Variables.QUBITS, Variables.CONTRACTION_TIME, "Contraction Time by Qubits"),
+            #  ("points", Variables.ALPHA, Variables.MAX_SAMPLE_TIME, "Maximum Sample Time by Alpha value"),
+            #  ("points", Variables.ALPHA, Variables.MAX_PROPAGATION_TIME, "Maximum Propagation Time by Alpha value"),
+              ("points", Variables.MAX_PREDICTED_SIZES, Variables.CONTRACTION_TIME, "Contraction Time by Maximum Predicted Sizes"),
+              ("points", Variables.PREDICTED_SIZE_SUM, Variables.CONTRACTION_TIME, "Contraction Time by Sum of Predicted Sizes"),
+              ("points", Variables.ALPHAS, Variables.PREDICTED_SIZES, "Predicted Sizes by Alpha Value"),
+            #  ("points", Variables.ALPHA, Variables.MAX_PREDICTED_SIZES, "Max Predicted Sizes by Alpha Value"),
              # ("points", Variables.MAX_PREDICTED_SIZES, Variables.CONTRACTION_TIME, "Contraction Time by Predicted Maximum Sizes"),
             #  ("points", Variables.GATE_DELETIONS, Variables.MAX_SIZES, "Max size by Gate Deletion"),
             #  ("points", Variables.GATE_DELETIONS, Variables.QCEC_TIME, "QCEC Time by Gate Deletion"),
@@ -589,13 +643,13 @@ if __name__ == "__main__":
                 ]
 
     # ["simulation_dj_gate_del_1_2023-11-17_11-21"]
-    #folders = [["data_model_V_c_un_dj_","data_model_V_cc_un_dj_", "data_tree_search_model_V_cc_un_dj_", "tree_search_model_V_dj_"]]
-    folders = ["cpp_benchmark_new_betweenness_"]
+    folders = ["ts_mV_w2_wstate__"]#, ["ts_mV_w2_dj_alpha_", "data_model_V_c_un_dj_","data_model_V_cc_un_dj_", "data_tree_search_model_V_cc_un_dj_", "tree_search_model_V_dj_"]]
+    
     #data = extract_data("model_contraction_2024-03-06_14-20")
     ...
 
     #file is the raw loaded file, and data is the processed variables for that file
-    inclusion_condition = lambda file, data : ("conclusive" not in file or file["conclusive"] or file["settings"]["simulate"])
+    inclusion_condition = lambda file, data : ("conclusive" not in file or file["conclusive"] or file["settings"]["simulate"]) and file["contraction_time"] < 10000
 
     #gate_del_comparison_plots(os.path.join("plots", "comparison_plots"), inclusion_condition=inclusion_condition) 
 

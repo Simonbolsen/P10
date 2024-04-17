@@ -72,7 +72,7 @@ class CPPHandler():
         self.debug = True
 
     def data_creation_mode(self):
-        self.make_data = True
+        self.make_data = False
 
     def show_result(self):
         self.draw_result = True

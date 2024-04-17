@@ -5,6 +5,29 @@ from tqdm import tqdm
 import torch
 import random
 import math
+import shutil
+
+def move_files(source_folder, folder_min, num_files):
+    # Get a list of files in the source folder
+    files = os.listdir(source_folder)
+
+    n = 0
+    p = folder_min
+    while n < len(files):
+        p += 1
+        destination_folder = f"dataset/TSP/b{p}"
+        # Move num_files files from the source folder to the destination folder
+
+        make_folder(destination_folder)
+
+        for file_name in files[n:min(n+num_files, len(files))]:
+            source_file = os.path.join(source_folder, file_name)
+            destination_file = os.path.join(destination_folder, file_name)
+            shutil.move(source_file, destination_file)
+            print(f"Moved {file_name} to {destination_folder}")
+        n += num_files
+    if n >= len(files):
+        print(f"{destination_file} has not been filled")
 
 def split(folder):
     path = os.scandir(get_path(folder))
@@ -78,13 +101,17 @@ def process_data(path, gate_indices):
 def process_all_data(gate_indices, folder_num, mk):
     final_data = []
 
-    sum = 0
+    #sum = 0
+#
+    #for p in range(21,folder_num + 1):
+    #    print(f"Processing: b{p}")
+    #    data, original_num = process_data(f"dataset/TSP/b{p}", gate_indices)
+    #    final_data.extend(data)
+    #    sum += original_num
 
-    for p in range(1,folder_num + 1):
-        print(f"Processing: b{p}")
-        data, original_num = process_data(f"dataset/TSP2/b{p}", gate_indices)
-        final_data.extend(data)
-        sum += original_num
+    files = load_all_json(f"dataset/TSP6")
+    for f in files:
+        final_data.extend(f)
         
     final_data = remove_duplicates(final_data)
     print(f"Original data: {sum}, Final data: {len(final_data)}")
@@ -131,6 +158,8 @@ def load_all_nx_graphs(folder):
 
 def load_rec(file, func, load, silent=False):
     files = []
+    if not os.path.exists(file):
+        return files
     path = os.scandir(file)
     for sf in tqdm(path, disable=silent):
         if sf.is_dir():

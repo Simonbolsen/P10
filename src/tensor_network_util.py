@@ -473,6 +473,8 @@ def get_tree_path(tensor_network, data):
     weight_function = settings["weight_function"]
     if weight_function == "wf1":
         weight_function = ts.weight_function_1
+    elif weight_function == "wf2":
+        weight_function = ts.get_weight_function_2(settings["alpha"])
     else:
         print(f"No weight function is name {weight_function}")
         return None
