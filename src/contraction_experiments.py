@@ -648,7 +648,7 @@ if __name__ == "__main__":
         },
         "folder_name":"ts_mV_w2_wstate_q_debug", #garbage
         "file_name": f"run_{i}q" #standard_name,
-    } for i in range(15, 20)] #for alg in ["dj", "ghz", "graphstate"]
+    } for i in range(17, 20)] #for alg in ["dj", "ghz", "graphstate"]
 
 
     run_experiment(configs, folder_with_time=False)

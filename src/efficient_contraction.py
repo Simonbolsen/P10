@@ -89,11 +89,11 @@ if __name__ == '__main__':
         "make_dataset": False
     }
     
-    file = fu.load_json(os.path.join("..", "debugging", "error_wstate_equiv_13_r2319.json"))
+    file = fu.load_json(os.path.join("..", "debugging", "error_wstate_equiv_19_r2330.json"))
     #file["path"] = file["path"][:file["path"][1:].index(file["path"][0])+1]
-    #circuit = cu.qiskit_to_quimb_circuit(QuantumCircuit.from_qasm_str(file["circuit_data"]["quimb_circuit"]))
+    circuit = cu.qiskit_to_quimb_circuit(QuantumCircuit.from_qasm_str(file["circuit_data"]["quimb_circuit"]))
     #circuit = bu.get_gauss_random_circuit(settings["qubits"])#
-    circuit = bu.get_dual_circuit_setup_quimb(data, draw=False)#cu.get_example_circuit(settings["qubits"])#bu.get_dual_circuit_setup_quimb(data, draw=False)
+    #circuit = bu.get_dual_circuit_setup_quimb(data, draw=False)#cu.get_example_circuit(settings["qubits"])#bu.get_dual_circuit_setup_quimb(data, draw=False)
     #circuit = cu.qiskit_to_quimb_circuit(cu.get_simple_equiv_circuit())
     #circuit = cu.qiskit_to_quimb_circuit(cu.get_simple_circuit())
     circuit_other = cu.qiskit_to_quimb_circuit(cu.get_other_simple_circuit())
@@ -109,8 +109,8 @@ if __name__ == '__main__':
     for i in range(1):
         # path = tnu.get_usable_path(tensor_network, tensor_network.contraction_path(
         #     ctg.HyperOptimizer(methods = "betweenness", minimize="flops", max_repeats=1, max_time=60, progbar=True, parallel=False)))
-        #path = [(v[0], v[1]) for v in file["path"]]
-        path = tnu.get_linear_path(tensor_network, 0.5, False)
+        path = [(v[0], v[1]) for v in file["path"]]
+        #path = tnu.get_linear_path(tensor_network, 0.5, False)
         
         res = cpp.fast_contraction(circuit, tensor_network, path, length_indifferent=True)
         print(res)
