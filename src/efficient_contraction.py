@@ -65,8 +65,8 @@ if __name__ == '__main__':
     #generate_number_prec_file()
     #TestCPPFunc(7)
     cpp = CPPHandler()
-    #cpp.enable_debug()
-    #cpp.show_result()
+    # cpp.enable_debug()
+    # cpp.show_result()
 
     settings = {
         "simulate": False,
@@ -89,11 +89,11 @@ if __name__ == '__main__':
         "make_dataset": False
     }
     
-    file = fu.load_json(os.path.join("..", "debugging", "error_wstate_equiv_13_r2319.json"))
+    file = fu.load_json(os.path.join("..", "debugging", "error_realamprandom_equiv_4_r5.json"))
     #file["path"] = file["path"][:file["path"][1:].index(file["path"][0])+1]
-    #circuit = cu.qiskit_to_quimb_circuit(QuantumCircuit.from_qasm_str(file["circuit_data"]["quimb_circuit"]))
+    circuit = cu.qiskit_to_quimb_circuit(QuantumCircuit.from_qasm_str(file["circuit_data"]["quimb_circuit"]))
     #circuit = bu.get_gauss_random_circuit(settings["qubits"])#
-    circuit = bu.get_dual_circuit_setup_quimb(data, draw=False)#cu.get_example_circuit(settings["qubits"])#bu.get_dual_circuit_setup_quimb(data, draw=False)
+    #circuit = bu.get_dual_circuit_setup_quimb(data, draw=False)#cu.get_example_circuit(settings["qubits"])#bu.get_dual_circuit_setup_quimb(data, draw=False)
     #circuit = cu.qiskit_to_quimb_circuit(cu.get_simple_equiv_circuit())
     #circuit = cu.qiskit_to_quimb_circuit(cu.get_simple_circuit())
     circuit_other = cu.qiskit_to_quimb_circuit(cu.get_other_simple_circuit())
@@ -107,13 +107,16 @@ if __name__ == '__main__':
     #tdd_predict = tnu.get_tdd_path(tensor_network, data)
     stats = {"agree_right": 0, "agree_wrong": 0,"disagree": 0, "python_wrong": 0, "cpp_wrong": 0}
     for i in range(1):
-        # path = tnu.get_usable_path(tensor_network, tensor_network.contraction_path(
-        #     ctg.HyperOptimizer(methods = "betweenness", minimize="flops", max_repeats=1, max_time=60, progbar=True, parallel=False)))
+        path = tnu.get_usable_path(tensor_network, tensor_network.contraction_path(
+            ctg.HyperOptimizer(methods = "betweenness", minimize="flops", max_repeats=1, max_time=60, progbar=True, parallel=False)))
         #path = [(v[0], v[1]) for v in file["path"]]
-        path = tnu.get_linear_path(tensor_network, 0.5, False)
+        #path = tnu.get_linear_path(tensor_network, 0.5, False)
         
-        res = cpp.fast_contraction(circuit, tensor_network, path, length_indifferent=True)
-        print(res)
+        for k in range(13, 32):
+            res = cpp.fast_contraction(circuit, tensor_network, path, length_indifferent=True, precision=k)
+            print(res)
+            if res["equivalence"]:
+                break
 
         print("Running Python\n\n")
         variable_order = tnu.cpp_variable_ordering(tensor_network, data["settings"]["qubits"])
