@@ -223,13 +223,16 @@ def plotPoints(xs, ys, zs, axis_names = ["", "", ""], legend = True, series_labe
         plt.savefig(save_path)
         plt.close()
 
-def plotPoints2d(xs, ys, x_label, y_label, trends = None, legend = True, series_labels=[], marker = "o", marker_size = 20, title = "", save_path = ""):
+def plotPoints2d(xs, ys, x_label, y_label, axe = None, trends = None, legend = True, series_labels=[], marker = "o", marker_size = 20, title = "", save_path = ""):
     if series_labels == []: 
         series_labels = [y_label for _ in range(len(ys))]
 
     COLOR = get_colors(len(ys))
-    fig = plt.figure()
-    axe = plt.axes()
+    if (axe is None):
+        fig = plt.figure()
+        axe = plt.axes()
+    else:
+        return_as_axis = True
 
     for i, y in enumerate(ys):
         axe.scatter(xs[i], y, marker=marker, label=series_labels[i], sizes = [marker_size for _ in range(len(y))])
@@ -239,7 +242,7 @@ def plotPoints2d(xs, ys, x_label, y_label, trends = None, legend = True, series_
             y = trends[i][0]
             for c in trends[i][1:]:
                 y = y * x + c
-            plt.plot(x, y)
+            axe.plot(x, y)
 
     axe.set_xlabel(x_label)
     axe.set_ylabel(y_label)
@@ -257,6 +260,8 @@ def plotPoints2d(xs, ys, x_label, y_label, trends = None, legend = True, series_
         # Create a new legend with the sorted handles and labels
         axe.legend(sorted_handles, sorted_labels)
 
+    if (return_as_axis):
+        return
     if save_path == "":
         plt.show()
     else:

@@ -473,7 +473,7 @@ def linear_analysis(plot_data, save_path, names, algorithm = "dj") :
 
 
 # Designed for exp_visualiser to show plots in a convenient manner
-def single_experiment_single_plot(data, plot, inclusion_condition = (lambda file, data:True), show_3d = False):
+def single_experiment_single_plot(data, plot, axe = None, inclusion_condition = (lambda file, data:True), show_3d = False):
     plt_3point_types = ["3d_points", "bar"]
 
     plt_type = plot[0]
@@ -494,7 +494,7 @@ def single_experiment_single_plot(data, plot, inclusion_condition = (lambda file
         pu.plot_line_series_2d(data[plt_xval], data[plt_yval], data[Variables.NAMES], 
                                 plt_xval.value, plt_yval.value, title=title, legend=False)
     elif plt_type == "points": 
-        pu.plotPoints2d(data[plt_xval], data[plt_yval], plt_xval.value, plt_yval.value, 
+        pu.plotPoints2d(data[plt_xval], data[plt_yval], plt_xval.value, plt_yval.value, axe=axe,
                         series_labels=data[Variables.NAMES], title= title,
                         marker="o", legend=False)
     elif plt_type == "3d_points": 
