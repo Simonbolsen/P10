@@ -43,7 +43,7 @@ def without_batch_data(data):
     return out_data
 
 if __name__ == "__main__":
-    experiment_path = "experiment_data/tdd_mk_V_c_model"
+    experiment_path = "experiment_data/tdd_mk_VI_depth"
     data = fu.load_all_json(experiment_path, without_batch_data)
 
     keys = {Variables.LEARNING_RATE: "lr", Variables.DEPTH:"depth", Variables.DROPOUT_PROBABILITY:"dropout_probability", 

@@ -228,6 +228,7 @@ def plotPoints2d(xs, ys, x_label, y_label, axe = None, trends = None, legend = T
         series_labels = [y_label for _ in range(len(ys))]
 
     COLOR = get_colors(len(ys))
+    return_as_axis = False
     if (axe is None):
         fig = plt.figure()
         axe = plt.axes()
