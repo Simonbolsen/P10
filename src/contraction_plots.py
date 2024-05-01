@@ -643,7 +643,11 @@ if __name__ == "__main__":
                 ]
 
     # ["simulation_dj_gate_del_1_2023-11-17_11-21"]
-    folders = ["cpp_benchmark_new_betweenness_"]#, ["ts_mV_w2_dj_alpha_", "data_model_V_c_un_dj_","data_model_V_cc_un_dj_", "data_tree_search_model_V_cc_un_dj_", "tree_search_model_V_dj_"]]
+    folders = [#"cpp_benchmark_new_cpp_nngreedy_", "cpp_benchmark_new_cpp_nngreedy_w4_",
+               "cpp_benchmark_w_split_rgreedy_", "cpp_benchmark_w_split_betweenness_",
+               "cpp_benchmark_new_betweenness_", "cpp_benchmark_new_linear_",
+               "cpp_benchmark_new_rgreedy_", "cpp_benchmark_new_prop_",
+               "qcec_benchmark_new_", "python_benchmark_new_"]#, ["ts_mV_w2_dj_alpha_", "data_model_V_c_un_dj_","data_model_V_cc_un_dj_", "data_tree_search_model_V_cc_un_dj_", "tree_search_model_V_dj_"]]
     
     #data = extract_data("model_contraction_2024-03-06_14-20")
     ...
