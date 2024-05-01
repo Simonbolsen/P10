@@ -235,14 +235,17 @@ def run_experiment(configs, folder_with_time=True, prev_rep = 4):
             circ_conf = c["circuit_settings"]
             c["file_name"] = f"circuit_{circ_conf['algorithm']}_{'cpp' if c['settings']['use_cpp_only'] else 'py'}_{circ_conf['level'][0]}{circ_conf['level'][1]}_{circ_conf['qubits']}_d{circ_conf['random_gate_deletions']}_r{circ_conf['repetition']+prev_rep}"
     
-    # Prepare save folder and file paths
-    experiment_name = f"{configs[0]['folder_name']}_{datetime.today().strftime('%Y-%m-%d_%H-%M') if folder_with_time else ''}"
-    folder_path = os.path.join("experiments", experiment_name)
-    if not os.path.exists(folder_path):
-        os.makedirs(folder_path, exist_ok=True)
+    
     
     # For each circuit, run equivalence checking:
     for data in configs:
+
+        # Prepare save folder and file paths
+        experiment_name = f"{data['folder_name']}_{datetime.today().strftime('%Y-%m-%d_%H-%M') if folder_with_time else ''}"
+        folder_path = os.path.join("experiments", experiment_name)
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path, exist_ok=True)
+
         settings = data["settings"]
         contraction_settings = data["contraction_settings"]
         path_settings = data["path_settings"]
@@ -695,7 +698,7 @@ if __name__ == "__main__":
             "level": (0, 2),
             "qubits": qb_per_alg[alg][qb_i],
             "random_gate_deletions": 0,
-            "repetition": i
+            "repetition": 0
         },
         "folder_name":["cpp_benchmark_w_split_betweenness", "cpp_benchmark_new_linear", "cpp_benchmark_w_split_rgreedy", "cpp_benchmark_new_cpp_nngreedy", "cpp_benchmark_new_cpp_nngreedy_w4"][j], #garbage
         "file_name": "standard_name",

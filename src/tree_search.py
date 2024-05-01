@@ -14,6 +14,9 @@ def weight_function_1(prediction, bound, visits, path_prediction, path_bound, sa
 def get_weight_function_2(alpha):
     return lambda prediction, bound, visits, path_prediction, path_bound, sample_num: alpha**(- prediction)
 
+def get_weight_function_3(alpha, beta):
+    return lambda prediction, bound, visits, path_prediction, path_bound, sample_num: alpha**(bound * beta - prediction)
+
 def get_edges(index_sets, tensor_network):
     edges = {}
 
@@ -271,7 +274,7 @@ def sample_path(model, tensor_network, tree, weight_func, path_bound, sample_num
     data["stack_time"].append(stack_time)
     data["all_size_predictions"].append(predicted_sizes)
 
-    return path, path_prediction
+    return path, sum(predicted_sizes) #path_prediction <--------------------------------------
 
 def back_propegate(path, value, tree):
     node = tree[0]
@@ -285,14 +288,12 @@ def back_propegate(path, value, tree):
 
 
 def get_tree_search_path(model, tensor_network, weight_func, data, max_time = 60):
-
-    best_path = []
     path_bound = len(tensor_network.outer_inds()) * 2
-    best_value = path_bound #changed to negative for testing!!!
+    best_value = float("inf") #path_bound #changed to negative for testing!!!
     tree = [{}]
     start_time = time.time()
 
-    sample_num = 1
+    sample_num = 0
 
     data["sample_time"] = []
     data["propagation_time"] = []
@@ -322,15 +323,14 @@ def get_tree_search_path(model, tensor_network, weight_func, data, max_time = 60
         back_propegate(latest_path, latest_value, tree)
         data["propagation_time"].append(time.time() - t)
         
-        #if latest_value < best_value: #Changed from < to > for testing!!!!
-        #    best_path = latest_path
-        #    best_value = latest_value
-        #    data["chosen_sample"] = sample_num
+        if latest_value < best_value: #Changed from < to > for testing!!!!
+            best_value = latest_value
+            data["chosen_sample"] = sample_num
 
         print(f"Sample: {sample_num}, latest value: {latest_value}, best value: {best_value}")
 
         sample_num += 1
 
-    data["chosen_sample"] = int(len(paths) * random())
+    #data["chosen_sample"] = int(len(paths) * random())
     return paths[data["chosen_sample"]]
 

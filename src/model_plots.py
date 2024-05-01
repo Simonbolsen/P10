@@ -53,7 +53,7 @@ if __name__ == "__main__":
     y_axis = Variables.LEARNING_RATE
     z_axis = Variables.LOSS
 
-    use_axies = 1
+    use_axies = 2
 
     log10_variables = [Variables.WEIGHT_DECAY]
     log2_variables = [Variables.HIDDEN_SIZE, Variables.BATCH_SIZE]

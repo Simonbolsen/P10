@@ -120,12 +120,13 @@ def extract_data(folder, inclusion_condition = (lambda file, data:True), silent=
             if file["path_settings"]["method"] == "tdd_model":
                 file_data[Variables.MAX_PREDICTED_SIZES] = [max([p[0] for p in file["path_data"]["size_predictions"]])]
             if file["path_settings"]["method"] == "tree_search":
-                file_data[Variables.MAX_PREDICTED_SIZES] = file["path_data"]["size_predictions"][file["path_data"]["chosen_sample"]]
-                file_data[Variables.SIZES] = (file["path_data"]["all_size_predictions"][file["path_data"]["chosen_sample"]])
+                file_data[Variables.SIZES] = (file["path_data"]["all_size_predictions"][file["path_data"]["chosen_sample"]][:-1])
+                file_data[Variables.MAX_PREDICTED_SIZES] = [max(file_data[Variables.SIZES])]
                 file_data[Variables.PREDICTED_SIZE_SUM] = [sum(file_data[Variables.SIZES])]
+                file_data[Variables.ESTIMATED_TIME] = [sum([s**2 for s in file_data[Variables.SIZES]])]
                 file_data[Variables.STEPS] = (range(len(file_data[Variables.SIZES])))
             if "alpha" in file["path_settings"]:
-                file_data[Variables.ALPHA] = [file["path_settings"]["alpha"]]
+                file_data[Variables.ALPHA] = [file["path_settings"]["beta"]]
             if "sample_time" in file["path_data"]:
                 file_data[Variables.ALPHAS] = [file["path_settings"]["alpha"] for _ in file["path_data"]["sample_time"]]
                 file_data[Variables.MAX_SAMPLE_TIME]  = [max(file["path_data"]["sample_time"]) * 1000]
@@ -206,15 +207,24 @@ def extract_data(folder, inclusion_condition = (lambda file, data:True), silent=
     return data
 
 def plot(folder, plots, save_path = "", inclusion_condition = (lambda file, data:True), show_3d = False, silent = False):
+    show_legend = False
+
     if type(folder) == str:
         data = extract_data(folder, inclusion_condition, silent)
     else:
         all_data = [extract_data(f, inclusion_condition) for f in folder]
         data = {}
-        uncombinable_variables = [Variables.EQUIV_GROUP_COUNTS, Variables.GROUP_NAMES, Variables.CONTRACTION_TIME_BUCKETED, Variables.QUBITS_BUCKETED]
+        uncombinable_variables = [Variables.NAMES, Variables.EQUIV_GROUP_COUNTS, Variables.GROUP_NAMES, Variables.CONTRACTION_TIME_BUCKETED, Variables.QUBITS_BUCKETED]
         for key in all_data[0]:
             if key not in uncombinable_variables:
                 data[key] = [[x for l in d[key] for x in l] for d in all_data]
+        data[Variables.NAMES] = folder
+        show_legend = True
+
+    #if True:
+    #    avgs = [sum([s[i] / len(data[Variables.SIZES]) for s in data[Variables.SIZES]]) for i, _ in enumerate(data[Variables.SIZES][0])]
+    #    data[Variables.SIZES] = [[(v - avgs[i])**2 for i, v in enumerate(s)] for s in data[Variables.SIZES]]
+    #    data[Variables.ALPHA] = [sum(s) for s in data[Variables.SIZES]]
 
     if save_path != "":
         save_path = os.path.normpath(os.path.join(os.path.realpath(__file__), "..", "..", "experiments", save_path))
@@ -230,18 +240,18 @@ def plot(folder, plots, save_path = "", inclusion_condition = (lambda file, data
             if is_non_empty(data[p[1]]) and is_non_empty(data[p[2]]):
                 pu.plot_line_series_2d(data[p[1]], data[p[2]], data[Variables.NAMES], 
                                         p[1].value, p[2].value, title=title, 
-                                        save_path=full_path, legend=False)
+                                        save_path=full_path, legend=show_legend)
         elif p[0] == "points": 
             if is_non_empty(data[p[1]]) and is_non_empty(data[p[2]]):
                 pu.plotPoints2d(data[p[1]], data[p[2]], p[1].value, p[2].value, 
                                 series_labels=data[Variables.NAMES], title= title,
-                                marker="o", save_path=full_path, legend=False)
+                                marker="o", save_path=full_path, legend=show_legend)
             else:
                 print(f"{p[1].value}: {is_non_empty(data[p[1]])}, {p[2].value}: {is_non_empty(data[p[2]])}")
         elif p[0] == "3d_points": 
             if is_non_empty(data[p[1]]) and is_non_empty(data[p[2]]) and is_non_empty(data[p[3]]):
                 pu.plotPoints(data[p[1]], data[p[2]], data[p[3]], [p[1].value, p[2].value, p[3].value], 
-                              legend=False, series_labels=data[Variables.NAMES], marker="o", title=title, 
+                              legend=show_legend, series_labels=data[Variables.NAMES], marker="o", title=title, 
                               save_path="" if show_3d else full_path)
         elif p[0] == "bar":
             if is_non_empty(data[p[1]]) and is_non_empty(data[p[2]]):
