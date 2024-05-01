@@ -483,7 +483,7 @@ def linear_analysis(plot_data, save_path, names, algorithm = "dj") :
 
 
 # Designed for exp_visualiser to show plots in a convenient manner
-def single_experiment_single_plot(data, plot, inclusion_condition = (lambda file, data:True), show_3d = False):
+def single_experiment_single_plot(data, plot, axe = None, inclusion_condition = (lambda file, data:True), show_3d = False):
     plt_3point_types = ["3d_points", "bar"]
 
     plt_type = plot[0]
@@ -504,7 +504,7 @@ def single_experiment_single_plot(data, plot, inclusion_condition = (lambda file
         pu.plot_line_series_2d(data[plt_xval], data[plt_yval], data[Variables.NAMES], 
                                 plt_xval.value, plt_yval.value, title=title, legend=False)
     elif plt_type == "points": 
-        pu.plotPoints2d(data[plt_xval], data[plt_yval], plt_xval.value, plt_yval.value, 
+        pu.plotPoints2d(data[plt_xval], data[plt_yval], plt_xval.value, plt_yval.value, axe=axe,
                         series_labels=data[Variables.NAMES], title= title,
                         marker="o", legend=False)
     elif plt_type == "3d_points": 
@@ -588,73 +588,72 @@ class Variables(Enum):
 if __name__ == "__main__":
  
     plots = [
-            #  ("points", Variables.QUBITS, Variables.QCEC_TIME, "QCEC Time by Qubits"),
-            #  ("points", Variables.QUBITS, Variables.TN_CONSTRUNCTION_TIME, "Tensor Network Construction Time by Qubits"),
-            #  ("points", Variables.QUBITS, Variables.PATH_CONSTRUCTION_TIME, "Path Construction Time by Qubits"), 
+             ("points", Variables.QUBITS, Variables.QCEC_TIME, "QCEC Time by Qubits"),
+             ("points", Variables.QUBITS, Variables.TN_CONSTRUNCTION_TIME, "Tensor Network Construction Time by Qubits"),
+             ("points", Variables.QUBITS, Variables.PATH_CONSTRUCTION_TIME, "Path Construction Time by Qubits"), 
 
-              ("points", Variables.QUBITS, Variables.MAX_PREDICTED_SIZES, "Maximum Predicted Sizes by Qubits"), 
+             ("points", Variables.QUBITS, Variables.MAX_PREDICTED_SIZES, "Maximum Predicted Sizes by Qubits"), 
               ("points", Variables.PATH_CONSTRUCTION_TIME, Variables.MAX_PREDICTED_SIZES, "Maximum Predicted Sizes by Path Construction Time"), 
               ("points", Variables.PATH_CONSTRUCTION_TIME, Variables.CONTRACTION_TIME, "Contraction Time by Path Construction Time"), 
-            #  ("points", Variables.QUBITS, Variables.GATE_PREP_TIME, "Gate TDD Construction Time by Qubits"),
-            #  ("points", Variables.QUBITS, Variables.CIRCUIT_SETUP_TIME, "Circuit Setup Time by Qubits"),
-            #  ("points", Variables.QUBITS, Variables.SUB_NETWORK_COUNT, "Num of Sub Networks by Qubits"),
-            #  ("points", Variables.QUBITS, Variables.TENSOR_COUNT, "Num of Tensors by Qubits"),
-            #  ("line", Variables.STEPS, Variables.SIZES, "Compulsory Sizes over Path"),
-            #  ("line", Variables.STEPS, Variables.LOG_SIZES, "Compulsory log10 Sizes over Path"),
-            #  ("points", Variables.QUBITS, Variables.MAX_SIZES, "Maximum Size by Qubits"),
-            #  ("points", Variables.QUBITS, Variables.LOG_MAX_SIZES, "Maximum log10 Size by Qubits"),
-            #  ("points", Variables.MAX_SIZES, Variables.CONTRACTION_TIME, "Time by Maximum Size"),
-            #  ("points", Variables.ESTIMATED_TIME, Variables.CONTRACTION_TIME, "Time by Estimated Time"),
-            #  ("points", Variables.QUBITS, Variables.ESTIMATED_TIME, "Estimated Time by Qubits"),
-            #  ("line", Variables.CONTRACTION_STEPS, Variables.NEW_SIZES, "New Sizes over Path"),
-            #  ("points", Variables.PATH_FLOPS, Variables.MAX_SIZES, "Max Sizes over Path Flops"),
-            #  ("points", Variables.PATH_SIZE, Variables.MAX_SIZES, "Max Sizes over Path Size"),
-            #  ("line", Variables.OPT_RUNS, Variables.OPT_FLOPS, "Optimisation Flops"),
-            #  ("line", Variables.OPT_RUNS, Variables.OPT_SIZES, "Optimisation Sizes"),
-            #  ("line", Variables.OPT_RUNS, Variables.OPT_WRITES, "Optimisation Writes"),
-            #  ("line", Variables.OPT_RUNS, Variables.OPT_TIMES, "Optimisation Times"),  
-            #  ("points", Variables.ALPHAS, Variables.MODEL_TIME, "Model Time by Alpha value"),
-            #  ("points", Variables.ALPHAS, Variables.CHOICE_TIME, "Choice Time by Alpha value"),
-            #  ("points", Variables.ALPHAS, Variables.STEP_TIME, "Step Time by Alpha value"),
-            #  ("points", Variables.ALPHAS, Variables.INPUT_TIME, "Input Time by Alpha value"),
-            #  ("points", Variables.ALPHAS, Variables.PREDICTION_TIME, "Preidction Time by Alpha value"),
-            #  ("points", Variables.ALPHA, Variables.MAX_TENSOR_TIME, "Maximum Tensor Time by Alpha value"),
-            #  ("points", Variables.ALPHA, Variables.MAX_EDGE_TIME, "Maximum Edge Time by Alpha value"),
-            #  ("points", Variables.ALPHAS, Variables.ITEM_TIME, "Item Time by Alpha value"),
-            #  ("points", Variables.ALPHAS, Variables.STACK_TIME, "Stack Time by Alpha value"),
-              ("points", Variables.ALPHA, Variables.CONTRACTION_TIME, "Contraction Time by Alpha value"),
-              ("line", Variables.STEPS, Variables.SIZES, "Predicted Sizes over Path"),
-              #("points", Variables.QUBITS, Variables.CONTRACTION_TIME, "Contraction Time by Qubits"),
-              ("points", Variables.ESTIMATED_TIME, Variables.CONTRACTION_TIME, "Contraction Time by Estimated Time"),
-            #  ("points", Variables.ALPHA, Variables.MAX_SAMPLE_TIME, "Maximum Sample Time by Alpha value"),
-            #  ("points", Variables.ALPHA, Variables.MAX_PROPAGATION_TIME, "Maximum Propagation Time by Alpha value"),
-              ("points", Variables.MAX_PREDICTED_SIZES, Variables.CONTRACTION_TIME, "Contraction Time by Maximum Predicted Sizes"),
-              ("points", Variables.PREDICTED_SIZE_SUM, Variables.CONTRACTION_TIME, "Contraction Time by Sum of Predicted Sizes"),
-              ("points", Variables.ALPHAS, Variables.PREDICTED_SIZES, "Predicted Sizes by Alpha Value"),
-            #  ("points", Variables.ALPHA, Variables.MAX_PREDICTED_SIZES, "Max Predicted Sizes by Alpha Value"),
-             # ("points", Variables.MAX_PREDICTED_SIZES, Variables.CONTRACTION_TIME, "Contraction Time by Predicted Maximum Sizes"),
-            #  ("points", Variables.GATE_DELETIONS, Variables.MAX_SIZES, "Max size by Gate Deletion"),
-            #  ("points", Variables.GATE_DELETIONS, Variables.QCEC_TIME, "QCEC Time by Gate Deletion"),
-            #  ("points", Variables.GATE_DELETIONS, Variables.TN_CONSTRUNCTION_TIME, "Tensor Network Construction Time by Gate Deletion"),
-            #  ("points", Variables.GATE_DELETIONS, Variables.PATH_CONSTRUCTION_TIME, "Path Construction Time by Gate Deletion"),
-            #  ("points", Variables.GATE_DELETIONS, Variables.GATE_PREP_TIME, "Gate TDD Construction Time by Gate Deletion"),
-            #  ("points", Variables.GATE_DELETIONS, Variables.CIRCUIT_SETUP_TIME, "Circuit Setup Time by Gate Deletion"),
-            #  ("points", Variables.GATE_DELETIONS, Variables.SUB_NETWORK_COUNT, "Num of Sub Networks by Gate Deletion"),
-            #  ("points", Variables.GATE_DELETIONS, Variables.TENSOR_COUNT, "Num of Tensors by Gate Deletion"),
-            #  ("points", Variables.GATE_DELETIONS, Variables.LOG_MAX_SIZES, "Maximum log10 Size by Gate Deletion"),
-            #  ("points", Variables.GATE_DELETIONS, Variables.ESTIMATED_TIME, "Estimated Time by Gate Deletion"),
-            #  ("points", Variables.GATE_DELETIONS, Variables.CONTRACTION_TIME, "Contraction Time by Gate Deletion"),
-            #  ("points", Variables.QUBITS, Variables.EQUIV_CASES, "Equivalence Case by Qubits"),
-            #  ("points", Variables.QUBITS, Variables.SMOOTH_EQUIV_CASES, "Smooth Equivalence Case by Qubits"),
-            #("bar", Variables.GROUP_NAMES, Variables.EQUIV_GROUP_COUNTS, Variables.NO_LABELS, "Count of Equivalence Cases"),
-            #  ("bar", Variables.QUBITS_BUCKETED, Variables.CONTRACTION_TIME_BUCKETED, Variables.GROUP_LABELS, "Contraction Time by Qubits and Equivalence Cases"),
+             ("points", Variables.QUBITS, Variables.GATE_PREP_TIME, "Gate TDD Construction Time by Qubits"),
+             ("points", Variables.QUBITS, Variables.CIRCUIT_SETUP_TIME, "Circuit Setup Time by Qubits"),
+             ("points", Variables.QUBITS, Variables.SUB_NETWORK_COUNT, "Num of Sub Networks by Qubits"),
+             ("points", Variables.QUBITS, Variables.TENSOR_COUNT, "Num of Tensors by Qubits"),
+             ("line", Variables.STEPS, Variables.SIZES, "Compulsory Sizes over Path"),
+             ("line", Variables.STEPS, Variables.LOG_SIZES, "Compulsory log10 Sizes over Path"),
+             ("points", Variables.QUBITS, Variables.MAX_SIZES, "Maximum Size by Qubits"),
+             ("points", Variables.QUBITS, Variables.LOG_MAX_SIZES, "Maximum log10 Size by Qubits"),
+             ("points", Variables.MAX_SIZES, Variables.CONTRACTION_TIME, "Time by Maximum Size"),
+             ("points", Variables.ESTIMATED_TIME, Variables.CONTRACTION_TIME, "Time by Estimated Time"),
+             ("points", Variables.QUBITS, Variables.ESTIMATED_TIME, "Estimated Time by Qubits"),
+             ("line", Variables.CONTRACTION_STEPS, Variables.NEW_SIZES, "New Sizes over Path"),
+             ("points", Variables.PATH_FLOPS, Variables.MAX_SIZES, "Max Sizes over Path Flops"),
+             ("points", Variables.PATH_SIZE, Variables.MAX_SIZES, "Max Sizes over Path Size"),
+             ("line", Variables.OPT_RUNS, Variables.OPT_FLOPS, "Optimisation Flops"),
+             ("line", Variables.OPT_RUNS, Variables.OPT_SIZES, "Optimisation Sizes"),
+             ("line", Variables.OPT_RUNS, Variables.OPT_WRITES, "Optimisation Writes"),
+             ("line", Variables.OPT_RUNS, Variables.OPT_TIMES, "Optimisation Times"),  
+             ("points", Variables.ALPHAS, Variables.MODEL_TIME, "Model Time by Alpha value"),
+             ("points", Variables.ALPHAS, Variables.CHOICE_TIME, "Choice Time by Alpha value"),
+             ("points", Variables.ALPHAS, Variables.STEP_TIME, "Step Time by Alpha value"),
+             ("points", Variables.ALPHAS, Variables.INPUT_TIME, "Input Time by Alpha value"),
+             ("points", Variables.ALPHAS, Variables.PREDICTION_TIME, "Preidction Time by Alpha value"),
+             ("points", Variables.ALPHA, Variables.MAX_TENSOR_TIME, "Maximum Tensor Time by Alpha value"),
+             ("points", Variables.ALPHA, Variables.MAX_EDGE_TIME, "Maximum Edge Time by Alpha value"),
+             ("points", Variables.ALPHAS, Variables.ITEM_TIME, "Item Time by Alpha value"),
+             ("points", Variables.ALPHAS, Variables.STACK_TIME, "Stack Time by Alpha value"),
+            #   ("points", Variables.ALPHA, Variables.CONTRACTION_TIME, "Contraction Time by Alpha value"),
+            #   ("line", Variables.STEPS, Variables.SIZES, "Predicted Sizes over Path"),
+             ("points", Variables.QUBITS, Variables.CONTRACTION_TIME, "Contraction Time by Qubits"),
+             ("points", Variables.ALPHA, Variables.MAX_SAMPLE_TIME, "Maximum Sample Time by Alpha value"),
+             ("points", Variables.ALPHA, Variables.MAX_PROPAGATION_TIME, "Maximum Propagation Time by Alpha value"),
+            #   ("points", Variables.MAX_PREDICTED_SIZES, Variables.CONTRACTION_TIME, "Contraction Time by Maximum Predicted Sizes"),
+            #   ("points", Variables.PREDICTED_SIZE_SUM, Variables.CONTRACTION_TIME, "Contraction Time by Sum of Predicted Sizes"),
+            #   ("points", Variables.ALPHAS, Variables.PREDICTED_SIZES, "Predicted Sizes by Alpha Value"),
+             ("points", Variables.ALPHA, Variables.MAX_PREDICTED_SIZES, "Max Predicted Sizes by Alpha Value"),
+             ("points", Variables.MAX_PREDICTED_SIZES, Variables.CONTRACTION_TIME, "Contraction Time by Predicted Maximum Sizes"),
+             ("points", Variables.GATE_DELETIONS, Variables.MAX_SIZES, "Max size by Gate Deletion"),
+             ("points", Variables.GATE_DELETIONS, Variables.QCEC_TIME, "QCEC Time by Gate Deletion"),
+             ("points", Variables.GATE_DELETIONS, Variables.TN_CONSTRUNCTION_TIME, "Tensor Network Construction Time by Gate Deletion"),
+             ("points", Variables.GATE_DELETIONS, Variables.PATH_CONSTRUCTION_TIME, "Path Construction Time by Gate Deletion"),
+             ("points", Variables.GATE_DELETIONS, Variables.GATE_PREP_TIME, "Gate TDD Construction Time by Gate Deletion"),
+             ("points", Variables.GATE_DELETIONS, Variables.CIRCUIT_SETUP_TIME, "Circuit Setup Time by Gate Deletion"),
+             ("points", Variables.GATE_DELETIONS, Variables.SUB_NETWORK_COUNT, "Num of Sub Networks by Gate Deletion"),
+             ("points", Variables.GATE_DELETIONS, Variables.TENSOR_COUNT, "Num of Tensors by Gate Deletion"),
+             ("points", Variables.GATE_DELETIONS, Variables.LOG_MAX_SIZES, "Maximum log10 Size by Gate Deletion"),
+             ("points", Variables.GATE_DELETIONS, Variables.ESTIMATED_TIME, "Estimated Time by Gate Deletion"),
+             ("points", Variables.GATE_DELETIONS, Variables.CONTRACTION_TIME, "Contraction Time by Gate Deletion"),
+             ("points", Variables.QUBITS, Variables.EQUIV_CASES, "Equivalence Case by Qubits"),
+             ("points", Variables.QUBITS, Variables.SMOOTH_EQUIV_CASES, "Smooth Equivalence Case by Qubits"),
+            ("bar", Variables.GROUP_NAMES, Variables.EQUIV_GROUP_COUNTS, Variables.NO_LABELS, "Count of Equivalence Cases"),
+             ("bar", Variables.QUBITS_BUCKETED, Variables.CONTRACTION_TIME_BUCKETED, Variables.GROUP_LABELS, "Contraction Time by Qubits and Equivalence Cases"),
 
-            #  ("3d_points", Variables.QUBITS, Variables.MAX_SIZES, 
-            #     Variables.CONTRACTION_TIME, "Qubits, Maximum Size, and Contraction Time")
+             ("3d_points", Variables.QUBITS, Variables.MAX_SIZES, 
+                Variables.CONTRACTION_TIME, "Qubits, Maximum Size, and Contraction Time")
                 ]
 
     # ["simulation_dj_gate_del_1_2023-11-17_11-21"]
-    folders = ["ts_mVI_w3_qft_beta_"]#, ["ts_mV_w2_dj_alpha_", "data_model_V_c_un_dj_","data_model_V_cc_un_dj_", "data_tree_search_model_V_cc_un_dj_", "tree_search_model_V_dj_"]]
+    folders = ["cpp_benchmark_new_betweenness_"]#, ["ts_mV_w2_dj_alpha_", "data_model_V_c_un_dj_","data_model_V_cc_un_dj_", "data_tree_search_model_V_cc_un_dj_", "tree_search_model_V_dj_"]]
     
     #data = extract_data("model_contraction_2024-03-06_14-20")
     ...

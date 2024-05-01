@@ -14,6 +14,47 @@ def get_meta_data_from_experiment(exp_name):
     files = fu.load_all_json(os.path.join("experiments", exp_name))
     res = {}
 
+    for file in files:
+        key = file["circuit_settings"]["algorithm"]
+
+        if key in res:
+            res[key]["qubits"].append(file["circuit_settings"]["qubits"])
+            for k, v in file.items():
+                if not (isinstance(v, list) or isinstance(v, dict)):
+                    if k in ['file_name', 'experiment_name', 'make_dataset', 'failed', 'expect_equivalence', 'version', 'folder_name']:
+                        continue
+                    res[key][k].append(v)
+        else:
+            res[key] = {}
+
+            for k, v in file["settings"].items():
+                res[key][k] = v
+            for k, v in file["contraction_settings"].items():
+                res[key][f"cont_{k}"] = v
+            for k, v in file["path_settings"].items():
+                res[key][f"path_{k}"] = v
+            for k, v in file["circuit_settings"].items():
+                res[key][k] = v if k != "qubits" else [v]
+            for k, v in file.items():
+                if not (isinstance(v, list) or isinstance(v, dict)):
+                    if k in ['file_name', 'experiment_name', 'make_dataset', 'failed', 'expect_equivalence', 'version']:
+                        continue
+                    res[key][k] = v if k in ['folder_name'] else [v]
+    
+    for k, v in res.items():
+        res[k]['qubits'] = sorted(list(set(v['qubits'])))
+        res[k]['sub_networks'] = {key: len([v for v in res[k]['sub_networks'] if v == key]) for key in sorted(list(set(v['sub_networks'])))}
+        res[k]['equivalence'] = {'True': len([v for v in res[k]['equivalence'] if v]), 'False': len([v for v in res[k]['equivalence'] if not v])}
+        res[k]['conclusive'] = {'True': len([v for v in res[k]['conclusive'] if v]), 'False': len([v for v in res[k]['conclusive'] if not v])}
+        res[k]["circuit_setup_time"] = sum(res[k]["circuit_setup_time"]) / len(res[k]["circuit_setup_time"])
+        res[k]["tn_construnction_time"] = sum(res[k]["tn_construnction_time"]) / len(res[k]["tn_construnction_time"])
+
+        res[k]["path_construction_time"] = sum(res[k]["path_construction_time"]) / len(res[k]["path_construction_time"])
+        res[k]["contraction_time"] = sum(res[k]["contraction_time"]) / len(res[k]["contraction_time"])
+        res[k]["gate_prep_time"] = sum(res[k]["gate_prep_time"]) / len(res[k]["gate_prep_time"])
+
+    return res
+
     
 
 

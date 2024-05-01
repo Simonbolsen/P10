@@ -226,7 +226,7 @@ def get_all_configs(settings):
     return all_configs
 
 debug=False
-def run_experiment(configs, folder_with_time=True, prev_rep = 2311):
+def run_experiment(configs, folder_with_time=True, prev_rep = 4):
     if configs[0]["settings"]["use_cpp_only"]:
         cpp = CPPHandler()
 
@@ -273,6 +273,9 @@ def run_experiment(configs, folder_with_time=True, prev_rep = 2311):
         working_path = os.path.join(folder_path, data["file_name"])
         if not os.path.exists(working_path):
             os.makedirs(working_path, exist_ok=True)
+        elif len(os.listdir(working_path)) > 0:
+            print(f"Skipped {working_path} as it already exists")
+            continue
 
         if data["make_dataset"]:
             dataset_folder_path = os.path.join("dataset", "tdd_size_predict")
@@ -379,6 +382,12 @@ def run_experiment(configs, folder_with_time=True, prev_rep = 2311):
                     #cpp.show_result()
                     res = cpp.fast_contraction(circuit, tensor_network, path, length_indifferent=len(sub_tensor_networks)>1)
                     if not res["equivalence"]:
+                        if data["settings"]["repeat_precision"]:
+                            for i in range(17,23):
+                                print(f"Repeating with precision: {i}")
+                                res = cpp.fast_contraction(circuit, tensor_network, path, length_indifferent=len(sub_tensor_networks)>1, precision=i)
+                                if res["equivalence"]:
+                                    break
                         data["contraction_time"] = res["cont_time"]
                         data["equivalence"] = res["equivalence"]
                         data["conclusive"] = True
@@ -612,6 +621,20 @@ def combine_data_containers(containers: list[dict]) -> list[dict]:
     return final_container
 
 
+qb_per_alg = {
+    "dj": [64, 128, 256],
+    "ghz": [64, 128, 256],
+    "graphstate": [64, 128, 256],
+    "wstate": [8, 12, 16],
+    "qpeexact": [6, 8, 10],
+    "qftentangled": [6, 8, 10],
+    "random_eqv": [6, 8, 10],
+    "realamprandom": [4, 5, 6],
+    "twolocalrandom": [4, 5, 6],
+    "su2random": [4, 5, 6]
+}
+
+all_algs = ["ghz", "dj", "graphstate", "wstate", "qftentangled", "random_eqv", "random_eqv"]
 
 if __name__ == "__main__":
     configs = [{
@@ -623,36 +646,35 @@ if __name__ == "__main__":
         "settings": {
             "simulate": False,
             "sliced": False,
-            "cnot_split": False,
+            "cnot_split": True,
             "use_subnets": True,
             "find_counter": False,
             "use_qcec_only": False,
-            "use_cpp_only": True
+            "use_cpp_only": True,
+            "repeat_precision": True
         },
         "path_settings": {
-            "method": "tree_search",
-            "weight_function":"wf2",
-            "alpha": 3.0,
-            "beta": i * 0.05,
-            "model_name":"model_V_c" if model == 5 else "model_VI",
-            "opt_method": "all", #  kahypar-balanced, kahypar-agglom, labels, labels-agglom
+            "method": ["cotengra", "linear", "cotengra"][j],
+            "weight_function":"wf1",
+            "model_name":"model_V_c",
+            "opt_method": ["betweenness", "linear", "random-greedy"][j], #  kahypar-balanced, kahypar-agglom, labels, labels-agglom
             "minimize": "flops",
-            "max_repeats": 50,
-            "max_time": 1,
-            "use_proportional": True,
+            "max_repeats": [1, 1, 60][j],
+            "max_time": 60,
+            "use_proportional": False,
             "gridded": False,
             "linear_fraction": 0,
         },
         "circuit_settings": {
-            "algorithm": "qftentangled", #"dj", "ghz", "graphstate", "qftentangled", "su2random", "twolocalrandom", "qpeexact", "wstate", "realamprandom"
+            "algorithm": alg, #"dj", "ghz", "graphstate", "qftentangled", "su2random", "twolocalrandom", "qpeexact", "wstate", "realamprandom"
             "level": (0, 2),
-            "qubits": 10,
+            "qubits": qb_per_alg[alg][qb_i],
             "random_gate_deletions": 0,
             "repetition": 0
         },
-        "folder_name":f"ts_mV{'' if model == 5 else 'I'}_w3_qft_beta", #garbage
-        "file_name": f"run_{i}" #standard_name,
-    } for model in [6] for i in range(20)] #for alg in ["dj", "ghz", "graphstate"]
- 
+        "folder_name":["cpp_benchmark_w_split_betweenness", "cpp_benchmark_new_linear", "cpp_benchmark_w_split_rgreedy"][j], #garbage
+        "file_name": "standard_name",
+    } for j in [2] for alg in all_algs for qb_i in range(3) for i in range(10)]
 
-    run_experiment(configs, folder_with_time=False)
+
+    run_experiment(configs, folder_with_time=False, prev_rep=0)
