@@ -11,6 +11,8 @@ import tensor_network_util as tnu
 from tqdm import tqdm
 import time
 from random import random as rand
+import h5py
+import time
 
 GATE_INDICES = {'H': 0, 'CX': 1, 'CNOT':1, 'RZ': 2, 'RX': 3, 'U3': 4, 'RY': 5, 'S': 6, 'X': 7, 
                         'CZ': 8, 'CY': 9, 'Y': 10, 'Z': 11, 'T': 12}
@@ -88,6 +90,37 @@ class TDDPredicter(nn.Module):
 
         return x
     
+class TSPDataset(Dataset):
+    def __init__(self, data_path, split='train', val_ratio=0.1):
+        self.data_path = data_path
+        # Open the HDF5 file
+        self.file = h5py.File(data_path, 'r')
+        # Get the total number of samples
+        self.num_samples = len(self.file['target'])
+
+        # Calculate split indices
+        val_size = int(val_ratio * self.num_samples)
+        train_size = self.num_samples - val_size
+        
+
+        if split == 'train':
+            self.indices = list(range(train_size))
+        elif split == 'val':
+            self.indices = list(range(train_size, self.num_samples))
+        else:
+            raise ValueError("Split must be either 'train' or 'val'.")
+
+    def __len__(self):
+        return len(self.indices)
+
+    def __getitem__(self, idx):
+        return [self.file['left'][self.indices[idx]], self.file['right'][self.indices[idx]], 
+                self.file['shared'][self.indices[idx]], self.file['target'][self.indices[idx]]]
+
+    def close(self):
+        # Close the HDF5 file when done
+        self.file.close()
+
 def call_model(model, input):
     return model(input["left_values"], input["right_values"], input["shared_values"])
 
@@ -127,11 +160,13 @@ def train_model(data, training_data, validation_data, model = None):
             param_group['lr'] = learning_rate
         
 
-        for batch in training_data:        
+        for batch in tqdm(training_data):        
 
             optimizer.zero_grad()
-
+            
+            #t = time.time()
             outputs = call_model(model, batch)
+            #print(f"Model Time: {time.time() - t}")
             loss = loss_function(outputs, batch["target"])
 
             loss.backward()
@@ -179,23 +214,37 @@ def train_model(data, training_data, validation_data, model = None):
 
 
 def load_model(path):
-    return torch.load(path)
+    model = torch.load(path)
+    model.to(device)
+    return model
     #saved_dict = torch.load(path)
     #model = TDDPredicter(64, int(len([0 for i in saved_dict.keys() if "linear_layers" in i])/2), 0.008)
     #model.load_state_dict(saved_dict)
     #model.eval()
     #return model
 
-def torchify(data):
-    torched = []
+def torchify_data(d):
+    d["left_values"] = torch.tensor(d["left_values"])
+    d["right_values"] = torch.tensor(d["right_values"])
+    d["shared_values"] = torch.tensor(d["shared_values"])
+    d["target"] = torch.tensor(d["target"])
 
+def torchify(data):
     for d in data:
-        torched.append(
-            {"left_values":torch.tensor(d["left_values"]), 
-                "right_values":torch.tensor(d["right_values"]),
-                "shared_values":torch.tensor(d["shared_values"]),
-                "target":torch.tensor(d["target"]),})
-    return torched
+        torchify_data(d)
+
+def h5py_collate(data):
+    t = time.time()
+    keys =  ["left_values", "right_values", "shared_values", "target"]
+    moved_batch = {k:[] for k in keys}
+    for element in data:
+        for i, k in enumerate(keys):
+            moved_batch[k].append(element[i])
+
+    for key in moved_batch:
+        moved_batch[key] = torch.tensor(np.array(moved_batch[key]), device=device, dtype=torch.float)
+    print(f"Batching: {time.time() - t}")
+    return moved_batch
 
 def cuda_collate(data):
     moved_batch = {"left_values": [], "right_values": [], "shared_values": [], "shared_values": [], "target": []}
@@ -207,28 +256,44 @@ def cuda_collate(data):
         moved_batch[key] = torch.stack(moved_batch[key]).to(device)
     return moved_batch
 
-def get_dataloaders(dataset, batch_size):
+def get_train_loader(dataset, batch_size, frac=1.0):
     training_data = fu.load_single_json(fu.get_path(f"dataset/{dataset}/train.json"))
+    training_data = training_data[:int(len(training_data) * frac)]
+    print("json loaded")
+    torchify(training_data)
+    print("torched")
+    return DataLoader(training_data, batch_size=batch_size, shuffle=True, collate_fn=cuda_collate)
+
+def get_val_loader(dataset):
     validation_data =  fu.load_single_json(fu.get_path(f"dataset/{dataset}/val.json"))
+    torchify(validation_data)
+    return DataLoader(validation_data, batch_size=len(validation_data), shuffle=False, collate_fn=cuda_collate)
 
-    data_loader = DataLoader(torchify(training_data), batch_size=batch_size, shuffle=True, collate_fn=cuda_collate)
-    val_data_loader = DataLoader(torchify(validation_data), batch_size=len(validation_data), shuffle=False, collate_fn=cuda_collate)
-
-    return data_loader, val_data_loader
+def get_dataloaders(batch_size):
+    # Create an instance of the dataset for training
+    train_dataset = TSPDataset('dataset/TSP6/data.h5', split='train')
+    # Create an instance of the dataset for validation
+    val_dataset = TSPDataset('dataset/TSP6/data.h5', split='val')
+    
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=h5py_collate)
+    val_loader =  DataLoader(val_dataset, batch_size=len(val_dataset), shuffle=False, collate_fn=h5py_collate)
+    return train_loader, val_loader
 
 def run():
     settings = [{
         #"load_experiment":"bbds2",
         #"load_name": "experiment_n2",
-        "experiment":"tdd_mk_VI_lr",
+        "dataset": "TSP6",
+        "experiment":"tdd_data_amount",
         "save_model":True,
         "model":"predicter",#"baseline",
         "dropout_probability": 0.001 * 2**(2 / 3),
         "num_epochs": 1000,
+        "data_amount": 1.1**(-i),
         "batch_size": int(2**(11)),
         "hidden_size": int(2**(6)),
         "depth": 10,
-        "lr":-(2.7 + 0.05 * i), # 
+        "lr":-(2.9), # 
         "lr_decay": 0.8,
         "lr_decay_speed": 0.04,
         "weight_decay":0,
@@ -236,14 +301,17 @@ def run():
         "warmup":10,
         "run": 0,
         "run_name":  f"model_{i}"
-    } for i in range(10)]
+    } for i in range(0,10)]
 
     print("Loading")
-    dataset = "TSP6"
 
-    data_loader, val_data_loader = get_dataloaders(dataset, settings[0]["batch_size"]) #move into loop to change batch size!!
+    #data_loader, val_data_loader = get_dataloaders(settings[0]["batch_size"]) #only works for TSP6 and for non-changing batch size
+    val_data_loader = get_val_loader(settings[0]["dataset"])
 
     for s in settings:
+
+        data_loader = get_train_loader(settings[0]["dataset"], settings[0]["batch_size"], s["data_amount"])        
+        print(f"loaded: {(s['data_amount']*100):.1f}%")
 
         begin_time = dt.today()
         s["begin_time"] = begin_time.isoformat()
@@ -274,4 +342,27 @@ if __name__ == "__main__":
     #fu.move_files("dataset/TSP/cpp_size_prediction_rnd_equiv_20q", 43, 1200)
     #fu.process_all_data(GATE_INDICES, 62, 6)
     run()
+
+    #print("Loading...")
+    #
+    #data = fu.load_single_json(fu.get_path(f"dataset/TSP6/train.json"))
+    #data.extend(fu.load_single_json(fu.get_path(f"dataset/TSP6/val.json")))
+    #
+    #print("Loaded")
+#
+    #biased_train = []
+    #biased_val = []
+#
+    #for d in data:
+    #    predicted_size = d["target"][0]
+    #    if predicted_size <= d["left_values"][0] and predicted_size <= d["right_values"][0]:
+    #        if rand() < 0.1:
+    #            biased_val.append(d)
+    #        else:
+    #            biased_train.append(d)
+#
+    #print(f"Train: {len(biased_train)}, Val: {len(biased_val)}")
+#
+    #fu.save_to_json(f"dataset/TSP6B", "train", biased_train)
+    #fu.save_to_json(f"dataset/TSP6B", "val", biased_val)
     ...

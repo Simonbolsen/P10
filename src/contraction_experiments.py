@@ -235,14 +235,17 @@ def run_experiment(configs, folder_with_time=True, prev_rep = 2311):
             circ_conf = c["circuit_settings"]
             c["file_name"] = f"circuit_{circ_conf['algorithm']}_{'cpp' if c['settings']['use_cpp_only'] else 'py'}_{circ_conf['level'][0]}{circ_conf['level'][1]}_{circ_conf['qubits']}_d{circ_conf['random_gate_deletions']}_r{circ_conf['repetition']+prev_rep}"
     
-    # Prepare save folder and file paths
-    experiment_name = f"{configs[0]['folder_name']}_{datetime.today().strftime('%Y-%m-%d_%H-%M') if folder_with_time else ''}"
-    folder_path = os.path.join("experiments", experiment_name)
-    if not os.path.exists(folder_path):
-        os.makedirs(folder_path, exist_ok=True)
+    
     
     # For each circuit, run equivalence checking:
     for data in configs:
+
+        # Prepare save folder and file paths
+        experiment_name = f"{data['folder_name']}_{datetime.today().strftime('%Y-%m-%d_%H-%M') if folder_with_time else ''}"
+        folder_path = os.path.join("experiments", experiment_name)
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path, exist_ok=True)
+
         settings = data["settings"]
         contraction_settings = data["contraction_settings"]
         path_settings = data["path_settings"]
@@ -630,7 +633,8 @@ if __name__ == "__main__":
             "method": "tree_search",
             "weight_function":"wf2",
             "alpha": 3.0,
-            "model_name":"model_V_c",
+            "beta": i * 0.05,
+            "model_name":"model_V_c" if model == 5 else "model_VI",
             "opt_method": "all", #  kahypar-balanced, kahypar-agglom, labels, labels-agglom
             "minimize": "flops",
             "max_repeats": 50,
@@ -640,15 +644,15 @@ if __name__ == "__main__":
             "linear_fraction": 0,
         },
         "circuit_settings": {
-            "algorithm": "wstate", #"dj", "ghz", "graphstate", "qftentangled", "su2random", "twolocalrandom", "qpeexact", "wstate", "realamprandom"
+            "algorithm": "qftentangled", #"dj", "ghz", "graphstate", "qftentangled", "su2random", "twolocalrandom", "qpeexact", "wstate", "realamprandom"
             "level": (0, 2),
-            "qubits": i,
+            "qubits": 10,
             "random_gate_deletions": 0,
-            "repetition": i
+            "repetition": 0
         },
-        "folder_name":"ts_mV_w2_wstate_q_debug", #garbage
-        "file_name": f"run_{i}q" #standard_name,
-    } for i in range(17, 20)] #for alg in ["dj", "ghz", "graphstate"]
-
+        "folder_name":f"ts_mV{'' if model == 5 else 'I'}_w3_qft_beta", #garbage
+        "file_name": f"run_{i}" #standard_name,
+    } for model in [6] for i in range(20)] #for alg in ["dj", "ghz", "graphstate"]
+ 
 
     run_experiment(configs, folder_with_time=False)
