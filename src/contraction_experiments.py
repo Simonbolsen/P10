@@ -368,71 +368,93 @@ def run_experiment(configs, folder_with_time=True, prev_rep = 4):
             for i, stn in enumerate(sub_tensor_networks):
                 data = data_containers[i]
 
-                # Construct the plan from CoTenGra
-                print("Find contraction path...")
-                starting_time = time.time_ns()
-                path = tnu.get_contraction_path(stn, circuit, data)
-                data["path_construction_time"] = int((time.time_ns() - starting_time) / 1000000)
-                total_path_length += len(path)
-                #tn_draw.draw_tn(tensor_network, color=['PSI0', 'H', 'CX', 'RZ', 'RX', 'CZ'], save_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
-                #tnu.draw_contraction_order(tensor_network, path, save_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
-
-                if data["settings"]["use_cpp_only"]:
+                if data["path_settings"]["method"] in ["cpp-nngreedy", "cpp-lookahead"]:
                     cpp.res_name = data_file_name = f"datapoint_{circ_conf['algorithm']}_{'sim' if settings['simulate'] else 'equiv'}_{circ_conf['qubits']}_r{circ_conf['repetition']+prev_rep}_stn{i}"
-                    #cpp.show_result()
-                    res = cpp.fast_contraction(circuit, tensor_network, path, length_indifferent=len(sub_tensor_networks)>1)
-                    if not res["equivalence"]:
-                        if data["settings"]["repeat_precision"]:
-                            for i in range(17,23):
-                                print(f"Repeating with precision: {i}")
-                                res = cpp.fast_contraction(circuit, tensor_network, path, length_indifferent=len(sub_tensor_networks)>1, precision=i)
-                                if res["equivalence"]:
-                                    break
-                        data["contraction_time"] = res["cont_time"]
-                        data["equivalence"] = res["equivalence"]
-                        data["conclusive"] = True
-                        data["gate_prep_time"] = 0
-                        for j in range(i, len(sub_tensor_networks)):
-                            data_containers[j] = data
-                        break
-                        success = []
-                        for z in range(1):
-                            res = cpp.fast_contraction(circuit, stn, path, length_indifferent=len(sub_tensor_networks)>1)
-                            success.append(res["equivalence"])
-                        print(f"CPP success: {success}")
+                    
+                    for t in range(18, 32):
+                        cpp.set_precision(t)
+                    
+                        if data["path_settings"]["method"] in ["cpp-nngreedy"]:
+                            res = cpp.windowed_contraction(data["path_settings"]["model_name"], circuit, tensor_network, length_indifferent=len(sub_tensor_networks)>1, window_size=data["path_settings"]["window_size"], parallel=data["path_settings"]["parallel"])
+                        elif data["path_settings"]["method"] in ["cpp-lookahead"]:
+                            res = cpp.look_ahead_contraction(circuit, tensor_network, length_indifferent=len(sub_tensor_networks)>1)
+                        
+                        if not data["settings"]["repeat_precision"] or res["equivalence"]:
+                            break
 
-                    data["contraction_time"] = res["cont_time"]
+                    data["path_construction_time"] = sum(res["time_data"]["planning"])
+                    data["path"] = res["path"]
+                    data["path_data"]["path"] = res["path"]
+                    data["sizes"] = res["sizes"]
+                    data["path_data"]["size_predictions"] = res["pred_sizes"]
+                    data["contraction_time"] = sum(res["time_data"]["contraction"])
+                    data["time_data"] = res["time_data"]
                     data["equivalence"] = res["equivalence"]
                     data["conclusive"] = True
                     data["gate_prep_time"] = 0
 
+                    path = res["path"]
+                    total_path_length += len(path)
+
+                
                 else:
-                    # Prepare gate TDDs
-                    print("Preparing gate TDDs...")
+                    # Construct the plan from CoTenGra
+                    print("Find contraction path...")
                     starting_time = time.time_ns()
-                    gate_tdds = tddu.get_tdds_from_quimb_tensor_network(stn, with_input=settings["simulate"])
-                    data["gate_prep_time"] = int((time.time_ns() - starting_time) / 1000000)
+                    path = tnu.get_contraction_path(stn, circuit, data)
+                    data["path_construction_time"] = int((time.time_ns() - starting_time) / 1000000)
+                    #tn_draw.draw_tn(tensor_network, color=['PSI0', 'H', 'CX', 'RZ', 'RX', 'CZ'], save_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
+                    #tnu.draw_contraction_order(tensor_network, path, save_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
 
-                    #tddu.draw_all_tdds(gate_tdds, folder=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
-                    
+                    if data["settings"]["use_cpp_only"]:
+                        cpp.res_name = data_file_name = f"datapoint_{circ_conf['algorithm']}_{'sim' if settings['simulate'] else 'equiv'}_{circ_conf['qubits']}_r{circ_conf['repetition']+prev_rep}_stn{i}"
+                        #cpp.show_result()
 
-                    # Contract TDDs + equivalence checking
-                    print(f"Contracting {len(path)} times...")
-                    starting_time = time.time_ns()
-                    #result_tdd = contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"], save_intermediate_results=True, comprehensive_saving=True, folder_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
-                    if "size_predictions" in data["path_data"]:
-                        print(data["path_data"]["size_predictions"][-5:])
-                    result_tdd = fast_contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"])
-                    #result_tdd = contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"], save_intermediate_results=True, comprehensive_saving=True)
-                    data["contraction_time"] = int((time.time_ns() - starting_time) / 1000000)
+                        for t in range(18, 32):
+                            cpp.set_precision(t)
+                            res = cpp.fast_contraction(circuit, tensor_network, path, length_indifferent=len(sub_tensor_networks)>1)
+                        
+                            if not data["settings"]["repeat_precision"] or res["equivalence"]:
+                                break
+                        data["sizes"] = res["sizes"]
+                        data["contraction_time"] = sum(res["time_data"]["contraction"])
+                        data["time_data"] = res["time_data"]
+                        data["equivalence"] = res["equivalence"]
+                        data["conclusive"] = True
+                        data["gate_prep_time"] = 0
 
+                        total_path_length += len(path)
+                    else:
+                        # Prepare gate TDDs
+                        print("Preparing gate TDDs...")
+                        starting_time = time.time_ns()
+                        gate_tdds = tddu.get_tdds_from_quimb_tensor_network(stn, with_input=settings["simulate"])
+                        data["gate_prep_time"] = int((time.time_ns() - starting_time) / 1000000)
+
+                        #tddu.draw_all_tdds(gate_tdds, folder=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
+                        
+
+                        # Contract TDDs + equivalence checking
+                        print(f"Contracting {len(path)} times...")
+                        starting_time = time.time_ns()
+                        #result_tdd = contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"], save_intermediate_results=True, comprehensive_saving=True, folder_path=os.path.join(working_path, data["file_name"] + f"_R{attempts}"))
+                        if "size_predictions" in data["path_data"]:
+                            print(data["path_data"]["size_predictions"][-5:])
+                        result_tdd = fast_contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"])
+                        #result_tdd = contract_tdds(gate_tdds, data, max_time=data["contraction_settings"]["max_time"], save_intermediate_results=True, comprehensive_saving=True)
+                        data["contraction_time"] = int((time.time_ns() - starting_time) / 1000000)
+
+                total_path_length += len(path)
                 data_containers[i] = data
+
+                if data["path_settings"]["method"] in ["cpp-nngreedy"]:
+                    break
 
                 if len(sub_tensor_networks) > 1 and not settings["use_cpp_only"]:
                     resulting_sub_tdds.append(result_tdd)
 
-            if len(tensor_network.tensor_map) != total_path_length:
-                print('\033[31m' + f"Total path length: {total_path_length}" + '\033[m')
+            # if len(tensor_network.tensor_map) != total_path_length:
+            #     print('\033[31m' + f"Total path length: {total_path_length}" + '\033[m')
 
             if any([data_containers[i]["failed"] for i in range(len(data_containers))]):
                 total_path = [item for i in range(len(data_containers)) for item in data_containers[i]["path"]]
@@ -492,8 +514,10 @@ def run_experiment(configs, folder_with_time=True, prev_rep = 4):
                     data["equivalence"] = are_equal
                     data["conclusive"] = not are_equal
 
-
-            data = combine_data_containers(data_containers)
+            if not data["path_settings"]["method"] in ["cpp-nngreedy"]:
+                data = combine_data_containers(data_containers)
+            else:
+                data = data_containers[0]
 
             if (data["expect_equivalence"] != data["equivalence"]):
                 print('\033[31m' + "Erroneous result: Expected != TDD" + '\033[m')
@@ -634,7 +658,7 @@ qb_per_alg = {
     "su2random": [4, 5, 6]
 }
 
-all_algs = ["ghz", "dj", "graphstate", "wstate", "qftentangled", "random_eqv", "random_eqv"]
+all_algs = ["ghz", "dj", "graphstate", "wstate", "qftentangled", "random_eqv", "realamprandom"]
 
 if __name__ == "__main__":
     configs = [{
@@ -666,6 +690,7 @@ if __name__ == "__main__":
             "use_proportional": False,
             "gridded": False,
             "linear_fraction": 0,
+            "window_size": [1, 1, 1, 1, 4][j]
         },
         "circuit_settings": {
             "algorithm": "wstate", #"dj", "ghz", "graphstate", "qftentangled", "su2random", "twolocalrandom", "qpeexact", "wstate", "realamprandom"

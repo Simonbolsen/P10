@@ -105,7 +105,7 @@ def handle_gate_str(gate):
         qubit_str = ','.join(qubit_list) + ';'
         return qubit_str
     def handle_params(params):
-        return f"({','.join([format(i, '.50f') for i in params])})" if len(params) > 0 else ''#return f"({','.join([str(i) for i in params])})" if len(params) > 0 else ''
+        return f"({','.join([format(i, '.50f') for i in params])})" if len(params) > 0 else ''
     
     return f"{gate.label.lower().replace('iden', 'id')}{handle_params(gate.params)} {qubit_str(gate.qubits)}"
 
