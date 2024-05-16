@@ -283,60 +283,62 @@ def run():
     settings = [{
         #"load_experiment":"bbds2",
         #"load_name": "experiment_n2",
-        "dataset": "TSP6",
-        "experiment":"tdd_data_amount",
+        "dataset": "TSP6B2",
+        "experiment":"tdd_mk_VIB_2",
         "save_model":True,
         "model":"predicter",#"baseline",
         "dropout_probability": 0.001 * 2**(2 / 3),
         "num_epochs": 1000,
-        "data_amount": 1.1**(-i),
+        "data_amount": 1.0,
         "batch_size": int(2**(11)),
         "hidden_size": int(2**(6)),
-        "depth": 10,
-        "lr":-(2.9), # 
+        "depth": d,
+        "lr":-(lr * 0.1 + 2.5), # 
         "lr_decay": 0.8,
         "lr_decay_speed": 0.04,
         "weight_decay":0,
         "early_stopping":20,
         "warmup":10,
         "run": 0,
-        "run_name":  f"model_{i}"
-    } for i in range(0,10)]
+        "run_name":  f"model_d{d}_lr{lr}"
+    } for d in [13] for lr in range(7, 11)]
 
     print("Loading")
 
     #data_loader, val_data_loader = get_dataloaders(settings[0]["batch_size"]) #only works for TSP6 and for non-changing batch size
     val_data_loader = get_val_loader(settings[0]["dataset"])
+    data_loader = get_train_loader(settings[0]["dataset"], settings[0]["batch_size"], settings[0]["data_amount"]) 
 
     for s in settings:
+        run_single(s, val_data_loader, data_loader)
 
-        data_loader = get_train_loader(settings[0]["dataset"], settings[0]["batch_size"], s["data_amount"])        
-        print(f"loaded: {(s['data_amount']*100):.1f}%")
+def run_single(s, val_data_loader, data_loader):   
+    print(f"loaded: {(s['data_amount']*100):.1f}%")
 
-        begin_time = dt.today()
-        s["begin_time"] = begin_time.isoformat()
+    begin_time = dt.today()
+    s["begin_time"] = begin_time.isoformat()
 
-        if "load_experiment" in s:
-            print("Loading Model")
-            model = torch.load(fu.get_path("experiment_data/" + s["load_experiment"] + "/models/" + s["load_name"]))
-        else:
-            model = None
+    if "load_experiment" in s:
+        print("Loading Model")
+        model = torch.load(fu.get_path("experiment_data/" + s["load_experiment"] + "/models/" + s["load_name"]))
+    else:
+        model = None
 
-        print(f"CUDA memory usage. Current: {torch.cuda.memory_allocated()}, Max: {torch.cuda.max_memory_allocated()}, Total: {torch.cuda.memory_reserved()}")
-        model, state = train_model(s, data_loader, val_data_loader, model = model)
+    print(f"CUDA memory usage. Current: {torch.cuda.memory_allocated()}, Max: {torch.cuda.max_memory_allocated()}, Total: {torch.cuda.memory_reserved()}")
+    model, state = train_model(s, data_loader, val_data_loader, model = model)
 
-        end_time = dt.today()
-        s["end_time"] = end_time.isoformat()
-        
-        fu.save_to_json(f"experiment_data/{s['experiment']}", s["run_name"], s)
-        if s["save_model"]:
-            model.load_state_dict(state)
-            model.eval()
-            path = f"experiment_data/{s['experiment']}/models"
-            fu.save_model(model, path, s["run_name"])
-            fu.save_jit_model(model, path, s["run_name"] + "_jit")
-        print(f"Saved at {s['end_time'].replace('T', ' ')}, elapsed time: {get_elapsed_time(begin_time, end_time)}")
-        
+    end_time = dt.today()
+    s["end_time"] = end_time.isoformat()
+    
+    fu.save_to_json(f"experiment_data/{s['experiment']}", s["run_name"], s)
+    if s["save_model"]:
+        model.load_state_dict(state)
+        model.eval()
+        path = f"experiment_data/{s['experiment']}/models"
+        fu.save_model(model, path, s["run_name"])
+        fu.save_jit_model(model, path, s["run_name"] + "_jit")
+    print(f"Saved at {s['end_time'].replace('T', ' ')}, elapsed time: {get_elapsed_time(begin_time, end_time)}")
+    
 
 if __name__ == "__main__":
     #fu.move_files("dataset/TSP/cpp_size_prediction_rnd_equiv_20q", 43, 1200)
@@ -344,25 +346,23 @@ if __name__ == "__main__":
     run()
 
     #print("Loading...")
-    #
+#
     #data = fu.load_single_json(fu.get_path(f"dataset/TSP6/train.json"))
     #data.extend(fu.load_single_json(fu.get_path(f"dataset/TSP6/val.json")))
-    #
-    #print("Loaded")
 #
+    #print("Loaded")
     #biased_train = []
     #biased_val = []
 #
     #for d in data:
     #    predicted_size = d["target"][0]
-    #    if predicted_size <= d["left_values"][0] and predicted_size <= d["right_values"][0]:
+    #    if predicted_size <= d["left_values"][0] + 1 and predicted_size <= d["right_values"][0] + 1:
     #        if rand() < 0.1:
     #            biased_val.append(d)
     #        else:
     #            biased_train.append(d)
-#
+    #
     #print(f"Train: {len(biased_train)}, Val: {len(biased_val)}")
-#
-    #fu.save_to_json(f"dataset/TSP6B", "train", biased_train)
-    #fu.save_to_json(f"dataset/TSP6B", "val", biased_val)
+    #fu.save_to_json(f"dataset/TSP6B2", "train", biased_train)
+    #fu.save_to_json(f"dataset/TSP6B2", "val", biased_val)
     ...

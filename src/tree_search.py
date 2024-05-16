@@ -189,9 +189,8 @@ def choose_step(weight_func, edge_predictions, tree_node, path_bound, sample_num
 
     return step, prediction
 
-def sample_path(model, tensor_network, tree, weight_func, path_bound, sample_num, data):
+def sample_path(model, tensor_network, tree, weight_func, path_bound, sample_num, data, agg):
     path = []
-    path_prediction = 0
 
     t = time.time()
     tensors, index_sets = get_tensors(tensor_network)
@@ -250,9 +249,6 @@ def sample_path(model, tensor_network, tree, weight_func, path_bound, sample_num
 
         predicted_sizes.append(prediction)
 
-        if prediction > path_prediction:
-            path_prediction = prediction
-
         path.append(step)
 
         if step not in tree_node:
@@ -274,7 +270,14 @@ def sample_path(model, tensor_network, tree, weight_func, path_bound, sample_num
     data["stack_time"].append(stack_time)
     data["all_size_predictions"].append(predicted_sizes)
 
-    return path, sum(predicted_sizes) #path_prediction <--------------------------------------
+    if agg == "sum":
+        value = sum(predicted_sizes)
+    elif agg == "max":
+        value = max(predicted_sizes)
+    elif type(agg) == float:
+        value = max([v * (i + 1) ** agg for i, v in enumerate(predicted_sizes)])
+
+    return path, value
 
 def back_propegate(path, value, tree):
     node = tree[0]
@@ -287,7 +290,8 @@ def back_propegate(path, value, tree):
         node = tree[edge["child"]]
 
 
-def get_tree_search_path(model, tensor_network, weight_func, data, max_time = 60):
+def get_tree_search_path(model, tensor_network, weight_func, data, settings):
+    max_time = settings["max_time"]
     path_bound = len(tensor_network.outer_inds()) * 2
     best_value = float("inf") #path_bound #changed to negative for testing!!!
     tree = [{}]
@@ -313,7 +317,7 @@ def get_tree_search_path(model, tensor_network, weight_func, data, max_time = 60
 
     while time.time() - start_time < max_time:
         t = time.time()
-        latest_path, latest_value = sample_path(model, tensor_network, tree, weight_func, path_bound, sample_num, data)
+        latest_path, latest_value = sample_path(model, tensor_network, tree, weight_func, path_bound, sample_num, data, settings["aggregation"])
         data["sample_time"].append(time.time() - t)
 
         data["size_predictions"].append([latest_value])

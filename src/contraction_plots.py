@@ -101,6 +101,7 @@ def extract_data(folder, inclusion_condition = (lambda file, data:True), silent=
                 file_data[Variables.MAX_SIZES] = ([max(s)])
                 file_data[Variables.LOG_MAX_SIZES] = ([math.log10(max(s))])
             file_data[Variables.CONTRACTION_TIME] = ([file["contraction_time"]])
+            file_data[Variables.SAMPLE_CONTRACTION_TIME] = ([file["contraction_time"], file["contraction_time"]])
             file_data[Variables.CONTRACTION_TIME_LOG] = ([math.log10(file["contraction_time"])])
             file_data[Variables.TENSOR_COUNT] = [len(file["path"]) + (file["sub_networks"] if "sub_networks" in file else 1)]
             file_data[Variables.GATE_DELETIONS] = [file['circuit_settings']["random_gate_deletions"]]
@@ -124,14 +125,16 @@ def extract_data(folder, inclusion_condition = (lambda file, data:True), silent=
                 file_data[Variables.PREDICTED_SIZES] = file["path_data"]["size_predictions"]
             if file["path_settings"]["method"] == "tdd_model":
                 file_data[Variables.MAX_PREDICTED_SIZES] = [max([p[0] for p in file["path_data"]["size_predictions"]])]
+                file_data[Variables.DATA_AMOUNT] = [(1.1)**(-int(file["file_name"].split("_")[1])) * 2.394622]
             if file["path_settings"]["method"] == "tree_search":
                 file_data[Variables.SIZES] = (file["path_data"]["all_size_predictions"][file["path_data"]["chosen_sample"]][:-1])
                 file_data[Variables.MAX_PREDICTED_SIZES] = [max(file_data[Variables.SIZES])]
                 file_data[Variables.PREDICTED_SIZE_SUM] = [sum(file_data[Variables.SIZES])]
                 file_data[Variables.ESTIMATED_TIME] = [sum([s**2 for s in file_data[Variables.SIZES]])]
                 file_data[Variables.STEPS] = (range(len(file_data[Variables.SIZES])))
+                file_data[Variables.SAMPLE_METRIC] = [file_data[Variables.MAX_PREDICTED_SIZES][0], file_data[Variables.PREDICTED_SIZE_SUM][0]]
             if "alpha" in file["path_settings"]:
-                file_data[Variables.ALPHA] = [file["path_settings"]["beta"]]
+                file_data[Variables.ALPHA] = [file["path_settings"]["alpha"]]
             if "sample_time" in file["path_data"]:
                 file_data[Variables.ALPHAS] = [file["path_settings"]["alpha"] for _ in file["path_data"]["sample_time"]]
                 file_data[Variables.MAX_SAMPLE_TIME]  = [max(file["path_data"]["sample_time"]) * 1000]
@@ -175,6 +178,11 @@ def extract_data(folder, inclusion_condition = (lambda file, data:True), silent=
     equiv_cases = data[Variables.EQUIV_CASES]
     data[Variables.GROUP_NAMES] = {0: "Inequivalent+Inconclusive", 1: "Equivalent+Inconclusive", 2: "Inequivalent+Conclusive", 3: "Equivalent+Conclusive"}
     data[Variables.EQUIV_GROUP_COUNTS] = {data[Variables.GROUP_NAMES][i]:[[equiv_cases.count([i])]] for i in data[Variables.GROUP_NAMES].keys()}
+
+    data[Variables.SAMPLE_METRIC] = [[p[i] for p in data[Variables.SAMPLE_METRIC]] for i in range(2)]
+    data[Variables.SAMPLE_METRIC] = [[100 * (v - min(d)) / (max(d) - min(d)) for v in d] for d in data[Variables.SAMPLE_METRIC]]
+
+    data[Variables.SAMPLE_CONTRACTION_TIME] = [[p[i] for p in data[Variables.SAMPLE_CONTRACTION_TIME]] for i in range(2)]
 
     def smooth(i, n):
         within = 0
@@ -299,7 +307,7 @@ def plot(folder, plots, save_path = "", inclusion_condition = (lambda file, data
                                 series_labels=data[Variables.NAMES], title= title,
                                 marker=data["markers"], save_path=full_path, legend=show_legend)
             else:
-                print(f"{p[1].value}: {is_non_empty(data[p[1]])}, {p[2].value}: {is_non_empty(data[p[2]])}")
+                print(f"{p[1].value}: {'Good' if is_non_empty(data[p[1]]) else 'Empty'}, {p[2].value}: {'Good' if is_non_empty(data[p[2]]) else 'Empty'}")
         elif p[0] == "3d_points": 
             if is_non_empty(data[p[1]]) and is_non_empty(data[p[2]]) and is_non_empty(data[p[3]]):
                 pu.plotPoints(data[p[1]], data[p[2]], data[p[3]], [p[1].value, p[2].value, p[3].value], 
@@ -623,7 +631,7 @@ class Variables(Enum):
     PREDICTED_SIZES = "Predicted Sizes"
     MAX_PREDICTED_SIZES = "Max Predicted Sizes"
     PREDICTED_SIZE_SUM = "Sum of Predicted Sizes"
-    ALPHA = "Alpha value"
+    ALPHA = "Alpha value $\\alpha$"
     ALPHAS = "Alpha value "
     MAX_SAMPLE_TIME = "Maximum Sample Time [ms]"
     MODEL_TIME = "Model Time [ms]"
@@ -637,6 +645,9 @@ class Variables(Enum):
     MAX_EDGE_TIME = "Edge Time [ms]"
     ITEM_TIME = "Item Time [ms]"
     STACK_TIME = "Stack Time [ms]"
+    DATA_AMOUNT = "Amount of Data D [$10^6$ data points]"
+    SAMPLE_METRIC = "Sample Metric Value [%]"
+    SAMPLE_CONTRACTION_TIME = "Contraction Time $t_c$ [ms] "
 
 if __name__ == "__main__":
  
@@ -705,20 +716,23 @@ if __name__ == "__main__":
              ("3d_points", Variables.QUBITS, Variables.MAX_SIZES, 
                 Variables.CONTRACTION_TIME, "Qubits, Maximum Size, and Contraction Time")
                 ]
+    
+    plots = [
+        ("points", Variables.PREDICTED_SIZE_SUM, Variables.CONTRACTION_TIME, "Contraction Time by Sum of Predicted Sizes"),
+        ("points", Variables.MAX_PREDICTED_SIZES, Variables.CONTRACTION_TIME, "Contraction Time by Maximum Predicted Sizes"),
+        #("3d_points", Variables.MAX_PREDICTED_SIZES, Variables.PREDICTED_SIZE_SUM, Variables.CONTRACTION_TIME, "Contraction Time by Maximum Predicted Sizes and Sum of Predicted Sizes"),
+        ("points", Variables.SAMPLE_METRIC, Variables.SAMPLE_CONTRACTION_TIME, "Contraction Time by Sample Metrics"),
+        #("points", Variables.DATA_AMOUNT, Variables.CONTRACTION_TIME, "Contraction Time by Amount of Data")
+    ]
 
-    # ["simulation_dj_gate_del_1_2023-11-17_11-21"]
-    folders = [#"cpp_benchmark_new_cpp_nngreedy_", "cpp_benchmark_new_cpp_nngreedy_w4_",
-               "cpp_benchmark_w_split_rgreedy_", "cpp_benchmark_w_split_betweenness_",
-               "cpp_benchmark_new_betweenness_", "cpp_benchmark_new_linear_",
-               "cpp_benchmark_new_rgreedy_", "cpp_benchmark_new_prop_",
-               "qcec_benchmark_new_", "python_benchmark_new_"]#, ["ts_mV_w2_dj_alpha_", "data_model_V_c_un_dj_","data_model_V_cc_un_dj_", "data_tree_search_model_V_cc_un_dj_", "tree_search_model_V_dj_"]]
-    folders = [["benchmark_scaling_w_split_betweenness_","benchmark_py_scaling_w_split_betweenness_"]]
-    #folders = [["benchmark_py_scaling_w_split_betweenness_","benchmark_scaling_w_split_betweenness_"]]
+
+    folders = ["ts_article_size_distribution_"]#, ["ts_mV_w2_dj_alpha_", "data_model_V_c_un_dj_","data_model_V_cc_un_dj_", "data_tree_search_model_V_cc_un_dj_", "tree_search_model_V_dj_"]]
+    
     #data = extract_data("model_contraction_2024-03-06_14-20")
     ...
 
     #file is the raw loaded file, and data is the processed variables for that file
-    inclusion_condition = lambda file, data : ("conclusive" not in file or file["conclusive"] or file["settings"]["simulate"]) and file["contraction_time"] < 10000 #and file["circuit_settings"]["algorithm"] == "dj"
+    inclusion_condition = lambda file, data : ("conclusive" not in file or file["conclusive"] or file["settings"]["simulate"]) and file["path_settings"]["alpha"] > 1.1 and file["contraction_time"] < 2000 #and file['circuit_settings']['qubits'] < 60
 
     inc_cond_easy = lambda file, data : inclusion_condition(file, data) and file["circuit_settings"]["algorithm"] in ["dj", "ghz", "graphstate"]
     inc_cond_hard = lambda file, data : inclusion_condition(file, data) and not file["circuit_settings"]["algorithm"] in ["dj", "ghz", "graphstate"]
