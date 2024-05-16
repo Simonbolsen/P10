@@ -692,7 +692,7 @@ if __name__ == "__main__":
             "use_proportional": False,
             "gridded": False,
             "linear_fraction": 0,
-            "window_size": [1, 1, 1, 1, 4][j]
+            "window_size": [1, 1, 1, 1, 4][i]
         },
         "circuit_settings": {
             "algorithm": "wstate", #"dj", "ghz", "graphstate", "qftentangled", "su2random", "twolocalrandom", "qpeexact", "wstate", "realamprandom"
