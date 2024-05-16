@@ -2,6 +2,7 @@ import ctypes
 import os 
 import torch
 import circuit_util as cu
+import file_util as fu
 
 class CPPHandler():
     def __init__(self):
@@ -12,7 +13,7 @@ class CPPHandler():
         self.dir_path = os.path.dirname(os.path.realpath(__file__))
         self.handle = ctypes.CDLL(self.dir_path + "/libTDDLinux.so")
 
-        self.handle.pyContractCircuit.argtypes = [ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_bool, ctypes.c_bool, ctypes.c_bool, ctypes.c_bool, ctypes.c_bool, ctypes.c_int] 
+        self.handle.pyContractCircuit.argtypes = [ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_bool, ctypes.c_bool, ctypes.c_bool, ctypes.c_bool, ctypes.c_bool] 
         self.handle.pyContractCircuit.restype = ctypes.c_char_p
 
         self.handle.pyTestNNModel.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p] 
@@ -26,6 +27,21 @@ class CPPHandler():
 
         self.handle.pyTestWindowedPlanning.argtypes = [ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int] 
         self.handle.pyTestWindowedPlanning.restype = ctypes.c_char_p
+
+        self.handle.pyWindowedPlanning.argtypes = [ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_bool, ctypes.c_int, ctypes.c_bool] 
+        self.handle.pyWindowedPlanning.restype = ctypes.c_char_p
+
+        self.handle.pyLookAheadPlanning.argtypes = [ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_bool, ctypes.c_bool] 
+        self.handle.pyLookAheadPlanning.restype = ctypes.c_char_p
+
+        self.handle.pySetPrecision.argtypes = [ctypes.c_int] 
+        self.handle.pySetPrecision.restype = ctypes.c_bool
+
+    def set_precision(self, precision=18):
+        if self.handle.pySetPrecision(precision):
+            print(f"Changed precision to: {precision}")
+        else:
+            print(f"Failed to change precision")
 
     def TestNNModel(self, model_name, circuit, tensor_network, plan):
         new_circ = self.interject_tensor_indices_into_circuit(circuit, tensor_network)
@@ -55,11 +71,80 @@ class CPPHandler():
         new_circ = new_circ.replace(",)", ")").replace("|", "#")
         res = self.handle.pyTestWindowedPlanning(str.encode(new_circ), circuit.N, str.encode(model_name), str.encode(edges), window_size)
         return res.decode('utf-8')
+    
+    def WindowedPlanningContraction(self, model_name, circuit, tensor_network, length_indifferent, window_size, parallel):
+        edges = self.plan_to_str(self.extract_edges_from_tn(tensor_network))
+        new_circ = self.interject_tensor_indices_into_circuit(circuit, tensor_network)
+        new_circ = new_circ.replace(",)", ")").replace("|", "#")
+        res = self.handle.pyWindowedPlanning(str.encode(new_circ), circuit.N, str.encode(model_name), str.encode(edges), length_indifferent, window_size, parallel)
+        res = res.decode('utf-8')
+        
+        return res
 
-    def CPPContraction(self, circuit, qubits, plan, length_indifferent=False, expect_equivalence=False, precision=18):
+    def windowed_contraction(self, model_name, circuit, tensor_network, length_indifferent=False, window_size=4, parallel=False):
+        res = self.WindowedPlanningContraction(model_name, circuit, tensor_network, length_indifferent, window_size, parallel)
+
+        json = self.load_contents_of_temp_file()
+
+        path = [(v[0], v[1]) for v in json["executed_plan"]]
+        predicted_sizes = [v[2] for v in json["executed_plan"]]
+        actual_sizes = {}
+        for step in json["executed_plan"]:
+            key = str(step[1])
+            if not key in actual_sizes:
+                actual_sizes[key] = []
+            actual_sizes[key].append(step[3])
+
+        res_data = self.parse_result_string(res)
+        res_data["path"] = path
+        res_data["pred_sizes"] = predicted_sizes
+        res_data["sizes"] = actual_sizes
+        res_data["time_data"] = json["time_data"]
+
+        return res_data
+
+    def LookAheadContraction(self, circuit, tensor_network, length_indifferent):
+        edges = self.plan_to_str(self.extract_edges_from_tn(tensor_network))
+        new_circ = self.interject_tensor_indices_into_circuit(circuit, tensor_network)
+        new_circ = new_circ.replace(",)", ")").replace("|", "#")
+        res = self.handle.pyLookAheadPlanning(str.encode(new_circ), circuit.N, str.encode(edges), str.encode(self.res_name), length_indifferent, self.draw_result)
+        res = res.decode('utf-8')
+        
+        return res
+
+    def look_ahead_contraction(self, circuit, tensor_network, length_indifferent=False):
+        res = self.LookAheadContraction(circuit, tensor_network, length_indifferent)
+
+        json = self.load_contents_of_temp_file()
+        json["time_data"]["planning"] = [0]
+
+        path = [(v[0], v[1]) for v in json["executed_plan"]]
+        actual_sizes = {}
+        for step in json["executed_plan"]:
+            key = str(step[1])
+            if not key in actual_sizes:
+                actual_sizes[key] = []
+            actual_sizes[key].append(step[2])
+
+        res_data = self.parse_result_string(res)
+        res_data["path"] = path
+        res_data["pred_sizes"] = []
+        res_data["sizes"] = actual_sizes
+        res_data["time_data"] = json["time_data"]
+
+        return res_data
+
+    def CPPContraction(self, circuit, qubits, plan, length_indifferent=False, expect_equivalence=False):
         circuit = circuit.replace(",)", ")").replace("|", "#")
-        res = self.handle.pyContractCircuit(str.encode(circuit), qubits, str.encode(plan), str.encode(self.res_name), length_indifferent, self.debug, self.draw_result, self.make_data, expect_equivalence, precision)    
+        res = self.handle.pyContractCircuit(str.encode(circuit), qubits, str.encode(plan), str.encode(self.res_name), length_indifferent, self.debug, self.draw_result, self.make_data, expect_equivalence)    
         return self.parse_result_string(res.decode('utf-8'))
+
+    def load_contents_of_temp_file(self):
+        path = os.path.join("..", "temporary_files", "temp_file_for_run.json")
+        json = fu.load_json(path)
+        #os.remove(path)
+        
+        return json
 
     def parse_result_string(self, res):
         parts = res.replace(" ", "").split(";")
@@ -128,9 +213,27 @@ class CPPHandler():
 
         return cu.get_qasm_header(quimb_circuit.N) + '\n'.join(gate_strs)
 
-    def fast_contraction(self, circuit, tensor_network, plan, length_indifferent = False, expect_equivalence = False, precision = 18):
+    def fast_contraction(self, circuit, tensor_network, plan, length_indifferent = False, expect_equivalence = False):
         new_circ = self.interject_tensor_indices_into_circuit(circuit, tensor_network)
         #off_plan = self.offset_plan(plan, tensor_network.tensor_map, split_cnot)
         plan_str = self.plan_to_str(plan)
-        return self.CPPContraction(new_circ, circuit.N, plan_str, length_indifferent=length_indifferent, expect_equivalence=expect_equivalence, precision=precision)
-    
+        res = self.CPPContraction(new_circ, circuit.N, plan_str, length_indifferent=length_indifferent, expect_equivalence=expect_equivalence)
+        
+        json = self.load_contents_of_temp_file()
+        json["time_data"]["planning"] = [0]
+
+        path = [(v[0], v[1]) for v in json["executed_plan"]]
+        actual_sizes = {}
+        for step in json["executed_plan"]:
+            key = str(step[1])
+            if not key in actual_sizes:
+                actual_sizes[key] = [0]
+            actual_sizes[key].append(step[2])
+
+        res["executed_plan"] = json["executed_plan"]
+        res["path"] = path
+        res["pred_sizes"] = []
+        res["sizes"] = actual_sizes
+        res["time_data"] = json["time_data"]
+
+        return res

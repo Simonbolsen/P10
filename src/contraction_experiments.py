@@ -368,10 +368,20 @@ def run_experiment(configs, folder_with_time=True, prev_rep = 4):
             for i, stn in enumerate(sub_tensor_networks):
                 data = data_containers[i]
 
-                if data["path_settings"]["method"] in ["cpp-nngreedy"]:
+                if data["path_settings"]["method"] in ["cpp-nngreedy", "cpp-lookahead"]:
                     cpp.res_name = data_file_name = f"datapoint_{circ_conf['algorithm']}_{'sim' if settings['simulate'] else 'equiv'}_{circ_conf['qubits']}_r{circ_conf['repetition']+prev_rep}_stn{i}"
-                    res = cpp.windowed_contraction(data["path_settings"]["model_name"], circuit, tensor_network, length_indifferent=len(sub_tensor_networks)>1, window_size=data["path_settings"]["window_size"])
                     
+                    for t in range(18, 32):
+                        cpp.set_precision(t)
+                    
+                        if data["path_settings"]["method"] in ["cpp-nngreedy"]:
+                            res = cpp.windowed_contraction(data["path_settings"]["model_name"], circuit, tensor_network, length_indifferent=len(sub_tensor_networks)>1, window_size=data["path_settings"]["window_size"], parallel=data["path_settings"]["parallel"])
+                        elif data["path_settings"]["method"] in ["cpp-lookahead"]:
+                            res = cpp.look_ahead_contraction(circuit, tensor_network, length_indifferent=len(sub_tensor_networks)>1)
+                        
+                        if not data["settings"]["repeat_precision"] or res["equivalence"]:
+                            break
+
                     data["path_construction_time"] = sum(res["time_data"]["planning"])
                     data["path"] = res["path"]
                     data["path_data"]["path"] = res["path"]
@@ -399,34 +409,21 @@ def run_experiment(configs, folder_with_time=True, prev_rep = 4):
                     if data["settings"]["use_cpp_only"]:
                         cpp.res_name = data_file_name = f"datapoint_{circ_conf['algorithm']}_{'sim' if settings['simulate'] else 'equiv'}_{circ_conf['qubits']}_r{circ_conf['repetition']+prev_rep}_stn{i}"
                         #cpp.show_result()
-                        res = cpp.fast_contraction(circuit, tensor_network, path, length_indifferent=len(sub_tensor_networks)>1)
-                        total_path_length += len(path)
-                        if not res["equivalence"]:
-                            if data["settings"]["repeat_precision"]:
-                                for t in range(19,23):
-                                    print(f"Repeating with precision: {t}")
-                                    res = cpp.fast_contraction(circuit, tensor_network, path, length_indifferent=len(sub_tensor_networks)>1, precision=t)
-                                    if res["equivalence"]:
-                                        break
-                            if not res["equivalence"]:
-                                data["contraction_time"] = res["cont_time"]
-                                data["equivalence"] = res["equivalence"]
-                                data["conclusive"] = True
-                                data["gate_prep_time"] = 0
-                                for j in range(i, len(sub_tensor_networks)):
-                                    data_containers[j] = data
-                                break
-                            # success = []
-                            # for z in range(1):
-                            #     res = cpp.fast_contraction(circuit, stn, path, length_indifferent=len(sub_tensor_networks)>1)
-                            #     success.append(res["equivalence"])
-                            # print(f"CPP success: {success}")
 
-                        data["contraction_time"] = res["cont_time"]
+                        for t in range(18, 32):
+                            cpp.set_precision(t)
+                            res = cpp.fast_contraction(circuit, tensor_network, path, length_indifferent=len(sub_tensor_networks)>1)
+                        
+                            if not data["settings"]["repeat_precision"] or res["equivalence"]:
+                                break
+                        data["sizes"] = res["sizes"]
+                        data["contraction_time"] = sum(res["time_data"]["contraction"])
+                        data["time_data"] = res["time_data"]
                         data["equivalence"] = res["equivalence"]
                         data["conclusive"] = True
                         data["gate_prep_time"] = 0
 
+                        total_path_length += len(path)
                     else:
                         # Prepare gate TDDs
                         print("Preparing gate TDDs...")
