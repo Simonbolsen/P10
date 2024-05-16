@@ -20,6 +20,7 @@ class Variables(Enum):
     LR_DECAY_SPEED = "Learning Rate Decay Speed lr_s"
     TIME = "Training Time [s/epoch]"
     TIME_TOTAL = "Total Training Time"
+    DATA_AMOUNT = "Amount of Training Data"
 
 def avg_last(l, num):
     return sum(l[-num:])/(num)
@@ -43,14 +44,14 @@ def without_batch_data(data):
     return out_data
 
 if __name__ == "__main__":
-    experiment_path = "experiment_data/tdd_mk_VI_depth"
+    experiment_path = "experiment_data/tdd_mk_VIB_2"
     data = fu.load_all_json(experiment_path, without_batch_data)
 
     keys = {Variables.LEARNING_RATE: "lr", Variables.DEPTH:"depth", Variables.DROPOUT_PROBABILITY:"dropout_probability", 
             Variables.HIDDEN_SIZE:"hidden_size", Variables.BATCH_SIZE:"batch_size", Variables.WEIGHT_DECAY: "weight_decay",
-            Variables.LR_DECAY: "lr_decay", Variables.LR_DECAY_SPEED: "lr_decay_speed"}
-    x_axis = Variables.DEPTH
-    y_axis = Variables.LEARNING_RATE
+            Variables.LR_DECAY: "lr_decay", Variables.LR_DECAY_SPEED: "lr_decay_speed", Variables.DATA_AMOUNT: "data_amount"}
+    x_axis = Variables.LEARNING_RATE
+    y_axis = Variables.DEPTH
     z_axis = Variables.LOSS
 
     use_axies = 2
@@ -65,13 +66,16 @@ if __name__ == "__main__":
     y = sorted(list(set(y)))
 
     def amm(func):
-        ls = [[], [], []]
+        ls = [[]] #[[], [], []]
         for xv in x:
             l = [func(d) for d in data if d[keys[x_axis]] == xv]
             mean, minimum, maximum = get_confidence_interval(l)
-            ls[0].append(mean)
-            ls[1].append(minimum)
-            ls[2].append(maximum)
+            l.sort()
+            #ls[0].extend(l)
+            #ls[0].append(mean / 1000)
+            ls[0].append(l[0])
+            ls[1].append(l[1])
+            ls[2].append(l[2])
 
         return ls
 
@@ -103,7 +107,9 @@ if __name__ == "__main__":
     labels = ["Epoch num" if z_axis == Variables.EPOCHS else "Val loss"]
 
     if use_axies == 1:
-        pu.plot_line_series_2d([x, x, x], d1_data, ["mean", "mean-ci", "mean+ci"], x_label=x_axis.value, y_label=z_axis.value, legend= True)
+        #pu.plotPoints2d([[v for v in x for _ in range(3)]], d1_data, "Data Amount D [$10^6$ Data Points]", "Validation Loss $l_v$", legend=False, title="Validation Loss by Data Amount")
+        pu.plot_line_series_2d([x, x, x], d1_data, ["min", "median", "max"], x_label=x_axis.value, y_label=z_axis.value, legend= True)
+        #pu.plot_line_series_2d([[v * 2.394622 for v in x]], d1_data, [""], title="Validation Loss by Amount of Data", x_label="Amount of Data D [$10^6$ data points]", y_label="Validation Loss l", legend= False)
     elif use_axies == 2:
         pu.plotSurface(grouped_data, z_axis.value, x, x_axis.value, y, y_axis.value, 1, labels)
 

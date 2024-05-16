@@ -481,7 +481,7 @@ def get_tree_path(tensor_network, data):
         print(f"No weight function is name {weight_function}")
         return None
 
-    return ts.get_tree_search_path(model, tensor_network, weight_function, data["path_data"], settings["max_time"])
+    return ts.get_tree_search_path(model, tensor_network, weight_function, data["path_data"], settings)
 
 def get_nn_path(tn: TensorNetwork, circuit, data):
     settings = data["path_settings"]

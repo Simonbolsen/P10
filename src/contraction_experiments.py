@@ -654,27 +654,29 @@ if __name__ == "__main__":
             "repeat_precision": True
         },
         "path_settings": {
-            "method": ["cotengra", "linear", "cotengra"][j],
-            "weight_function":"wf1",
-            "model_name":"model_V_c",
-            "opt_method": ["betweenness", "linear", "random-greedy"][j], #  kahypar-balanced, kahypar-agglom, labels, labels-agglom
+            "method": "tree_search", #["cotengra", "linear", "cotengra"][j],
+            "weight_function":"wf2",
+            "alpha":1.0 + 0.5 * i,
+            "aggregation": "max",
+            "model_name": "model_VI", #f"data_amount_models/model_{i}{s}",
+            "opt_method": "betweenness", #  kahypar-balanced, kahypar-agglom, labels, labels-agglom
             "minimize": "flops",
-            "max_repeats": [1, 1, 60][j],
-            "max_time": 60,
+            "max_repeats": 0,#[1, 1, 60][j],
+            "max_time": 1,
             "use_proportional": False,
             "gridded": False,
             "linear_fraction": 0,
         },
         "circuit_settings": {
-            "algorithm": alg, #"dj", "ghz", "graphstate", "qftentangled", "su2random", "twolocalrandom", "qpeexact", "wstate", "realamprandom"
+            "algorithm": "wstate", #"dj", "ghz", "graphstate", "qftentangled", "su2random", "twolocalrandom", "qpeexact", "wstate", "realamprandom"
             "level": (0, 2),
-            "qubits": qb_per_alg[alg][qb_i],
+            "qubits": 16,
             "random_gate_deletions": 0,
             "repetition": 0
         },
-        "folder_name":["cpp_benchmark_w_split_betweenness", "cpp_benchmark_new_linear", "cpp_benchmark_w_split_rgreedy"][j], #garbage
-        "file_name": "standard_name",
-    } for j in [2] for alg in all_algs for qb_i in range(3) for i in range(10)]
+        "folder_name":f"ts_wstate_alpha", #garbage
+        "file_name": f"run_{i}",
+    } for i in range(40)]#for s in ["_0", "_1", ""]]
 
 
     run_experiment(configs, folder_with_time=False, prev_rep=0)
