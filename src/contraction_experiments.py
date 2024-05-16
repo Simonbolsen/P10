@@ -392,6 +392,7 @@ def run_experiment(configs, folder_with_time=True, prev_rep = 4):
                     data["equivalence"] = res["equivalence"]
                     data["conclusive"] = True
                     data["gate_prep_time"] = 0
+                    data["executed_plan"] = res["executed_plan"]
 
                     path = res["path"]
                     total_path_length += len(path)
@@ -422,6 +423,7 @@ def run_experiment(configs, folder_with_time=True, prev_rep = 4):
                         data["equivalence"] = res["equivalence"]
                         data["conclusive"] = True
                         data["gate_prep_time"] = 0
+                        data["executed_plan"] = res["executed_plan"]
 
                         total_path_length += len(path)
                     else:
