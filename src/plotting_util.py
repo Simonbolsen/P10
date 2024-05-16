@@ -236,7 +236,8 @@ def plotPoints2d(xs, ys, x_label, y_label, axe = None, trends = None, legend = T
         return_as_axis = True
 
     for i, y in enumerate(ys):
-        axe.scatter(xs[i], y, marker=marker, label=series_labels[i], sizes = [marker_size for _ in range(len(y))])
+        markers = marker[i] if type(marker) == list else marker
+        axe.scatter(xs[i], y, marker=markers, label=series_labels[i], sizes = [marker_size for _ in range(len(y))])
         
         if trends is not None:
             x = np.array(sorted(xs[i]))

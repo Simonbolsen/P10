@@ -13,6 +13,10 @@ def process_sizes(data):
     sizes = data["sizes"]
     path = data["path"]
 
+    if sizes[list(sizes.keys())[0]][0] != 0:
+        for k in list(set([x for xs in path for x in xs])):
+            sizes[str(k)] = [0] + (sizes[str(k)] if str(k) in sizes else [])
+
     def get_current_size(i):
         return sizes[str(i)][version_indeces[i]]
     
@@ -97,6 +101,7 @@ def extract_data(folder, inclusion_condition = (lambda file, data:True), silent=
                 file_data[Variables.MAX_SIZES] = ([max(s)])
                 file_data[Variables.LOG_MAX_SIZES] = ([math.log10(max(s))])
             file_data[Variables.CONTRACTION_TIME] = ([file["contraction_time"]])
+            file_data[Variables.CONTRACTION_TIME_LOG] = ([math.log10(file["contraction_time"])])
             file_data[Variables.TENSOR_COUNT] = [len(file["path"]) + (file["sub_networks"] if "sub_networks" in file else 1)]
             file_data[Variables.GATE_DELETIONS] = [file['circuit_settings']["random_gate_deletions"]]
             file_data[Variables.EQUIV_CASES] = [(1 if file["equivalence"] else 0) + 2 * (1 if file["conclusive"] else 0)]
@@ -206,11 +211,56 @@ def extract_data(folder, inclusion_condition = (lambda file, data:True), silent=
 
     return data
 
-def plot(folder, plots, save_path = "", inclusion_condition = (lambda file, data:True), show_3d = False, silent = False):
+def plot(folder, plots, save_path = "", inclusion_condition = (lambda file, data:True), show_3d = False, silent = False, split_by_alg = True):
     show_legend = False
-
+    unique_markers = ["x", "o", "v", "*", "s", "X"]
     if type(folder) == str:
-        data = extract_data(folder, inclusion_condition, silent)
+        if split_by_alg:
+            all_data = extract_data(folder, inclusion_condition, silent)
+            all_algs = sorted(list(set([v for vs in all_data[Variables.ALGORITHM] for v in vs])))
+            data = {}
+            for key in all_data:
+                data[key] = []
+                if not key in [Variables.NAMES, Variables.GROUP_NAMES, Variables.EQUIV_GROUP_COUNTS]:
+                    for alg in all_algs:
+                        temp_list = [v[0] if type(v) == list else v for i, v in enumerate(all_data[key]) if all_data[Variables.ALGORITHM][i][0] == alg]
+                        if len(temp_list) > 0:
+                            data[key].append(temp_list)
+            data[Variables.NAMES] = all_algs
+            show_legend = True
+        else:
+            data = extract_data(folder, inclusion_condition, silent)
+    elif split_by_alg:
+        data = {}
+        data[Variables.NAMES] = []
+        data["markers"] = []
+        all_datas = [extract_data(f, inclusion_condition) for f in folder]
+        all_algs = sorted(list(set([v for all_data in all_datas for vs in all_data[Variables.ALGORITHM] for v in vs])))
+
+        valid_keys = []
+        for key in Variables:
+            not_valid = False
+            for all_data in all_datas:
+                if not is_non_empty(all_data[key]):
+                    not_valid = True
+            if not not_valid:
+                valid_keys.append(key)
+
+        for i, all_data in enumerate(all_datas):
+            for key in valid_keys:
+                if not key in data:
+                    data[key] = []
+                if not key in [Variables.NAMES, Variables.GROUP_NAMES, Variables.EQUIV_GROUP_COUNTS, Variables.NO_LABELS, Variables.GROUP_LABELS]:
+                    for alg in all_algs:
+                        temp_list = [v[0] if type(v) == list else v for i, v in enumerate(all_data[key]) if all_data[Variables.ALGORITHM][i][0] == alg]
+                        if len(temp_list) > 0:
+                            data[key].append(temp_list)
+            data[Variables.NAMES].extend([f"{'Python' if 'py' in folder[i] else 'C++'}: {alg}" for alg in all_algs])
+            data["markers"].extend([unique_markers[i] for _ in all_algs])
+        for key in Variables:
+            if not key in data:
+                data[key] = []
+        show_legend = True
     else:
         all_data = [extract_data(f, inclusion_condition) for f in folder]
         data = {}
@@ -221,6 +271,8 @@ def plot(folder, plots, save_path = "", inclusion_condition = (lambda file, data
         data[Variables.NAMES] = folder
         show_legend = True
 
+    if not "markers" in data:
+        data["markers"] = "o"
     #if True:
     #    avgs = [sum([s[i] / len(data[Variables.SIZES]) for s in data[Variables.SIZES]]) for i, _ in enumerate(data[Variables.SIZES][0])]
     #    data[Variables.SIZES] = [[(v - avgs[i])**2 for i, v in enumerate(s)] for s in data[Variables.SIZES]]
@@ -235,7 +287,7 @@ def plot(folder, plots, save_path = "", inclusion_condition = (lambda file, data
     #for p in tqdm(plots):
     for p in plots:
         full_path = ("" if save_path == "" else os.path.join(save_path, p[-1].replace(" ", "_")))
-        title = p[-1] + " " + data[Variables.ALGORITHM][0][0]
+        title = p[-1] + " " + (data[Variables.ALGORITHM][0][0] if type(folder) == str and not split_by_alg else "")
         if p[0] == "line":
             if is_non_empty(data[p[1]]) and is_non_empty(data[p[2]]):
                 pu.plot_line_series_2d(data[p[1]], data[p[2]], data[Variables.NAMES], 
@@ -245,7 +297,7 @@ def plot(folder, plots, save_path = "", inclusion_condition = (lambda file, data
             if is_non_empty(data[p[1]]) and is_non_empty(data[p[2]]):
                 pu.plotPoints2d(data[p[1]], data[p[2]], p[1].value, p[2].value, 
                                 series_labels=data[Variables.NAMES], title= title,
-                                marker="o", save_path=full_path, legend=show_legend)
+                                marker=data["markers"], save_path=full_path, legend=show_legend)
             else:
                 print(f"{p[1].value}: {is_non_empty(data[p[1]])}, {p[2].value}: {is_non_empty(data[p[2]])}")
         elif p[0] == "3d_points": 
@@ -527,6 +579,7 @@ class Variables(Enum):
     NAMES = "Names"
     ALGORITHM = "Algorithm"
     CONTRACTION_TIME = "Contraction Time $t_c$ [ms]"
+    CONTRACTION_TIME_LOG = "Contraction Time $log_{10}(t_c)$ [ms]"
     ESTIMATED_TIME = "Estimated Time t_e []"
     NEW_SIZES = "Newest TDD Size N_new"
     PATH_SIZE = "Path Size log2(ps)"
@@ -625,6 +678,7 @@ if __name__ == "__main__":
             #   ("points", Variables.ALPHA, Variables.CONTRACTION_TIME, "Contraction Time by Alpha value"),
             #   ("line", Variables.STEPS, Variables.SIZES, "Predicted Sizes over Path"),
              ("points", Variables.QUBITS, Variables.CONTRACTION_TIME, "Contraction Time by Qubits"),
+             ("points", Variables.QUBITS, Variables.CONTRACTION_TIME_LOG, "Log Contraction Time by Qubits"),
              ("points", Variables.ALPHA, Variables.MAX_SAMPLE_TIME, "Maximum Sample Time by Alpha value"),
              ("points", Variables.ALPHA, Variables.MAX_PROPAGATION_TIME, "Maximum Propagation Time by Alpha value"),
             #   ("points", Variables.MAX_PREDICTED_SIZES, Variables.CONTRACTION_TIME, "Contraction Time by Maximum Predicted Sizes"),
@@ -658,20 +712,35 @@ if __name__ == "__main__":
                "cpp_benchmark_new_betweenness_", "cpp_benchmark_new_linear_",
                "cpp_benchmark_new_rgreedy_", "cpp_benchmark_new_prop_",
                "qcec_benchmark_new_", "python_benchmark_new_"]#, ["ts_mV_w2_dj_alpha_", "data_model_V_c_un_dj_","data_model_V_cc_un_dj_", "data_tree_search_model_V_cc_un_dj_", "tree_search_model_V_dj_"]]
-    
+    folders = [["benchmark_scaling_w_split_betweenness_","benchmark_py_scaling_w_split_betweenness_"]]
+    #folders = [["benchmark_py_scaling_w_split_betweenness_","benchmark_scaling_w_split_betweenness_"]]
     #data = extract_data("model_contraction_2024-03-06_14-20")
     ...
 
     #file is the raw loaded file, and data is the processed variables for that file
-    inclusion_condition = lambda file, data : ("conclusive" not in file or file["conclusive"] or file["settings"]["simulate"]) and file["contraction_time"] < 10000
+    inclusion_condition = lambda file, data : ("conclusive" not in file or file["conclusive"] or file["settings"]["simulate"]) and file["contraction_time"] < 10000 #and file["circuit_settings"]["algorithm"] == "dj"
 
+    inc_cond_easy = lambda file, data : inclusion_condition(file, data) and file["circuit_settings"]["algorithm"] in ["dj", "ghz", "graphstate"]
+    inc_cond_hard = lambda file, data : inclusion_condition(file, data) and not file["circuit_settings"]["algorithm"] in ["dj", "ghz", "graphstate"]
+
+    seperate_algs = True
     #gate_del_comparison_plots(os.path.join("plots", "comparison_plots"), inclusion_condition=inclusion_condition) 
 
     for i, folder in enumerate(folders):
-        if type(folder) == str:
-           save_path = os.path.join("plots", folder)
+        if seperate_algs:
+            if type(folder) == str:
+                easy_save_path = os.path.join("plots", folder, "_easy")
+                hard_save_path = os.path.join("plots", folder, "_hard")
+            else:
+                easy_save_path = os.path.join("plots/comparison_plots", "_".join(folder), "_easy")
+                hard_save_path = os.path.join("plots/comparison_plots", "_".join(folder), "_hard")
+            plot(folder, plots, easy_save_path, inclusion_condition=inc_cond_easy, show_3d=True) 
+            plot(folder, plots, hard_save_path, inclusion_condition=inc_cond_hard, show_3d=True) 
+            print(f"Plotted: {int((i + 1) / len(folders) * 100)}%")
         else:
-            save_path = os.path.join("plots/comparison_plots", "_".join(folder))
-
-        plot(folder, plots, save_path, inclusion_condition=inclusion_condition, show_3d=True) 
-        print(f"Plotted: {int((i + 1) / len(folders) * 100)}%")
+            if type(folder) == str:
+                save_path = os.path.join("plots", folder)
+            else:
+                save_path = os.path.join("plots/comparison_plots", "_".join(folder))
+            plot(folder, plots, save_path, inclusion_condition=inclusion_condition, show_3d=True) 
+            print(f"Plotted: {int((i + 1) / len(folders) * 100)}%")
