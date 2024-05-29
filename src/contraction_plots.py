@@ -83,13 +83,14 @@ def extract_data(folder, inclusion_condition = (lambda file, data:True), silent=
 
             if "use_qcec_only" in file["settings"] and file["settings"]["use_qcec_only"]:
                 file_data[Variables.QCEC_TIME] = [file["qcec_time"]]
+                file_data[Variables.CHECKING_TIME] = [math.log10(file["qcec_time"])]
                 if inclusion_condition(file, file_data):
                     for v in list(Variables):
                         if file_data[v] is not None:
                             data[v].append(file_data[v])
                 continue
             
-            if "sizes" in file:
+            if "sizes" in file and False:
                 s, estimated_time, new_sizes = process_sizes(file)
                 file_data[Variables.ESTIMATED_TIME] = ([sum(estimated_time)])
                 file_data[Variables.SIZES] = (s)
@@ -106,6 +107,14 @@ def extract_data(folder, inclusion_condition = (lambda file, data:True), silent=
             file_data[Variables.TENSOR_COUNT] = [len(file["path"]) + (file["sub_networks"] if "sub_networks" in file else 1)]
             file_data[Variables.GATE_DELETIONS] = [file['circuit_settings']["random_gate_deletions"]]
             file_data[Variables.EQUIV_CASES] = [(1 if file["equivalence"] else 0) + 2 * (1 if file["conclusive"] else 0)]
+            if "time_data" in file:
+                file_data[Variables.CONTRACTION_TIME] = ([sum(file["time_data"]["contraction"])])
+                file_data[Variables.CONTRACTION_TIME_LOG] = ([math.log10(sum(file["time_data"]["contraction"]))])
+                file_data[Variables.PATH_CONSTRUCTION_TIME] = ([sum(file["time_data"]["planning"])])
+                file_data[Variables.CHECKING_TIME] = ([math.log10(sum(file["time_data"]["contraction"]) + sum(file["time_data"]["planning"]))])
+                if "updatingEdges" in file["time_data"]:
+                    file_data[Variables.EDGE_UPDATE_TIME] = [file["time_data"]["updatingEdges"]]
+                    file_data[Variables.UPDATE_STEPS] = [list(range(len(file["time_data"]["updatingEdges"])))]
             if "sub_networks" in file:
                 file_data[Variables.SUB_NETWORK_COUNT] = [file["sub_networks"]]
             if "qcec_time" in file:
@@ -116,8 +125,11 @@ def extract_data(folder, inclusion_condition = (lambda file, data:True), silent=
                 file_data[Variables.GATE_PREP_TIME] = [file["gate_prep_time"]]
             if "tn_construnction_time" in file:
                 file_data[Variables.TN_CONSTRUNCTION_TIME] = [file["tn_construnction_time"]]
-            if "path_construction_time" in file:
+            if "path_construction_time" in file and not "time_data" in file:
                 file_data[Variables.PATH_CONSTRUCTION_TIME] = [file["path_construction_time"]]
+                file_data[Variables.CHECKING_TIME] = [math.log10(file["contraction_time"] + file["path_construction_time"])]
+            elif not "time_data" in file:
+                file_data[Variables.CHECKING_TIME] = [math.log10(file["contraction_time"])]
             if file["path_settings"]["method"] == "cotengra":
                 file_data[Variables.PATH_FLOPS] = ([math.log10(file["path_data"]["flops"])])
                 file_data[Variables.PATH_SIZE] = ([math.log2(file["path_data"]["size"])])
@@ -222,6 +234,53 @@ def extract_data(folder, inclusion_condition = (lambda file, data:True), silent=
 def plot(folder, plots, save_path = "", inclusion_condition = (lambda file, data:True), show_3d = False, silent = False, split_by_alg = True):
     show_legend = False
     unique_markers = ["x", "o", "v", "*", "s", "X"]
+
+    alg_to_name = {
+        "dj": "DJ",
+        "ghz": "GHZ",
+        "graphstate": "GraphState",
+        "random_eqv": "RandomEqv",
+        "realamprandom": "RealAmpRandom",
+        "wstate": "WState",
+        "qftentangled": "QFTEntangled"
+    }
+
+
+    def determine_prefix(folder):
+        if 'py' in folder:
+            return 'Python'
+        if 'small' in folder:
+            return "Reduced"
+        if 'untrained' in folder:
+            return 'Untrained'
+        if 'lookahead' in folder:
+            return 'Lookahead'
+        if 'online' in folder:
+            return 'Windowed-1'
+        if 'biased' in folder:
+            return 'Biased'
+        if 'relaxed' in folder:
+            return 'Relaxed'
+        if 'nngreedy_w20' in folder:
+            return 'Windowed-20'        
+        if 'nngreedy_w2' in folder:
+            return 'Windowed-2'
+        if 'nngreedy_w3' in folder:
+            return 'Windowed-3'
+        if 'nngreedy_w4' in folder:
+            return 'Windowed-4'
+        if 'nngreedy_w5' in folder:
+            return 'Windowed-5'
+        if 'offline' in folder:
+            return 'Windowed-Max'
+        if 'nngreedy' in folder:
+            return 'NN-Greedy'
+        if 'queue' in folder:
+            return 'EMIT'
+        if 'qcec' in folder:
+            return 'QCEC'
+        return 'C++'
+
     if type(folder) == str:
         if split_by_alg:
             all_data = extract_data(folder, inclusion_condition, silent)
@@ -258,13 +317,15 @@ def plot(folder, plots, save_path = "", inclusion_condition = (lambda file, data
             for key in valid_keys:
                 if not key in data:
                     data[key] = []
-                if not key in [Variables.NAMES, Variables.GROUP_NAMES, Variables.EQUIV_GROUP_COUNTS, Variables.NO_LABELS, Variables.GROUP_LABELS]:
+                if not key in [Variables.NAMES, Variables.GROUP_NAMES, Variables.EQUIV_GROUP_COUNTS, 
+                               Variables.NO_LABELS, Variables.GROUP_LABELS, Variables.SAMPLE_METRIC, 
+                               Variables.SAMPLE_CONTRACTION_TIME]:
                     for alg in all_algs:
                         temp_list = [v[0] if type(v) == list else v for i, v in enumerate(all_data[key]) if all_data[Variables.ALGORITHM][i][0] == alg]
                         if len(temp_list) > 0:
                             data[key].append(temp_list)
-            data[Variables.NAMES].extend([f"{'Python' if 'py' in folder[i] else 'C++'}: {alg}" for alg in all_algs])
-            data["markers"].extend([unique_markers[i] for _ in all_algs])
+            data[Variables.NAMES].extend([f"{determine_prefix(folder[i])}: {alg_to_name[alg]}" for alg in all_algs])
+            data["markers"].extend([unique_markers[j] for j, _ in enumerate(all_algs)])
         for key in Variables:
             if not key in data:
                 data[key] = []
@@ -648,6 +709,9 @@ class Variables(Enum):
     DATA_AMOUNT = "Amount of Data D [$10^6$ data points]"
     SAMPLE_METRIC = "Sample Metric Value [%]"
     SAMPLE_CONTRACTION_TIME = "Contraction Time $t_c$ [ms] "
+    EDGE_UPDATE_TIME = "Edge Updating Time [ms]"
+    UPDATE_STEPS = "Update steps s"
+    CHECKING_TIME = "Equivalence Checking Time log10 [ms]"
 
 if __name__ == "__main__":
  
@@ -690,6 +754,7 @@ if __name__ == "__main__":
             #   ("line", Variables.STEPS, Variables.SIZES, "Predicted Sizes over Path"),
              ("points", Variables.QUBITS, Variables.CONTRACTION_TIME, "Contraction Time by Qubits"),
              ("points", Variables.QUBITS, Variables.CONTRACTION_TIME_LOG, "Log Contraction Time by Qubits"),
+             ("points", Variables.QUBITS, Variables.CHECKING_TIME, "Log Equivalence Checking Time by Qubits"),
              ("points", Variables.ALPHA, Variables.MAX_SAMPLE_TIME, "Maximum Sample Time by Alpha value"),
              ("points", Variables.ALPHA, Variables.MAX_PROPAGATION_TIME, "Maximum Propagation Time by Alpha value"),
             #   ("points", Variables.MAX_PREDICTED_SIZES, Variables.CONTRACTION_TIME, "Contraction Time by Maximum Predicted Sizes"),
@@ -717,24 +782,41 @@ if __name__ == "__main__":
                 Variables.CONTRACTION_TIME, "Qubits, Maximum Size, and Contraction Time")
                 ]
     
-    plots = [
-        ("points", Variables.PREDICTED_SIZE_SUM, Variables.CONTRACTION_TIME, "Contraction Time by Sum of Predicted Sizes"),
-        ("points", Variables.MAX_PREDICTED_SIZES, Variables.CONTRACTION_TIME, "Contraction Time by Maximum Predicted Sizes"),
-        #("3d_points", Variables.MAX_PREDICTED_SIZES, Variables.PREDICTED_SIZE_SUM, Variables.CONTRACTION_TIME, "Contraction Time by Maximum Predicted Sizes and Sum of Predicted Sizes"),
-        ("points", Variables.SAMPLE_METRIC, Variables.SAMPLE_CONTRACTION_TIME, "Contraction Time by Sample Metrics"),
-        #("points", Variables.DATA_AMOUNT, Variables.CONTRACTION_TIME, "Contraction Time by Amount of Data")
-    ]
-
+    # plots = [
+    #     ("points", Variables.PREDICTED_SIZE_SUM, Variables.CONTRACTION_TIME, "Contraction Time by Sum of Predicted Sizes"),
+    #     ("points", Variables.MAX_PREDICTED_SIZES, Variables.CONTRACTION_TIME, "Contraction Time by Maximum Predicted Sizes"),
+    #     #("3d_points", Variables.MAX_PREDICTED_SIZES, Variables.PREDICTED_SIZE_SUM, Variables.CONTRACTION_TIME, "Contraction Time by Maximum Predicted Sizes and Sum of Predicted Sizes"),
+    #     ("points", Variables.SAMPLE_METRIC, Variables.SAMPLE_CONTRACTION_TIME, "Contraction Time by Sample Metrics"),
+    #     #("points", Variables.DATA_AMOUNT, Variables.CONTRACTION_TIME, "Contraction Time by Amount of Data")
+    # ]
+    #plots = [("points", Variables.UPDATE_STEPS, Variables.EDGE_UPDATE_TIME, "Edge Update Time by Step")]
 
     folders = ["ts_article_size_distribution_"]#, ["ts_mV_w2_dj_alpha_", "data_model_V_c_un_dj_","data_model_V_cc_un_dj_", "data_tree_search_model_V_cc_un_dj_", "tree_search_model_V_dj_"]]
-    
+    folders = [["benchmark_scaling_new_cpp_nngreedy_", "cpp_benchmark_lookahead_"]]
+    folders = [["cpp_benchmark_new_cpp_nngreedy_", "cpp_benchmark_new_cpp_nngreedy_w4_"],
+               ["cpp_benchmark_new_cpp_nngreedy_", "cpp_benchmark_new_cpp_biased_nngreedy_"],
+               ["cpp_benchmark_new_cpp_biased_nngreedy_", "cpp_benchmark_new_cpp_relaxed_nngreedy_"]]
+    folders = [["benchmark_scaling_new_cpp_nngreedy_","benchmark_scaling_lookahead_rerun_"]]
+    folders = [["benchmark_scaling_new_cpp_nngreedy_online_", "benchmark_scaling_lookahead_rerun_"]]
+    #folders = [["benchmark_scaling_new_cpp_nngreedy_online_","benchmark_scaling_new_cpp_nngreedy_w2_", "benchmark_scaling_new_cpp_nngreedy_w3_", "benchmark_scaling_new_cpp_nngreedy_w4_", "benchmark_scaling_new_cpp_nngreedy_w5_"]]
+    #folders = [["benchmark_scaling_lookahead_rerun_","benchmark_scaling_queue_","benchmark_qcec_"]]
+    #folders = [["benchmark_scaling_new_cpp_nngreedy_online_", "benchmark_scaling_new_cpp_nngreedy_w5_", "benchmark_scaling_new_cpp_nngreedy_w20_", "benchmark_scaling_offline_nngreedy_"]]
+    #folders = [["limits_lookahead_", "limits_qcec_", "limits_queue_"]]
+    #folders = [["benchmark_scaling_offline_nngreedy_", "benchmark_scaling_new_cpp_nngreedy_w5_", "benchmark_scaling_new_cpp_nngreedy_online_"]]
+    #folders = [["benchmark_scaling_lookahead_rerun_", "benchmark_scaling_offline_nngreedy_"]]
+    #folders = [["benchmark_scaling_offline_nngreedy_", "benchmark_scaling_new_cpp_relaxed_nngreedy_", "benchmark_scaling_new_cpp_biased_nngreedy_", "benchmark_small_model_"]]
+    #folders = [["benchmark_qcec_", "benchmark_scaling_lookahead_rerun_", "benchmark_py_scaling_w_split_betweenness_", "benchmark_scaling_offline_nngreedy_old"]]
+    #folders = [["benchmark_scaling_w_split_betweenness_", "benchmark_scaling_lookahead_rerun_"]]
+    #folders = [["benchmark_py_scaling_w_split_betweenness_", "benchmark_scaling_w_split_betweenness_"]]
     #data = extract_data("model_contraction_2024-03-06_14-20")
     ...
 
     #file is the raw loaded file, and data is the processed variables for that file
-    inclusion_condition = lambda file, data : ("conclusive" not in file or file["conclusive"] or file["settings"]["simulate"]) and file["path_settings"]["alpha"] > 1.1 and file["contraction_time"] < 2000 #and file['circuit_settings']['qubits'] < 60
+    inclusion_condition = lambda file, data : ("conclusive" not in file or file["conclusive"] or file["settings"]["simulate"]) and (not "contraction_time" in file or file["contraction_time"] < 2000000) #and file['circuit_settings']['qubits'] < 700
+    #inclusion_condition = lambda file, data : inclusion_condition2(file, data) and file["circuit_settings"]["algorithm"] == "dj" and file['circuit_settings']['qubits'] == 126
 
     inc_cond_easy = lambda file, data : inclusion_condition(file, data) and file["circuit_settings"]["algorithm"] in ["dj", "ghz", "graphstate"]
+    inc_cond_graph = lambda file, data : inclusion_condition(file, data) and file["circuit_settings"]["algorithm"] in ["graphstate"]
     inc_cond_hard = lambda file, data : inclusion_condition(file, data) and not file["circuit_settings"]["algorithm"] in ["dj", "ghz", "graphstate"]
 
     seperate_algs = True
@@ -744,11 +826,14 @@ if __name__ == "__main__":
         if seperate_algs:
             if type(folder) == str:
                 easy_save_path = os.path.join("plots", folder, "_easy")
+                graph_save_path = os.path.join("plots", folder, "_graphstate")
                 hard_save_path = os.path.join("plots", folder, "_hard")
             else:
                 easy_save_path = os.path.join("plots/comparison_plots", "_".join(folder), "_easy")
+                graph_save_path = os.path.join("plots/comparison_plots", "_".join(folder), "_graphstate")
                 hard_save_path = os.path.join("plots/comparison_plots", "_".join(folder), "_hard")
             plot(folder, plots, easy_save_path, inclusion_condition=inc_cond_easy, show_3d=True) 
+            plot(folder, plots, graph_save_path, inclusion_condition=inc_cond_graph, show_3d=True) 
             plot(folder, plots, hard_save_path, inclusion_condition=inc_cond_hard, show_3d=True) 
             print(f"Plotted: {int((i + 1) / len(folders) * 100)}%")
         else:

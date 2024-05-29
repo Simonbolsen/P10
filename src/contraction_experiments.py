@@ -368,7 +368,7 @@ def run_experiment(configs, folder_with_time=True, prev_rep = 4):
             for i, stn in enumerate(sub_tensor_networks):
                 data = data_containers[i]
 
-                if data["path_settings"]["method"] in ["cpp-nngreedy", "cpp-lookahead"]:
+                if data["path_settings"]["method"] in ["cpp-nngreedy", "cpp-lookahead", "cpp-queue"]:
                     cpp.res_name = data_file_name = f"datapoint_{circ_conf['algorithm']}_{'sim' if settings['simulate'] else 'equiv'}_{circ_conf['qubits']}_r{circ_conf['repetition']+prev_rep}_stn{i}"
                     
                     for t in range(18, 32):
@@ -378,7 +378,9 @@ def run_experiment(configs, folder_with_time=True, prev_rep = 4):
                             res = cpp.windowed_contraction(data["path_settings"]["model_name"], circuit, tensor_network, length_indifferent=len(sub_tensor_networks)>1, window_size=data["path_settings"]["window_size"], parallel=data["path_settings"]["parallel"])
                         elif data["path_settings"]["method"] in ["cpp-lookahead"]:
                             res = cpp.look_ahead_contraction(circuit, tensor_network, length_indifferent=len(sub_tensor_networks)>1)
-                        
+                        elif data["path_settings"]["method"] in ["cpp-queue"]:
+                            res = cpp.queue_planning_contraction(circuit, tensor_network, length_indifferent=len(sub_tensor_networks)>1)
+
                         if not data["settings"]["repeat_precision"] or res["equivalence"]:
                             break
 
@@ -449,7 +451,7 @@ def run_experiment(configs, folder_with_time=True, prev_rep = 4):
                 total_path_length += len(path)
                 data_containers[i] = data
 
-                if data["path_settings"]["method"] in ["cpp-nngreedy"]:
+                if data["path_settings"]["method"] in ["cpp-nngreedy", "cpp-lookahead", "cpp-queue"]:
                     break
 
                 if len(sub_tensor_networks) > 1 and not settings["use_cpp_only"]:
@@ -516,7 +518,7 @@ def run_experiment(configs, folder_with_time=True, prev_rep = 4):
                     data["equivalence"] = are_equal
                     data["conclusive"] = not are_equal
 
-            if not data["path_settings"]["method"] in ["cpp-nngreedy"]:
+            if not data["path_settings"]["method"] in ["cpp-nngreedy", "cpp-lookahead", "cpp-queue"]:
                 data = combine_data_containers(data_containers)
             else:
                 data = data_containers[0]

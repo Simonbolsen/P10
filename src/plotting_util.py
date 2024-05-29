@@ -108,7 +108,7 @@ def plot_big_points(xs, ys, x_title, y_title, labels, marker = "o", size = 5, sa
         plt.close()
 
 def get_colors(num):
-    return cm.rainbow(np.linspace(0, 1, num))
+    return cm.brg(np.linspace(0, 1, num if num > 2 else 3))
 
 def get_list_colors(values:list[int], min_value:int, max_value:int):
     return [cm.rainbow(np.linspace(min_value, max_value, val)) for val in values] 
@@ -223,11 +223,61 @@ def plotPoints(xs, ys, zs, axis_names = ["", "", ""], legend = True, series_labe
         plt.savefig(save_path)
         plt.close()
 
+# MethodColors = {
+#     "Lookahead": (31,119,180,1),
+#     "Windowed-1":(127,127,127,1),
+#     "Windowed-5":(255,127,14,1),
+#     "Windowed-20":(255,255,255,1),
+#     "Windowed-Max":(44,160,44,1),
+#     "Biased":(140,86,75,1),
+#     'Relaxed':(148,103,189,1),
+#     'EMIT':(214,39,40,1),
+#     'QCEC':(23,190,207,1),
+#     'C++':(227,119,194,1),
+#     'Python':(188,189,34,1)
+# }
+
+MethodColors = {
+    "Lookahead": '#1f77b4',
+    "Windowed-1":'#ff7f0e',
+    "Windowed-5":'#7f7f7f',
+    "Windowed-20":'#17becf',
+    "Windowed-Max":'#2ca02c',
+    "Normal":'#2ca02c',
+    "Biased":'#8c564b',
+    'Relaxed':'#e377c2',
+    'EMIT':'#d62728',
+    'QCEC':'#000000',
+    'C++':'#9467bd',
+    'Python':'#a3d522',
+    "Reduced": "#3e00ff",
+    "Untrained": '#f03700'
+}
+
 def plotPoints2d(xs, ys, x_label, y_label, axe = None, trends = None, legend = True, series_labels=[], marker = "o", marker_size = 20, title = "", save_path = ""):
     if series_labels == []: 
         series_labels = [y_label for _ in range(len(ys))]
 
-    COLOR = get_colors(len(ys))
+    #COLOR = get_colors(len(ys))
+
+    colors = []
+    for label in series_labels:
+        method_name = label.split(":")[0]
+        colors.append(MethodColors[method_name])
+
+    # color_idxs = []
+    # first_marker = marker[0]
+    # counter = -1
+    # for mark in marker:
+    #     if mark == first_marker:
+    #         counter += 1
+    #     color_idxs.append(counter)
+    #     prev_marker = mark
+        
+
+    # COLOR = get_colors(len(MethodColors))
+    # colors = [COLOR[c] for c in color_idxs]
+
     return_as_axis = False
     if (axe is None):
         fig = plt.figure()
@@ -237,7 +287,7 @@ def plotPoints2d(xs, ys, x_label, y_label, axe = None, trends = None, legend = T
 
     for i, y in enumerate(ys):
         markers = marker[i] if type(marker) == list else marker
-        axe.scatter(xs[i], y, marker=markers, label=series_labels[i], sizes = [marker_size for _ in range(len(y))])
+        axe.scatter(xs[i], y, marker=markers, label=series_labels[i], color=colors[i], sizes = [marker_size for _ in range(len(y))])
         
         if trends is not None:
             x = np.array(sorted(xs[i]))

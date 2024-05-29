@@ -17,7 +17,8 @@ all_quimb_gates = ['h', 'x', 'y', 'z', 's', 't', 'cx', 'cnot', 'cy', 'cz', 'rz',
                        'cu3', 'cu2', 'cu1', 'fsim', 'fsimg', 'givens', 'rxx', 'ryy', 'rzz', 'crx', 'cry', 'crz',
                        'su4', 'ccx', 'ccnot', 'toffoli', 'ccy', 'ccz', 'fredkin', 'u']
 
-one_qubit_quimb_gates = ['h', 'x', 'y', 'z', 's', 't', 'rz', 'rx', 'ry']
+#one_qubit_quimb_gates = ['h', 'x', 'y', 'z', 's', 't', 'rz', 'rx', 'ry']
+one_qubit_quimb_gates = ['h', 'x', 'y', 'z', 'rz', 'rx', 'ry', 't', 's']
 #one_qubit_quimb_gates = ['h', 'x', 'ry']
 two_qubit_quimb_gates = ['cx', 'cy', 'cz']
 #two_qubit_quimb_gates = ['cx']

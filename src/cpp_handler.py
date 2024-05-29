@@ -11,7 +11,7 @@ class CPPHandler():
         self.make_data = False
         self.res_name = "tddRes2"
         self.dir_path = os.path.dirname(os.path.realpath(__file__))
-        self.handle = ctypes.CDLL(self.dir_path + "/libTDDLinux.so")
+        self.handle = ctypes.CDLL(self.dir_path + "/libTDDLinuxCUDA.so")
 
         self.handle.pyContractCircuit.argtypes = [ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_bool, ctypes.c_bool, ctypes.c_bool, ctypes.c_bool, ctypes.c_bool] 
         self.handle.pyContractCircuit.restype = ctypes.c_char_p
@@ -33,6 +33,9 @@ class CPPHandler():
 
         self.handle.pyLookAheadPlanning.argtypes = [ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_bool, ctypes.c_bool] 
         self.handle.pyLookAheadPlanning.restype = ctypes.c_char_p
+
+        self.handle.pyQueuePlanning.argtypes = [ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_bool, ctypes.c_bool]
+        self.handle.pyQueuePlanning.restype = ctypes.c_char_p
 
         self.handle.pySetPrecision.argtypes = [ctypes.c_int] 
         self.handle.pySetPrecision.restype = ctypes.c_bool
@@ -100,6 +103,7 @@ class CPPHandler():
         res_data["pred_sizes"] = predicted_sizes
         res_data["sizes"] = actual_sizes
         res_data["time_data"] = json["time_data"]
+        res_data["executed_plan"] = json["executed_plan"]
 
         return res_data
 
@@ -116,7 +120,8 @@ class CPPHandler():
         res = self.LookAheadContraction(circuit, tensor_network, length_indifferent)
 
         json = self.load_contents_of_temp_file()
-        json["time_data"]["planning"] = [0]
+        if not "planning" in json["time_data"]:
+            json["time_data"]["planning"] = [0]
 
         path = [(v[0], v[1]) for v in json["executed_plan"]]
         actual_sizes = {}
@@ -131,6 +136,40 @@ class CPPHandler():
         res_data["pred_sizes"] = []
         res_data["sizes"] = actual_sizes
         res_data["time_data"] = json["time_data"]
+        res_data["executed_plan"] = json["executed_plan"]
+
+        return res_data
+    
+    def QueuePlanningContraction(self, circuit, tensor_network, length_indifferent):
+        edges = self.plan_to_str(self.extract_edges_from_tn(tensor_network))
+        new_circ = self.interject_tensor_indices_into_circuit(circuit, tensor_network)
+        new_circ = new_circ.replace(",)", ")").replace("|", "#")
+        res = self.handle.pyQueuePlanning(str.encode(new_circ), circuit.N, str.encode(edges), str.encode(self.res_name), length_indifferent, self.draw_result)
+        res = res.decode('utf-8')
+        
+        return res
+
+    def queue_planning_contraction(self, circuit, tensor_network, length_indifferent=False):
+        res = self.QueuePlanningContraction(circuit, tensor_network, length_indifferent)
+
+        json = self.load_contents_of_temp_file()
+        if not "planning" in json["time_data"]:
+            json["time_data"]["planning"] = [0]
+
+        path = [(v[0], v[1]) for v in json["executed_plan"] if v[0] != v[1]]
+        actual_sizes = {}
+        for step in json["executed_plan"]:
+            key = str(step[1])
+            if not key in actual_sizes:
+                actual_sizes[key] = []
+            actual_sizes[key].append(step[2])
+
+        res_data = self.parse_result_string(res)
+        res_data["path"] = path
+        res_data["pred_sizes"] = []
+        res_data["sizes"] = actual_sizes
+        res_data["time_data"] = json["time_data"]
+        res_data["executed_plan"] = json["executed_plan"]
 
         return res_data
 

@@ -239,7 +239,7 @@ def generate_two_qubit_random_gate(control_qubit, target_qubit):
     return Gate(choice(cu.two_qubit_quimb_gates), (), (control_qubit,target_qubit))
 
 def generate_random_gate(qubits):
-    one_qubit_gate_bias = 0.7
+    one_qubit_gate_bias = 0.3
     
     target_qubit = randint(0, qubits - 1)
     control_qubit = randint(0, qubits - 1)
@@ -306,7 +306,7 @@ def get_random_circuit(qubits, num_of_gates):
     return cu.refresh_circuit(circuit)
 
 def get_gauss_random_circuit(qubits):
-    num_of_gates = min(max(qubits, floor(gauss(10*qubits, 2*qubits))), 20*qubits)
+    num_of_gates = min(max(qubits, floor(gauss(2*qubits, 1*qubits))), 3*qubits)
     return get_random_circuit(qubits, num_of_gates)
 
 def get_dual_circuit_setup_from_random_circuits(data, draw: bool = False, as_qiskit: bool = False) -> Circuit:
