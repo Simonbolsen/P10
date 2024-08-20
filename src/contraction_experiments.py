@@ -22,6 +22,7 @@ from copy import deepcopy
 from graph_nn import EdgePredictionGNN
 from cpp_handler import CPPHandler
 from tdd_nn import TDDPredicter
+import qiskit
 
 import sys
 sys.setrecursionlimit(2000)
@@ -306,9 +307,8 @@ def run_experiment(configs, folder_with_time=True, prev_rep = 4):
             data["qcec_time"] = int((time.time_ns() - starting_time) / 1000000)
             print(f"QCEC says: {data['equivalence']}")
 
-            data["circuit_data"]["circuit_1_qasm"] = data["circuit_data"]["circuit_1_qasm"].qasm()
-            data["circuit_data"]["circuit_2_qasm"] = data["circuit_data"]["circuit_2_qasm"].qasm()
-
+            data["circuit_data"]["circuit_1_qasm"] = qiskit.qasm2.dumps(data["circuit_data"]["circuit_1_qasm"])
+            data["circuit_data"]["circuit_2_qasm"] = qiskit.qasm2.dumps(data["circuit_data"]["circuit_2_qasm"])
             print("Saving data...")
             file_path = os.path.join(working_path, data["file_name"] + ".json")
             with open(file_path, "w") as file:
@@ -350,8 +350,8 @@ def run_experiment(configs, folder_with_time=True, prev_rep = 4):
             # data["qcec_time"] = int((time.time_ns() - starting_time) / 1000000)
             # print(f"QCEC says: {data['qcec_equivalence']}")
             if bool(data["circuit_data"]):
-                data["circuit_data"]["circuit_1_qasm"] = data["circuit_data"]["circuit_1_qasm"].qasm()
-                data["circuit_data"]["circuit_2_qasm"] = data["circuit_data"]["circuit_2_qasm"].qasm()
+                data["circuit_data"]["circuit_1_qasm"] = qiskit.qasm2.dumps(data["circuit_data"]["circuit_1_qasm"])
+                data["circuit_data"]["circuit_2_qasm"] = qiskit.qasm2.dumps(data["circuit_data"]["circuit_2_qasm"])
 
             # quimb_result = tensor_network.contract(optimize=data["path_data"]["original_path"])
             # variable_order = sorted(list(quimb_result.inds), key=reverse_lexicographic_key, reverse=True)

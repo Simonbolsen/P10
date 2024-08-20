@@ -15,6 +15,8 @@ qb_per_alg_rep = {
     "su2random": [4, 5, 6]
 }
 
+
+
 qb_per_alg_scale = {
     "dj": [v for v in list(range(6,257,10)) if not v in []],
     "ghz": list(range(6,257,10)),
@@ -44,22 +46,22 @@ if __name__ == "__main__":
             "cnot_split": True,
             "use_subnets": True,
             "find_counter": False,
-            "use_qcec_only": False,
-            "use_cpp_only": [True, False, True, True, True, True, True, True, True, True][j],
+            "use_qcec_only": False if not j in [11] else True,
+            "use_cpp_only": [True, False, True, True, True, True, True, True, True, True, True, False][j],
             "repeat_precision": True
         },
         "path_settings": {
-            "method": ["cotengra", "cotengra", "linear", "cotengra", "cpp-nngreedy", "cpp-nngreedy", "cpp-nngreedy", "cpp-lookahead", "cpp-nngreedy", "cpp-nngreedy"][j],
+            "method": ["cotengra", "cotengra", "linear", "cotengra", "cpp-nngreedy", "cpp-nngreedy", "cpp-nngreedy", "cpp-lookahead", "cpp-nngreedy", "cpp-nngreedy", "cpp-queue", "qcec"][j],
             "weight_function":"wf1",
-            "model_name": ["n/a", "n/a", "n/a", "n/a", "model_0_jit", "model_0_jit", "biased_model_3_1_jit", "n/a", "model_d6_lr9_jit", "model_0_jit"][j],
-            "opt_method": ["betweenness", "betweenness", "linear", "random-greedy", "n/a", "n/a", "n/a", "n/a", "n/a", "n/a"][j], #  kahypar-balanced, kahypar-agglom, labels, labels-agglom
+            "model_name": ["n/a", "n/a", "n/a", "n/a", "model_0_jit", "model_0_jit", "biased_model_3_1_jit", "n/a", "model_d6_lr9_jit", "model_0_jit", "n/a", "n/a"][j],
+            "opt_method": ["betweenness", "betweenness", "linear", "random-greedy", "n/a", "n/a", "n/a", "n/a", "n/a", "n/a", "n/a", "n/a"][j], #  kahypar-balanced, kahypar-agglom, labels, labels-agglom
             "minimize": "flops",
-            "max_repeats": [1, 1, 1, 60, 1, 1, 1, 1, 1, 1][j],
+            "max_repeats": [1, 1, 1, 60, 1, 1, 1, 1, 1, 1, 1, 1][j],
             "max_time": 60,
             "use_proportional": False,
             "gridded": False,
             "linear_fraction": 0,
-            "window_size": [1, 1, 1, 1, 1, 4, 1, 1, 1, 100000][j],
+            "window_size": [1, 1, 1, 1, 1, 4, 1, 1, 1, 100000, 1, 1][j],
             "parallel": True
         },
         "circuit_settings": {
@@ -73,9 +75,10 @@ if __name__ == "__main__":
                        "benchmark_scaling_new_linear", "benchmark_scaling_w_split_rgreedy", 
                        "benchmark_scaling_new_cpp_nngreedy", "benchmark_scaling_new_cpp_nngreedy_w4", 
                        "benchmark_scaling_new_cpp_biased_nngreedy", "benchmark_scaling_lookahead",
-                       "benchmark_scaling_new_cpp_relaxed_nngreedy", "benchmark_scaling_offline_nngreedy"][j], #garbage
+                       "benchmark_scaling_new_cpp_relaxed_nngreedy", "benchmark_scaling_offline_nngreedy",
+                       "benchmark_scaling_cpp_queue", "benchmark_scaling_qcec"][j], #garbage
         "file_name": "standard_name",
-    } for j in [0] for alg in all_algs if not alg in ["random_eqv"] for qb_i in range(len(qb_per_alg_scale[alg])) for i in range(1)]
+    } for j in [11] for alg in all_algs if not alg in ["random_eqv", "graphstate"] for qb_i in range(len(qb_per_alg_scale[alg])) for i in range(1)]
 
 
     run_experiment(configs, folder_with_time=False, prev_rep=0)

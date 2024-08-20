@@ -13,10 +13,13 @@ from qiskit import QuantumCircuit, qasm3
 from qiskit.quantum_info import Operator
 from qiskit.compiler import transpile
 from qiskit.transpiler import PassManager, passes
-from qiskit.transpiler.passes import Unroller, UnrollCustomDefinitions, Decompose
+from qiskit.transpiler.passes import UnrollCustomDefinitions, Decompose
 from random import randint, random, choice, gauss
 import numpy as np
 from math import floor
+from unroller import Unroller
+from mqt.bench.devices import IBMProvider
+
 
 selected_algorithms = [
     "dj",           # smaller
@@ -224,11 +227,11 @@ def get_independent_level(circuit: QuantumCircuit) -> QuantumCircuit:
 def get_native_gates_level(circuit: QuantumCircuit) -> QuantumCircuit:
     qc = circuit.copy()
     # by https://github.com/cda-tum/mqt-bench/blob/3cedf4b76c5773f3e14b434258b53f49eae2877c/src/mqt/bench/benchmark_generator.py#L45
-    return qiskit_helper.get_native_gates_level(qc, num_qubits=None, gate_set_name="ibm", opt_level=1, file_precheck=False, return_qc=True)
+    return qiskit_helper.get_native_gates_level(qc, num_qubits=None, provider=IBMProvider, opt_level=1, file_precheck=False, return_qc=True)
 
 def get_mapped_level(circuit: QuantumCircuit) -> QuantumCircuit:
     qc = circuit.copy()
-    return qiskit_helper.get_mapped_level(qc, num_qubits=None, gate_set_name="ibm", device_name="ibm_washington", opt_level=1, file_precheck=False, return_qc=True)
+    return qiskit_helper.get_mapped_level(qc, num_qubits=None, provider=IBMProvider, device_name="ibm_washington", opt_level=1, file_precheck=False, return_qc=True)
 
 
 def generate_one_qubit_random_gate(on_qubit):

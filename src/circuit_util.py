@@ -1,5 +1,5 @@
 from mqt.ddsim.pathqasmsimulator import create_tensor_network
-from qiskit import QuantumCircuit
+from qiskit import QuantumCircuit, qasm2
 from quimb.tensor import Circuit
 from quimb.tensor.circuit import Gate
 from string import Template
@@ -120,7 +120,8 @@ def quimb_to_qiskit_circuit(quimb_circuit: Circuit, as_obj: bool = False, gate_p
     return res if not as_obj else QuantumCircuit.from_qasm_str(res)
 
 def qiskit_to_quimb_circuit(qiskit_circuit: QuantumCircuit):
-    circ_qasm = qiskit_circuit.qasm()
+    #circ_qasm = qiskit_circuit.qasm()
+    circ_qasm = qasm2.dumps(qiskit_circuit)
     circ_qasm_no_u = circ_qasm.replace("\nu(", "\nu3(").replace("\nid ", "\niden ")
     return Circuit.from_openqasm2_str(circ_qasm_no_u)
 

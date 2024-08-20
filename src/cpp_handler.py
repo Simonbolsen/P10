@@ -11,7 +11,7 @@ class CPPHandler():
         self.make_data = False
         self.res_name = "tddRes2"
         self.dir_path = os.path.dirname(os.path.realpath(__file__))
-        self.handle = ctypes.CDLL(self.dir_path + "/libTDDLinuxCUDA.so")
+        self.handle = ctypes.CDLL(self.dir_path + "/libTDDLinux.so")
 
         self.handle.pyContractCircuit.argtypes = [ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_bool, ctypes.c_bool, ctypes.c_bool, ctypes.c_bool, ctypes.c_bool] 
         self.handle.pyContractCircuit.restype = ctypes.c_char_p
